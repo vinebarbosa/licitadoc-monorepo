@@ -35,7 +35,7 @@ export const users = pgTable(
     index("user_role_idx").on(table.role),
     check(
       "user_role_organization_consistency",
-      sql`(${table.role} = 'admin' AND ${table.organizationId} IS NULL) OR (${table.role} = 'organization_owner') OR (${table.role} = 'member' AND ${table.organizationId} IS NOT NULL)`,
+      sql`(${table.role} = 'admin' AND ${table.organizationId} IS NULL) OR (${table.role} = 'organization_owner') OR (${table.role} = 'member')`,
     ),
   ],
 );
