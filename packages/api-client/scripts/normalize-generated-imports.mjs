@@ -28,18 +28,37 @@ async function normalizeFile(filePath) {
   const next = current
     .replace(/\.ts"/g, '"')
     .replace(/\.ts'/g, "'")
-    .replace(/return ([A-Za-z0-9_]+)\(\s*\{\s*data\s*\}, config\);/gs, "return $1(data, config);")
     .replace(
-      /return ([A-Za-z0-9_]+)\(\s*\{\s*([^{}]+?)\s*,\s*data\s*\}, config\);/gs,
+      /\{\s*params:\s*params\s*\},\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\}/gs,
+      "params, { ...config, signal: config.signal ?? signal }",
+    )
+    .replace(
+      /\{\s*token:\s*token\s*,\s*params:\s*params\s*\},\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\}/gs,
+      "{ token: token }, params, { ...config, signal: config.signal ?? signal }",
+    )
+    .replace(
+      /return\s+([A-Za-z0-9_]+)\(\s*\{\s*data\s*\},\s*config\s*,?\s*\);?/gs,
+      "return $1(data, config);",
+    )
+    .replace(
+      /return\s+([A-Za-z0-9_]+)\(\s*\{\s*([^{}]+?)\s*,\s*data\s*\},\s*config\s*,?\s*\);?/gs,
       "return $1({ $2 }, data, config);",
     )
     .replace(
-      /return ([A-Za-z0-9_]+)\(\s*\{\s*params:\s*params\s*\},\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\},\s*\);/gs,
+      /return\s+([A-Za-z0-9_]+)\(\s*\{\s*params:\s*params\s*\},\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\}\s*,?\s*\);?/gs,
       "return $1(params, { ...config, signal: config.signal ?? signal });",
     )
     .replace(
-      /return ([A-Za-z0-9_]+)\(\s*\{\s*([^{}]+?)\s*,\s*params:\s*params\s*\},\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\},\s*\);/gs,
+      /return\s+([A-Za-z0-9_]+)\(\s*\{\s*([^{}]+?)\s*,\s*params:\s*params\s*\},\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\}\s*,?\s*\);?/gs,
       "return $1({ $2 }, params, { ...config, signal: config.signal ?? signal });",
+    )
+    .replace(
+      /return\s+([A-Za-z0-9_]+)\(\s*\{\s*token:\s*token\s*,\s*params:\s*params\s*\},\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\}\s*,?\s*\);?/gs,
+      "return $1({ token: token }, params, { ...config, signal: config.signal ?? signal });",
+    )
+    .replace(
+      /return\s+([A-Za-z0-9_]+)\(\s*\{\s*params:\s*params\s*\}\s*,\s*\{\s*\.\.\.config,\s*signal:\s*config\.signal\s*\?\?\s*signal\s*\}\s*,?\s*\);?/gs,
+      "return $1(params, { ...config, signal: config.signal ?? signal });",
     );
 
   if (next !== current) {

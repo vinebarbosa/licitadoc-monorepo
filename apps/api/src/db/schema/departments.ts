@@ -10,6 +10,8 @@ export const departments = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    responsibleName: text("responsible_name").notNull(),
+    responsibleRole: text("responsible_role").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -1,37 +1,24 @@
-const documentSchema = {
-  type: "object",
-  required: ["id", "name", "organizationId"],
-  properties: {
-    id: { type: "string" },
-    name: { type: "string" },
-    organizationId: { type: "string" },
-  },
-} as const;
+import { type AppRouteSchema, z } from "../../shared/http/zod";
 
-export const documentParamsSchema = {
-  type: "object",
-  required: ["documentId"],
-  properties: {
-    documentId: { type: "string" },
-  },
-} as const;
+const documentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  organizationId: z.string().nullable(),
+});
+
+export const documentParamsSchema = z.object({
+  documentId: z.string(),
+});
 
 export const getDocumentsSchema = {
   tags: ["Documents"],
   summary: "List documents",
   response: {
-    200: {
-      type: "object",
-      required: ["items"],
-      properties: {
-        items: {
-          type: "array",
-          items: documentSchema,
-        },
-      },
-    },
+    200: z.object({
+      items: z.array(documentSchema),
+    }),
   },
-} as const;
+} satisfies AppRouteSchema;
 
 export const getDocumentSchema = {
   tags: ["Documents"],
@@ -40,4 +27,4 @@ export const getDocumentSchema = {
   response: {
     200: documentSchema,
   },
-} as const;
+} satisfies AppRouteSchema;

@@ -1,6 +1,7 @@
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import fp from "fastify-plugin";
+import { fastifyZodOpenApiPlugin, fastifyZodOpenApiTransformers } from "fastify-zod-openapi";
 import { loadAuthOpenApiDocument, mergeOpenApiDocuments } from "./openapi-helpers";
 
 declare module "fastify" {
@@ -12,8 +13,11 @@ declare module "fastify" {
 export const registerOpenApiPlugin = fp(async (app) => {
   let authOpenApiDocument: Record<string, unknown> | null = null;
 
+  await app.register(fastifyZodOpenApiPlugin);
+
   await app.register(swagger, {
     openapi: {
+      openapi: "3.1.0",
       info: {
         title: "Licitadoc API",
         description: "OpenAPI document generated from Fastify route schemas.",
@@ -33,12 +37,15 @@ export const registerOpenApiPlugin = fp(async (app) => {
         { name: "Auth - Credentials" },
         { name: "Auth - Meta" },
         { name: "Auth - Sessions" },
+        { name: "Invites" },
         { name: "Users" },
         { name: "Organizations" },
+        { name: "Departments" },
         { name: "Processes" },
         { name: "Documents" },
       ],
     },
+    ...fastifyZodOpenApiTransformers,
   });
 
   app.decorate("getOpenApiDocument", async () => {

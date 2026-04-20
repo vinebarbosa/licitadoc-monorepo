@@ -1,10 +1,13 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import fp from "fastify-plugin";
 import { Pool } from "pg";
+import * as schema from "../db";
+
+export type AppDatabase = ReturnType<typeof drizzle<typeof schema>>;
 
 declare module "fastify" {
   interface FastifyInstance {
-    db: ReturnType<typeof drizzle>;
+    db: AppDatabase;
     pg: Pool;
   }
 }
@@ -14,7 +17,7 @@ export const registerDatabasePlugin = fp(async (app) => {
     connectionString: app.config.DATABASE_URL,
   });
 
-  const db = drizzle(pool);
+  const db = drizzle(pool, { schema });
 
   app.decorate("pg", pool);
   app.decorate("db", db);

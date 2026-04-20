@@ -22,6 +22,34 @@
       "when": 1776338038794,
       "tag": "0002_keen_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776603184983,
+      "tag": "0003_orange_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776627922933,
+      "tag": "0004_sturdy_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776636213501,
+      "tag": "0005_dizzy_vargas",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776689072746,
+      "tag": "0006_complete_processes_module",
+      "breakpoints": true
     }
   ]
 }

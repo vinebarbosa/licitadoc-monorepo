@@ -47,6 +47,9 @@ importers:
       fastify-plugin:
         specifier: ^5.1.0
         version: 5.1.0
+      fastify-zod-openapi:
+        specifier: ^5.6.1
+        version: 5.6.1(@fastify/swagger-ui@5.2.5)(@fastify/swagger@9.7.0)(fastify@5.8.5)(zod@4.3.6)
       pg:
         specifier: ^8.16.3
         version: 8.20.0
@@ -149,6 +152,9 @@ importers:
       '@kubb/plugin-ts':
         specifier: ^4.16.0
         version: 4.37.2(@kubb/react-fabric@0.14.0)
+      prettier:
+        specifier: ^3.8.3
+        version: 3.8.3
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1790,6 +1796,20 @@ packages:
   fastify-plugin@5.1.0:
     resolution: {integrity: sha512-FAIDA8eovSt5qcDgcBvDuX/v0Cjz0ohGhENZ/wpc3y+oZCY2afZ9Baqql3g/lC+OHRnciQol4ww7tuthOb9idw==}
 
+  fastify-zod-openapi@5.6.1:
+    resolution: {integrity: sha512-K0tzRYEViPuCV3aKu5Zcgqsew8k0OGzEqu0p1+7P+EvNGXGP7MvcyWNVoq31LUadaT0HiUtD+65tM4sKEQz0Qg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@fastify/swagger': ^9.0.0
+      '@fastify/swagger-ui': ^5.0.1
+      fastify: '5'
+      zod: ^3.25.74 || ^4.0.0
+    peerDependenciesMeta:
+      '@fastify/swagger':
+        optional: true
+      '@fastify/swagger-ui':
+        optional: true
+
   fastify@5.8.5:
     resolution: {integrity: sha512-Yqptv59pQzPgQUSIm87hMqHJmdkb1+GPxdE6vW6FRyVE9G86mt7rOghitiU4JHRaTyDUk9pfeKmDeu70lAwM4Q==}
 
@@ -2256,6 +2276,11 @@ packages:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
 
+  prettier@3.8.3:
+    resolution: {integrity: sha512-7igPTM53cGHMW8xWuVTydi2KO233VFiTNyF5hLJqpilHfmn8C8gPf+PS7dUT64YcXFbiMGZxS9pCSxL/Dxm/Jw==}
+    engines: {node: '>=14'}
+    hasBin: true
+
   process-warning@4.0.1:
     resolution: {integrity: sha512-3c2LzQ3rY9d0hc1emcsHhfT9Jwz0cChib/QN89oME2R451w5fy3f0afAhERFZAwrbDU43wk12d0ORBpDVME50Q==}
 
@@ -2655,6 +2680,12 @@ packages:
   yocto-queue@1.2.2:
     resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
     engines: {node: '>=12.20'}
+
+  zod-openapi@5.4.6:
+    resolution: {integrity: sha512-P2jsOOBAq/6hCwUsMCjUATZ8szkMsV5VAwZENfyxp2Hc/XPJQpVwAgevWZc65xZauCwWB9LAn7zYeiCJFAEL+A==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      zod: ^3.25.74 || ^4.0.0
 
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
@@ -4043,6 +4074,18 @@ snapshots:
 
   fastify-plugin@5.1.0: {}
 
+  fastify-zod-openapi@5.6.1(@fastify/swagger-ui@5.2.5)(@fastify/swagger@9.7.0)(fastify@5.8.5)(zod@4.3.6):
+    dependencies:
+      '@fastify/error': 4.2.0
+      fast-json-stringify: 6.3.0
+      fastify: 5.8.5
+      fastify-plugin: 5.1.0
+      zod: 4.3.6
+      zod-openapi: 5.4.6(zod@4.3.6)
+    optionalDependencies:
+      '@fastify/swagger': 9.7.0
+      '@fastify/swagger-ui': 5.2.5
+
   fastify@5.8.5:
     dependencies:
       '@fastify/ajv-compiler': 4.0.5
@@ -4500,6 +4543,8 @@ snapshots:
     dependencies:
       xtend: 4.0.2
 
+  prettier@3.8.3: {}
+
   process-warning@4.0.1: {}
 
   process-warning@5.0.0: {}
@@ -4839,5 +4884,9 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@1.2.2: {}
+
+  zod-openapi@5.4.6(zod@4.3.6):
+    dependencies:
+      zod: 4.3.6
 
   zod@4.3.6: {}

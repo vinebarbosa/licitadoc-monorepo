@@ -1,7 +1,10 @@
 import sensible from "@fastify/sensible";
 import Fastify from "fastify";
+import { serializerCompiler, validatorCompiler } from "fastify-zod-openapi";
 import { registerAuthRoutes } from "../modules/auth/routes";
+import { registerDepartmentRoutes } from "../modules/departments/routes";
 import { registerDocumentRoutes } from "../modules/documents/routes";
+import { registerInviteRoutes } from "../modules/invites/routes";
 import { registerOrganizationRoutes } from "../modules/organizations/routes";
 import { registerProcessRoutes } from "../modules/processes/routes";
 import { registerUserRoutes } from "../modules/users/routes";
@@ -12,6 +15,7 @@ import { registerEnvPlugin } from "../plugins/env";
 import { registerErrorPlugin } from "../plugins/errors";
 import { registerOpenApiPlugin } from "../plugins/openapi";
 import { registerSecurityPlugin } from "../plugins/security";
+import { type AppRouteSchema, type AppTypeProvider, z } from "../shared/http/zod";
 
 export async function buildApp() {
   const isDevelopment = process.env.NODE_ENV !== "production";
@@ -34,6 +38,10 @@ export async function buildApp() {
     },
     disableRequestLogging: isDevelopment,
   });
+  const typedApp = app.withTypeProvider<AppTypeProvider>();
+
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
 
   await app.register(sensible);
   await app.register(registerEnvPlugin);
@@ -45,8 +53,10 @@ export async function buildApp() {
   await app.register(registerErrorPlugin);
 
   await app.register(registerAuthRoutes, { prefix: "/api/auth" });
+  await app.register(registerInviteRoutes, { prefix: "/api/invites" });
   await app.register(registerUserRoutes, { prefix: "/api/users" });
   await app.register(registerOrganizationRoutes, { prefix: "/api/organizations" });
+  await app.register(registerDepartmentRoutes, { prefix: "/api/departments" });
   await app.register(registerProcessRoutes, { prefix: "/api/processes" });
   await app.register(registerDocumentRoutes, { prefix: "/api/documents" });
 
@@ -61,22 +71,20 @@ export async function buildApp() {
     });
   }
 
-  app.get(
+  typedApp.get(
     "/health",
     {
       schema: {
         tags: ["Health"],
         summary: "Application health",
         response: {
-          200: {
-            type: "object",
-            required: ["status"],
-            properties: {
-              status: { type: "string", examples: ["ok"] },
-            },
-          },
+          200: z.object({
+            status: z.string().meta({
+              examples: ["ok"],
+            }),
+          }),
         },
-      },
+      } satisfies AppRouteSchema,
     },
     async () => ({ status: "ok" }),
   );

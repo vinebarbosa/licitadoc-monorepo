@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { canManageProcess } from "./processes.policies";
+import { NotFoundError } from "../../shared/errors/not-found-error";
+import { canReadStoredProcess } from "./processes.policies";
+import { getProcessDepartmentIds, serializeProcess } from "./processes.shared";
 
 type Input = {
   actor: Actor;
@@ -8,12 +10,21 @@ type Input = {
   processId: string;
 };
 
-export async function getProcess({ actor, processId }: Input) {
-  canManageProcess(actor, actor.organizationId ?? "unknown");
+export async function getProcess({ actor, db, processId }: Input) {
+  const process = await db.query.processes.findFirst({
+    where: (table, { eq }) => eq(table.id, processId),
+  });
 
-  return {
-    id: processId,
-    title: "Process Placeholder",
-    organizationId: actor.organizationId,
-  };
+  if (!process) {
+    throw new NotFoundError("Process not found.");
+  }
+
+  canReadStoredProcess(actor, process);
+
+  const departmentIds = await getProcessDepartmentIds({
+    db,
+    processId,
+  });
+
+  return serializeProcess(process, departmentIds);
 }

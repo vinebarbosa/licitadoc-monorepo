@@ -1,10 +1,34 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
 import { getSessionUser } from "../../shared/auth/get-session-user";
+import { createProcess } from "./create-process";
 import { getProcess } from "./get-process";
 import { getProcesses } from "./get-processes";
-import { getProcessesSchema, getProcessSchema } from "./processes.schemas";
+import {
+  createProcessSchema,
+  getProcessesSchema,
+  getProcessSchema,
+  updateProcessSchema,
+} from "./processes.schemas";
+import { updateProcess } from "./update-process";
 
-export const registerProcessRoutes: FastifyPluginAsync = async (app) => {
+export const registerProcessRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
+  app.post(
+    "/",
+    {
+      schema: createProcessSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const process = await createProcess({
+        actor,
+        db: app.db,
+        process: request.body,
+      });
+
+      return reply.status(201).send(process);
+    },
+  );
+
   app.get(
     "/",
     {
@@ -13,7 +37,12 @@ export const registerProcessRoutes: FastifyPluginAsync = async (app) => {
     async (request) => {
       const actor = await getSessionUser(request);
 
-      return getProcesses({ actor, db: app.db });
+      return getProcesses({
+        actor,
+        db: app.db,
+        page: request.query.page,
+        pageSize: request.query.pageSize,
+      });
     },
   );
 
@@ -24,9 +53,27 @@ export const registerProcessRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const actor = await getSessionUser(request);
-      const { processId } = request.params as { processId: string };
+      const { processId } = request.params;
 
       return getProcess({ actor, db: app.db, processId });
+    },
+  );
+
+  app.patch(
+    "/:processId",
+    {
+      schema: updateProcessSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+      const { processId } = request.params;
+
+      return updateProcess({
+        actor,
+        db: app.db,
+        processId,
+        changes: request.body,
+      });
     },
   );
 };

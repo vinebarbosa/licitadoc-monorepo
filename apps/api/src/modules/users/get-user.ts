@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { canReadUser } from "./users.policies";
+import { NotFoundError } from "../../shared/errors/not-found-error";
+import { canReadStoredUser } from "./users.policies";
+import { serializeUser } from "./users.shared";
 
 type Input = {
   actor: Actor;
@@ -8,12 +10,16 @@ type Input = {
   userId: string;
 };
 
-export async function getUser({ actor, userId }: Input) {
-  canReadUser(actor);
+export async function getUser({ actor, db, userId }: Input) {
+  const user = await db.query.users.findFirst({
+    where: (table, { eq }) => eq(table.id, userId),
+  });
 
-  return {
-    id: userId,
-    email: "owner@organization.dev",
-    role: actor.role,
-  };
+  if (!user) {
+    throw new NotFoundError("User not found.");
+  }
+
+  canReadStoredUser(actor, user);
+
+  return serializeUser(user);
 }

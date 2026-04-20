@@ -1,10 +1,13 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
 import { getSessionUser } from "../../shared/auth/get-session-user";
+import { deleteUser } from "./delete-user";
 import { getUser } from "./get-user";
 import { getUsers } from "./get-users";
-import { getUserSchema, getUsersSchema } from "./users.schemas";
+import { updateUser } from "./update-user";
+import { deleteUserSchema, getUserSchema, getUsersSchema, updateUserSchema } from "./users.schemas";
 
-export const registerUserRoutes: FastifyPluginAsync = async (app) => {
+export const registerUserRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
+  // User creation stays in the invite + auth flow; this module only manages stored users.
   app.get(
     "/",
     {
@@ -13,7 +16,12 @@ export const registerUserRoutes: FastifyPluginAsync = async (app) => {
     async (request) => {
       const actor = await getSessionUser(request);
 
-      return getUsers({ actor, db: app.db });
+      return getUsers({
+        actor,
+        db: app.db,
+        page: request.query.page,
+        pageSize: request.query.pageSize,
+      });
     },
   );
 
@@ -24,9 +32,40 @@ export const registerUserRoutes: FastifyPluginAsync = async (app) => {
     },
     async (request) => {
       const actor = await getSessionUser(request);
-      const { userId } = request.params as { userId: string };
+      const { userId } = request.params;
 
       return getUser({ actor, db: app.db, userId });
+    },
+  );
+
+  app.patch(
+    "/:userId",
+    {
+      schema: updateUserSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+      const { userId } = request.params;
+
+      return updateUser({
+        actor,
+        db: app.db,
+        userId,
+        changes: request.body,
+      });
+    },
+  );
+
+  app.delete(
+    "/:userId",
+    {
+      schema: deleteUserSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+      const { userId } = request.params;
+
+      return deleteUser({ actor, db: app.db, userId });
     },
   );
 };

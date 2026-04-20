@@ -1,4 +1,12 @@
-import { index, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { departments } from "./departments";
 import { organizations } from "./organizations";
 
@@ -9,12 +17,24 @@ export const processes = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    title: text("title").notNull(),
+    type: text("type").notNull(),
+    processNumber: text("process_number").notNull(),
+    externalId: text("external_id"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+    object: text("object").notNull(),
+    justification: text("justification").notNull(),
+    responsibleName: text("responsible_name").notNull(),
     status: text("status").notNull().default("draft"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("processes_organization_id_idx").on(table.organizationId)],
+  (table) => [
+    index("processes_organization_id_idx").on(table.organizationId),
+    uniqueIndex("processes_organization_process_number_unique").on(
+      table.organizationId,
+      table.processNumber,
+    ),
+  ],
 );
 
 export const processDepartments = pgTable(
