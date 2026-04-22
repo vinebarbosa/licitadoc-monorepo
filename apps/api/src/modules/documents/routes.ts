@@ -1,10 +1,29 @@
 import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
 import { getSessionUser } from "../../shared/auth/get-session-user";
-import { getDocumentSchema, getDocumentsSchema } from "./documents.schemas";
+import { createDocument } from "./create-document";
+import { createDocumentSchema, getDocumentSchema, getDocumentsSchema } from "./documents.schemas";
 import { getDocument } from "./get-document";
 import { getDocuments } from "./get-documents";
 
 export const registerDocumentRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
+  app.post(
+    "/",
+    {
+      schema: createDocumentSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const document = await createDocument({
+        actor,
+        db: app.db,
+        document: request.body,
+        textGeneration: app.textGeneration,
+      });
+
+      return reply.status(201).send(document);
+    },
+  );
+
   app.get(
     "/",
     {

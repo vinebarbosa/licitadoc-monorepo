@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import type { FastifyInstance } from "fastify";
+import { test } from "vitest";
 import type { organizations, users } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";

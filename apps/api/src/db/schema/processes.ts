@@ -1,5 +1,6 @@
 import {
   index,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -25,6 +26,9 @@ export const processes = pgTable(
     justification: text("justification").notNull(),
     responsibleName: text("responsible_name").notNull(),
     status: text("status").notNull().default("draft"),
+    sourceKind: text("source_kind"),
+    sourceReference: text("source_reference"),
+    sourceMetadata: jsonb("source_metadata").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

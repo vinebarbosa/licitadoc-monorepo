@@ -39,6 +39,9 @@ export function serializeProcess(process: StoredProcess, departmentIds: string[]
     responsibleName: process.responsibleName,
     status: process.status,
     departmentIds,
+    sourceKind: process.sourceKind ?? null,
+    sourceReference: process.sourceReference ?? null,
+    sourceMetadata: process.sourceMetadata ?? null,
     createdAt: process.createdAt.toISOString(),
     updatedAt: process.updatedAt.toISOString(),
   };
@@ -118,10 +121,27 @@ export async function getDepartmentIdsByProcessIds({
   return departmentIdsByProcessId;
 }
 
+function getDatabaseConflict(error: unknown): Record<string, unknown> | null {
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
+
+  if ("code" in error && typeof error.code === "string") {
+    return error as Record<string, unknown>;
+  }
+
+  if ("cause" in error) {
+    return getDatabaseConflict(error.cause);
+  }
+
+  return null;
+}
+
 export function throwIfProcessConflict(error: unknown): never {
-  if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
-    const constraint =
-      "constraint" in error && typeof error.constraint === "string" ? error.constraint : undefined;
+  const conflict = getDatabaseConflict(error);
+
+  if (conflict?.code === "23505") {
+    const constraint = typeof conflict.constraint === "string" ? conflict.constraint : undefined;
 
     if (constraint === "processes_organization_process_number_unique") {
       throw new ConflictError("Process number is already in use for this organization.");

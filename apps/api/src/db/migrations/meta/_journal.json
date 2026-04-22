@@ -50,6 +50,20 @@
       "when": 1776689072746,
       "tag": "0006_complete_processes_module",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776738074772,
+      "tag": "0007_document_generation_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776772800000,
+      "tag": "0008_expense_request_process_intake",
+      "breakpoints": true
     }
   ]
 }

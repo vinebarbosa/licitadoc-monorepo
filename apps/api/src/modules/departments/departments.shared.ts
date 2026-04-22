@@ -30,6 +30,7 @@ export function serializeDepartment(department: StoredDepartment) {
     name: department.name,
     slug: department.slug,
     organizationId: department.organizationId,
+    budgetUnitCode: department.budgetUnitCode ?? null,
     responsibleName: department.responsibleName,
     responsibleRole: department.responsibleRole,
     createdAt: department.createdAt.toISOString(),
@@ -37,13 +38,40 @@ export function serializeDepartment(department: StoredDepartment) {
   };
 }
 
-export function throwIfDepartmentConflict(error: unknown): never {
-  if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
-    const constraint =
-      "constraint" in error && typeof error.constraint === "string" ? error.constraint : undefined;
+function getDatabaseConflict(error: unknown): { code: string; constraint?: string } | null {
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
 
-    if (constraint === "departments_organization_slug_unique") {
+  if ("code" in error && typeof error.code === "string") {
+    return {
+      code: error.code,
+      constraint:
+        "constraint" in error && typeof error.constraint === "string"
+          ? error.constraint
+          : undefined,
+    };
+  }
+
+  if ("cause" in error) {
+    return getDatabaseConflict(error.cause);
+  }
+
+  return null;
+}
+
+export function throwIfDepartmentConflict(error: unknown): never {
+  const conflict = getDatabaseConflict(error);
+
+  if (conflict?.code === "23505") {
+    if (conflict.constraint === "departments_organization_slug_unique") {
       throw new ConflictError("Department slug is already in use for this organization.");
+    }
+
+    if (conflict.constraint === "departments_organization_budget_unit_code_unique") {
+      throw new ConflictError(
+        "Department budget unit code is already in use for this organization.",
+      );
     }
 
     throw new ConflictError("Department conflicts with existing data.");

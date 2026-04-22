@@ -49,6 +49,9 @@ export async function createProcess({ actor, db, process }: Input) {
           justification: process.justification,
           responsibleName: process.responsibleName,
           status: process.status,
+          sourceKind: process.sourceKind,
+          sourceReference: process.sourceReference,
+          sourceMetadata: process.sourceMetadata ?? null,
         })
         .returning();
     } catch (error) {

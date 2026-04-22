@@ -1,4 +1,15 @@
-import { type AppRouteSchema, z } from "../../shared/http/zod";
+import { pickErrorResponses } from "../../shared/http/errors";
+import {
+  type AppRouteSchema,
+  OPENAPI_EXAMPLE_NAME,
+  OPENAPI_EXAMPLE_PERSON_NAME,
+  OPENAPI_EXAMPLE_ROLE_NAME,
+  OPENAPI_EXAMPLE_SLUG,
+  OPENAPI_EXAMPLE_UUID,
+  openApiUuidSchema,
+  withOpenApiExample,
+  z,
+} from "../../shared/http/zod";
 
 function requiredTextSchema(fieldLabel: string) {
   return z
@@ -9,25 +20,70 @@ function requiredTextSchema(fieldLabel: string) {
     });
 }
 
-const departmentNameSchema = requiredTextSchema("Department name");
-const departmentSlugSchema = requiredTextSchema("Department slug")
-  .transform((value) =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, ""),
-  )
-  .refine((value) => value.length > 0, {
-    message: "Department slug is invalid.",
-  });
-const departmentResponsibleNameSchema = requiredTextSchema("Department responsible name");
-const departmentResponsibleRoleSchema = requiredTextSchema("Department responsible role");
+function normalizeNullableOptionalText(value?: string | null) {
+  if (value == null) {
+    return null;
+  }
+
+  const next = value.trim();
+
+  return next ? next : null;
+}
+
+const createDepartmentBodyExample = {
+  name: OPENAPI_EXAMPLE_NAME,
+  slug: OPENAPI_EXAMPLE_SLUG,
+  budgetUnitCode: "06.001",
+  organizationId: OPENAPI_EXAMPLE_UUID,
+  responsibleName: OPENAPI_EXAMPLE_PERSON_NAME,
+  responsibleRole: OPENAPI_EXAMPLE_ROLE_NAME,
+};
+const updateDepartmentBodyExample = {
+  name: OPENAPI_EXAMPLE_NAME,
+  budgetUnitCode: "06.002",
+  responsibleRole: OPENAPI_EXAMPLE_ROLE_NAME,
+};
+
+const departmentNameSchema = withOpenApiExample(
+  requiredTextSchema("Department name"),
+  OPENAPI_EXAMPLE_NAME,
+);
+const departmentSlugSchema = withOpenApiExample(
+  requiredTextSchema("Department slug")
+    .transform((value) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, ""),
+    )
+    .refine((value) => value.length > 0, {
+      message: "Department slug is invalid.",
+    }),
+  OPENAPI_EXAMPLE_SLUG,
+);
+const departmentResponsibleNameSchema = withOpenApiExample(
+  requiredTextSchema("Department responsible name"),
+  OPENAPI_EXAMPLE_PERSON_NAME,
+);
+const departmentResponsibleRoleSchema = withOpenApiExample(
+  requiredTextSchema("Department responsible role"),
+  OPENAPI_EXAMPLE_ROLE_NAME,
+);
+const departmentBudgetUnitCodeSchema = withOpenApiExample(
+  z.string().nullable().optional().transform(normalizeNullableOptionalText),
+  "06.001",
+);
+const departmentBudgetUnitCodeUpdateSchema = withOpenApiExample(
+  z.string().nullable().transform(normalizeNullableOptionalText).optional(),
+  "06.001",
+);
 
 const departmentSchema = z.object({
-  id: z.string().uuid(),
+  id: openApiUuidSchema(),
   name: z.string(),
   slug: z.string(),
-  organizationId: z.string().uuid(),
+  organizationId: openApiUuidSchema(),
+  budgetUnitCode: z.string().nullable(),
   responsibleName: z.string(),
   responsibleRole: z.string(),
   createdAt: z.string(),
@@ -35,7 +91,7 @@ const departmentSchema = z.object({
 });
 
 export const departmentParamsSchema = z.object({
-  departmentId: z.string().uuid(),
+  departmentId: openApiUuidSchema(),
 });
 
 export const departmentsPaginationQuerySchema = z.object({
@@ -43,27 +99,41 @@ export const departmentsPaginationQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().optional(),
 });
 
-export const createDepartmentBodySchema = z
-  .object({
-    name: departmentNameSchema,
-    slug: departmentSlugSchema,
-    organizationId: z.string().uuid().optional(),
-    responsibleName: departmentResponsibleNameSchema,
-    responsibleRole: departmentResponsibleRoleSchema,
-  })
-  .strict();
+export const createDepartmentBodySchema = withOpenApiExample(
+  z
+    .object({
+      name: departmentNameSchema,
+      slug: departmentSlugSchema,
+      budgetUnitCode: departmentBudgetUnitCodeSchema,
+      organizationId: openApiUuidSchema().optional(),
+      responsibleName: departmentResponsibleNameSchema,
+      responsibleRole: departmentResponsibleRoleSchema,
+    })
+    .strict(),
+  createDepartmentBodyExample,
+);
 
-export const updateDepartmentBodySchema = z
-  .object({
-    name: departmentNameSchema.optional(),
-    slug: departmentSlugSchema.optional(),
-    responsibleName: departmentResponsibleNameSchema.optional(),
-    responsibleRole: departmentResponsibleRoleSchema.optional(),
-  })
-  .strict()
-  .refine((data) => Object.keys(data).length > 0, {
-    message: "At least one field must be provided.",
-  });
+export const updateDepartmentBodySchema = withOpenApiExample(
+  z
+    .object({
+      name: withOpenApiExample(departmentNameSchema.optional(), OPENAPI_EXAMPLE_NAME),
+      slug: withOpenApiExample(departmentSlugSchema.optional(), OPENAPI_EXAMPLE_SLUG),
+      budgetUnitCode: departmentBudgetUnitCodeUpdateSchema,
+      responsibleName: withOpenApiExample(
+        departmentResponsibleNameSchema.optional(),
+        OPENAPI_EXAMPLE_PERSON_NAME,
+      ),
+      responsibleRole: withOpenApiExample(
+        departmentResponsibleRoleSchema.optional(),
+        OPENAPI_EXAMPLE_ROLE_NAME,
+      ),
+    })
+    .strict()
+    .refine((data) => Object.keys(data).length > 0, {
+      message: "At least one field must be provided.",
+    }),
+  updateDepartmentBodyExample,
+);
 
 const paginatedDepartmentsSchema = z.object({
   items: z.array(departmentSchema),
@@ -79,6 +149,7 @@ export const createDepartmentSchema = {
   body: createDepartmentBodySchema,
   response: {
     201: departmentSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 409, 500),
   },
 } satisfies AppRouteSchema;
 
@@ -91,6 +162,7 @@ export const getDepartmentsSchema = {
   querystring: departmentsPaginationQuerySchema,
   response: {
     200: paginatedDepartmentsSchema,
+    ...pickErrorResponses(400, 401, 403, 500),
   },
 } satisfies AppRouteSchema;
 
@@ -100,6 +172,7 @@ export const getDepartmentSchema = {
   params: departmentParamsSchema,
   response: {
     200: departmentSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
   },
 } satisfies AppRouteSchema;
 
@@ -110,5 +183,6 @@ export const updateDepartmentSchema = {
   body: updateDepartmentBodySchema,
   response: {
     200: departmentSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 409, 500),
   },
 } satisfies AppRouteSchema;

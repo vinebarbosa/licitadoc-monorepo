@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import type { FastifyInstance } from "fastify";
+import { test } from "vitest";
 import type { departments, organizations } from "../../db";
 import { ConflictError } from "../../shared/errors/conflict-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
@@ -49,6 +49,7 @@ function createDepartmentRow(
     name: "Secretaria de Financas",
     slug: "secretaria-de-financas",
     organizationId: ORGANIZATION_ID,
+    budgetUnitCode: null,
     responsibleName: "Ana Souza",
     responsibleRole: "Secretaria",
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
@@ -76,6 +77,7 @@ test("department schemas canonicalize slug and require responsible fields", () =
   assert.deepEqual(parsed, {
     name: "Secretaria de Financas",
     slug: "secretaria-de-financas",
+    budgetUnitCode: null,
     responsibleName: "Ana Souza",
     responsibleRole: "Secretaria",
   });
@@ -87,6 +89,16 @@ test("department schemas canonicalize slug and require responsible fields", () =
     }).success,
     false,
   );
+
+  const parsedWithBudgetUnit = parseCreateDepartmentInput({
+    name: "Secretaria de Educacao",
+    slug: "secretaria-de-educacao",
+    budgetUnitCode: "  06.001  ",
+    responsibleName: "Maria Rocha",
+    responsibleRole: "Secretaria",
+  });
+
+  assert.equal(parsedWithBudgetUnit.budgetUnitCode, "06.001");
 });
 
 test("update department schema rejects organization reassignment input", () => {
@@ -117,6 +129,7 @@ test("createDepartment lets admins create for any organization", async () => {
             createDepartmentRow({
               name: String(values.name),
               slug: String(values.slug),
+              budgetUnitCode: values.budgetUnitCode as string | null,
               organizationId: String(values.organizationId),
               responsibleName: String(values.responsibleName),
               responsibleRole: String(values.responsibleRole),
@@ -137,6 +150,7 @@ test("createDepartment lets admins create for any organization", async () => {
     department: parseCreateDepartmentInput({
       name: "Secretaria de Financas",
       slug: "Secretaria de Financas",
+      budgetUnitCode: "06.001",
       organizationId: ORGANIZATION_ID,
       responsibleName: "Ana Souza",
       responsibleRole: "Secretaria",
@@ -145,7 +159,9 @@ test("createDepartment lets admins create for any organization", async () => {
 
   assert.equal(insertedValues?.organizationId, ORGANIZATION_ID);
   assert.equal(insertedValues?.slug, "secretaria-de-financas");
+  assert.equal(insertedValues?.budgetUnitCode, "06.001");
   assert.equal(response.organizationId, ORGANIZATION_ID);
+  assert.equal(response.budgetUnitCode, "06.001");
 });
 
 test("createDepartment scopes organization owners to their own organization", async () => {
@@ -165,6 +181,7 @@ test("createDepartment scopes organization owners to their own organization", as
           returning: async () => [
             createDepartmentRow({
               organizationId: String(values.organizationId),
+              budgetUnitCode: values.budgetUnitCode as string | null,
             }),
           ],
         };
@@ -182,6 +199,7 @@ test("createDepartment scopes organization owners to their own organization", as
     department: parseCreateDepartmentInput({
       name: "Secretaria de Financas",
       slug: "secretaria-de-financas",
+      budgetUnitCode: "06.001",
       organizationId: ORGANIZATION_ID,
       responsibleName: "Ana Souza",
       responsibleRole: "Secretaria",
@@ -189,6 +207,7 @@ test("createDepartment scopes organization owners to their own organization", as
   });
 
   assert.equal(insertedValues?.organizationId, ORGANIZATION_ID);
+  assert.equal(insertedValues?.budgetUnitCode, "06.001");
 });
 
 test("createDepartment rejects members and cross-organization owner writes", async () => {
@@ -401,6 +420,7 @@ test("updateDepartment lets admins and owners update profile fields", async () =
               createDepartmentRow({
                 name: String(values.name ?? "Secretaria de Financas"),
                 slug: String(values.slug ?? "secretaria-de-financas"),
+                budgetUnitCode: values.budgetUnitCode as string | null | undefined,
                 responsibleName: String(values.responsibleName ?? "Ana Souza"),
                 responsibleRole: String(values.responsibleRole ?? "Secretaria"),
                 updatedAt: values.updatedAt as Date,
@@ -422,14 +442,17 @@ test("updateDepartment lets admins and owners update profile fields", async () =
     departmentId: DEPARTMENT_ID,
     changes: parseUpdateDepartmentInput({
       slug: "Secretaria de Saude",
+      budgetUnitCode: "06.002",
       responsibleRole: "Secretaria Municipal",
     }),
   });
 
   assert.equal(capturedUpdateValues?.slug, "secretaria-de-saude");
+  assert.equal(capturedUpdateValues?.budgetUnitCode, "06.002");
   assert.equal(capturedUpdateValues?.responsibleRole, "Secretaria Municipal");
   assert.ok(capturedUpdateValues?.updatedAt instanceof Date);
   assert.equal(adminResponse.slug, "secretaria-de-saude");
+  assert.equal(adminResponse.budgetUnitCode, "06.002");
 
   const ownerResponse = await updateDepartment({
     actor: {
@@ -505,6 +528,43 @@ test("updateDepartment rejects members and translates slug conflicts", async () 
         departmentId: DEPARTMENT_ID,
         changes: parseUpdateDepartmentInput({
           slug: "secretaria-de-financas",
+        }),
+      }),
+    ConflictError,
+  );
+
+  const budgetConflictDb = {
+    query: {
+      departments: {
+        findFirst: async () => createDepartmentRow(),
+      },
+    },
+    update: () => ({
+      set: () => ({
+        where: () => ({
+          returning: async () => {
+            throw {
+              code: "23505",
+              constraint: "departments_organization_budget_unit_code_unique",
+            };
+          },
+        }),
+      }),
+    }),
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      updateDepartment({
+        actor: {
+          id: "admin_user",
+          role: "admin",
+          organizationId: null,
+        },
+        db: budgetConflictDb,
+        departmentId: DEPARTMENT_ID,
+        changes: parseUpdateDepartmentInput({
+          budgetUnitCode: "06.001",
         }),
       }),
     ConflictError,

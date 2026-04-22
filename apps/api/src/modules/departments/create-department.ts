@@ -30,6 +30,7 @@ export async function createDepartment({ actor, db, department }: Input) {
       .values({
         name: department.name,
         slug: department.slug,
+        budgetUnitCode: department.budgetUnitCode,
         organizationId,
         responsibleName: department.responsibleName,
         responsibleRole: department.responsibleRole,

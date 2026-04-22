@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import type { FastifyInstance } from "fastify";
+import { describe, test } from "vitest";
 import { type invites, users } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { acceptInvite } from "./accept-invite";
@@ -350,8 +350,8 @@ test("acceptInvite rejects expired invites", async () => {
   );
 });
 
-test("acceptInvite rejects email mismatches and spent invites", async (t) => {
-  await t.test("email mismatch", async () => {
+describe("acceptInvite rejects email mismatches and spent invites", () => {
+  test("email mismatch", async () => {
     const tx = {
       query: {
         invites: {
@@ -386,7 +386,7 @@ test("acceptInvite rejects email mismatches and spent invites", async (t) => {
     );
   });
 
-  await t.test("invite already spent", async () => {
+  test("invite already spent", async () => {
     const tx = {
       query: {
         invites: {

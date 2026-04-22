@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import type { FastifyInstance } from "fastify";
+import { test } from "vitest";
 import {
   departments,
   type documents,
@@ -11,7 +11,16 @@ import {
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
+import type { FileStorageProvider } from "../../shared/storage/types";
 import { createProcess } from "./create-process";
+import { createProcessFromExpenseRequest } from "./create-process-from-expense-request";
+import { createProcessFromExpenseRequestText } from "./expense-request-intake";
+import { parseExpenseRequestText } from "./expense-request-parser";
+import {
+  createProcessFromExpenseRequestPdf,
+  extractTextFromPdf,
+  normalizeExpenseRequestPdfUpload,
+} from "./expense-request-pdf";
 import { getProcess } from "./get-process";
 import { getProcesses } from "./get-processes";
 import { createProcessBodySchema, updateProcessBodySchema } from "./processes.schemas";
@@ -23,6 +32,113 @@ const PROCESS_ID = "1f1f1f1f-e2e5-4876-b4c3-b35306c6e733";
 const DEPARTMENT_ID = "9f9f9f9f-e2e5-4876-b4c3-b35306c6e733";
 const SECOND_DEPARTMENT_ID = "8f8f8f8f-e2e5-4876-b4c3-b35306c6e733";
 const DOCUMENT_ID = "7a7a7a7a-e2e5-4876-b4c3-b35306c6e733";
+const PUREZA_EXPENSE_REQUEST_TEXT = `
+PRACA 05 DE ABRIL, 180, CENTRO, PUREZA/RN CEP: 59582000
+CNPJ: 08.290.223/0001-42
+Solicitacao de
+Despesa
+MUNICIPIO DE PUREZA
+Unidade Orcamentaria: 06.001 - Sec.Mun.de Educ,Cultura, Esporte e Lazer
+N Solicitação:
+6
+Data Emissao:
+08/01/2026 10/2026
+Processo:
+Servico
+Classificacao:
+Contratacao de apresentacao artistica musical da banda FORRO TSUNAMI, para abrilhantar as festividades do Carnaval de Pureza 2026, que sera realizado de 13 a 17 de fevereiro.
+Objeto:
+O Municipio de Pureza/RN realizara, no periodo de 13 a 17 de fevereiro de 2026, o Carnaval de Pureza 2026.
+A programacao carnavalesca tem como finalidade promover o acesso a cultura.
+Justificativa:
+Item Descricao Qtd. Und Vlr. Unitario Vlr. TotalLote FatorQtd.Ini
+apresentacao artistica musical da banda FORRO TSUNAMI, para abrilhantar as festividades do Carnaval de Pureza 2026, que sera realizado de 13 a 17 de fevereiro, com duracao de 02 horas de show.
+0005091  1  0,00  0,00SERVICO
+0,00Valor Total:
+SECRETARIO DE EDUCACAO, CULTURA, ESPORTE E LAZER
+MARIA MARILDA SILVA DA ROCHA
+878.541.554-53
+SECRETARIO DE EDUCACAO, CULTURA, ESPORTE E LAZER
+`;
+
+function escapePdfText(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function createPdfBuffer(lines: string[]) {
+  const contentStream = [
+    "BT",
+    "/F1 12 Tf",
+    "72 720 Td",
+    ...lines.flatMap((line, index) => [
+      index === 0 ? "" : "0 -16 Td",
+      `(${escapePdfText(line)}) Tj`,
+    ]),
+    "ET",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n",
+    `4 0 obj\n<< /Length ${Buffer.byteLength(contentStream, "latin1")} >>\nstream\n${contentStream}\nendstream\nendobj\n`,
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(pdf, "latin1"));
+    pdf += object;
+  }
+
+  const xrefOffset = Buffer.byteLength(pdf, "latin1");
+  const xrefEntries = offsets
+    .map((offset, index) =>
+      index === 0
+        ? "0000000000 65535 f "
+        : `${String(offset).padStart(10, "0")} 00000 n `,
+    )
+    .join("\n");
+
+  pdf += `xref\n0 ${offsets.length}\n${xrefEntries}\n`;
+  pdf += `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\n`;
+  pdf += `startxref\n${xrefOffset}\n%%EOF`;
+
+  return Buffer.from(pdf, "latin1");
+}
+
+const PUREZA_EXPENSE_REQUEST_PDF = createPdfBuffer([
+  "PRACA 05 DE ABRIL, 180, CENTRO, PUREZA/RN CEP: 59582000",
+  "CNPJ: 08.290.223/0001-42",
+  "Solicitacao de",
+  "Despesa",
+  "MUNICIPIO DE PUREZA",
+  "Unidade Orcamentaria: 06.001 - Sec.Mun.de Educ,Cultura, Esporte e Lazer",
+  "N Solicitacao:",
+  "6",
+  "Data Emissao:",
+  "08/01/2026 10/2026",
+  "Processo:",
+  "Servico",
+  "Classificacao:",
+  "Contratacao de apresentacao artistica musical da banda FORRO TSUNAMI, para abrilhantar as festividades do Carnaval de Pureza 2026, que sera realizado de 13 a 17 de fevereiro.",
+  "Objeto:",
+  "O Municipio de Pureza/RN realizara, no periodo de 13 a 17 de fevereiro de 2026, o Carnaval de Pureza 2026.",
+  "A programacao carnavalesca tem como finalidade promover o acesso a cultura.",
+  "Justificativa:",
+  "Item Descricao Qtd. Und Vlr. Unitario Vlr. TotalLote FatorQtd.Ini",
+  "apresentacao artistica musical da banda FORRO TSUNAMI, para abrilhantar as festividades do Carnaval de Pureza 2026, que sera realizado de 13 a 17 de fevereiro, com duracao de 02 horas de show.",
+  "0005091  1  0,00  0,00SERVICO",
+  "0,00Valor Total:",
+  "SECRETARIO DE EDUCACAO, CULTURA, ESPORTE E LAZER",
+  "MARIA MARILDA SILVA DA ROCHA",
+  "878.541.554-53",
+  "SECRETARIO DE EDUCACAO, CULTURA, ESPORTE E LAZER",
+]);
 
 function createOrganizationRow(
   overrides: Partial<typeof organizations.$inferSelect> = {},
@@ -65,6 +181,26 @@ function createProcessRow(
     justification: "Atender evento cultural do municipio",
     responsibleName: "Ana Souza",
     status: "draft",
+    sourceKind: null,
+    sourceReference: null,
+    sourceMetadata: null,
+    createdAt: new Date("2029-12-01T00:00:00.000Z"),
+    updatedAt: new Date("2029-12-01T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function createDepartmentRow(
+  overrides: Partial<typeof departments.$inferSelect> = {},
+): typeof departments.$inferSelect {
+  return {
+    id: DEPARTMENT_ID,
+    organizationId: ORGANIZATION_ID,
+    name: "Sec.Mun.de Educ,Cultura, Esporte e Lazer",
+    slug: "sec-mun-de-educ-cultura-esporte-e-lazer",
+    budgetUnitCode: "06.001",
+    responsibleName: "Maria Marilda Silva da Rocha",
+    responsibleRole: "Secretaria",
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
     updatedAt: new Date("2029-12-01T00:00:00.000Z"),
     ...overrides,
@@ -79,6 +215,9 @@ function createDocumentRow(
     organizationId: ORGANIZATION_ID,
     processId: PROCESS_ID,
     name: "Documento exemplo",
+    type: "attachment",
+    status: "completed",
+    draftContent: null,
     storageKey: "documents/processo/documento.pdf",
     responsibles: ["Ana Souza"],
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
@@ -115,6 +254,8 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
     object: "Contratacao de apresentacao artistica",
     justification: "Atender evento cultural",
     responsibleName: "Ana Souza",
+    sourceKind: null,
+    sourceReference: null,
     status: "draft",
     departmentIds: [DEPARTMENT_ID, SECOND_DEPARTMENT_ID],
   });
@@ -131,6 +272,113 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
       organizationId: OTHER_ORGANIZATION_ID,
     }).success,
     false,
+  );
+});
+
+test("parseExpenseRequestText extracts process context from Top Down SD text", () => {
+  const parsed = parseExpenseRequestText(PUREZA_EXPENSE_REQUEST_TEXT);
+
+  assert.equal(parsed.organizationCnpj, "08.290.223/0001-42");
+  assert.equal(parsed.budgetUnitCode, "06.001");
+  assert.equal(parsed.budgetUnitName, "Sec.Mun.de Educ,Cultura, Esporte e Lazer");
+  assert.equal(parsed.requestNumber, "6");
+  assert.equal(parsed.issueDate, "2026-01-08T00:00:00.000Z");
+  assert.equal(parsed.processType, "Servico");
+  assert.match(parsed.object, /FORRO TSUNAMI/);
+  assert.match(parsed.justification, /Carnaval de Pureza 2026/);
+  assert.match(parsed.item.description ?? "", /apresentacao artistica/);
+  assert.equal(parsed.item.code, "0005091");
+  assert.equal(parsed.responsibleName, "MARIA MARILDA SILVA DA ROCHA");
+  assert.equal(parsed.sourceReference, "SD-6-2026");
+});
+
+test("parseExpenseRequestText rejects missing required fields and warns on optional fields", () => {
+  assert.throws(() => parseExpenseRequestText(""), BadRequestError);
+  assert.throws(
+    () =>
+      parseExpenseRequestText(`
+        Unidade Orcamentaria: Secretaria Municipal
+        Processo:
+        Servico
+        Classificacao:
+        Contratacao de servico
+        Objeto:
+        Necessidade administrativa
+      `),
+    BadRequestError,
+  );
+
+  const parsed = parseExpenseRequestText(
+    PUREZA_EXPENSE_REQUEST_TEXT.replace("CNPJ: 08.290.223/0001-42", "").replace("06.001 - ", ""),
+  );
+
+  assert.ok(parsed.warnings.includes("organization_cnpj_missing"));
+  assert.ok(parsed.warnings.includes("budget_unit_code_missing"));
+});
+
+test("extractTextFromPdf reads machine-readable text and rejects password-protected PDFs", async () => {
+  const text = await extractTextFromPdf(PUREZA_EXPENSE_REQUEST_PDF);
+
+  assert.match(text, /CNPJ: 08.290.223\/0001-42/);
+  assert.match(text, /N Solicitacao:/);
+
+  await assert.rejects(
+    () =>
+      extractTextFromPdf(Buffer.from("pdf"), () => ({
+        promise: Promise.reject({ name: "PasswordException" }),
+      })),
+    (error: unknown) =>
+      error instanceof BadRequestError &&
+      error.message === "Password-protected PDFs are not supported.",
+  );
+});
+
+test("normalizeExpenseRequestPdfUpload validates file presence, file type, and file size", async () => {
+  await assert.rejects(
+    () =>
+      normalizeExpenseRequestPdfUpload({
+        body: {},
+        maxBytes: 3 * 1024 * 1024,
+      }),
+    BadRequestError,
+  );
+
+  await assert.rejects(
+    () =>
+      normalizeExpenseRequestPdfUpload({
+        body: {
+          file: {
+            type: "file",
+            fieldname: "file",
+            filename: "sd.txt",
+            mimetype: "text/plain",
+            toBuffer: async () => Buffer.from("text"),
+          },
+        },
+        maxBytes: 3 * 1024 * 1024,
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestError &&
+      error.message === "Expense request upload must be a PDF file.",
+  );
+
+  await assert.rejects(
+    () =>
+      normalizeExpenseRequestPdfUpload({
+        body: {
+          file: {
+            type: "file",
+            fieldname: "file",
+            filename: "sd.pdf",
+            mimetype: "application/pdf",
+            toBuffer: async () => Buffer.alloc(3 * 1024 * 1024 + 1),
+          },
+        },
+        maxBytes: 3 * 1024 * 1024,
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestError &&
+      error.message === "Expense request PDF must be 3 MB or smaller.",
   );
 });
 
@@ -306,6 +554,616 @@ test("createProcess scopes members to their own organization and rejects foreign
           responsibleName: "Ana Souza",
           departmentIds: [DEPARTMENT_ID, SECOND_DEPARTMENT_ID],
         }),
+      }),
+    BadRequestError,
+  );
+});
+
+test("createProcessFromExpenseRequest creates scoped process from SD text", async () => {
+  let insertedProcessValues: Record<string, unknown> | undefined;
+  let insertedDepartmentLinks: Array<typeof processDepartments.$inferInsert> | undefined;
+  const department = createDepartmentRow();
+  const tx = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+    },
+    select: () => ({
+      from: (table: unknown) => ({
+        where: async () => {
+          if (table === departments) {
+            return [{ id: DEPARTMENT_ID }];
+          }
+
+          return [];
+        },
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown> | Array<Record<string, unknown>>) => {
+        if (table === processes) {
+          const nextValues = values as Record<string, unknown>;
+          insertedProcessValues = nextValues;
+
+          return {
+            returning: async () => [
+              createProcessRow({
+                organizationId: String(nextValues.organizationId),
+                type: String(nextValues.type),
+                processNumber: String(nextValues.processNumber),
+                externalId: nextValues.externalId as string | null,
+                issuedAt: nextValues.issuedAt as Date,
+                object: String(nextValues.object),
+                justification: String(nextValues.justification),
+                responsibleName: String(nextValues.responsibleName),
+                status: String(nextValues.status),
+                sourceKind: nextValues.sourceKind as string | null,
+                sourceReference: nextValues.sourceReference as string | null,
+                sourceMetadata: nextValues.sourceMetadata as Record<string, unknown> | null,
+              }),
+            ],
+          };
+        }
+
+        insertedDepartmentLinks = values as Array<typeof processDepartments.$inferInsert>;
+
+        return {
+          returning: async () => [],
+        };
+      },
+    }),
+  };
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+      departments: {
+        findMany: async () => [department],
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await createProcessFromExpenseRequest({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    request: {
+      expenseRequestText: PUREZA_EXPENSE_REQUEST_TEXT,
+      sourceLabel: "SD.pdf",
+      fileName: "SD.pdf",
+    },
+  });
+
+  assert.equal(insertedProcessValues?.processNumber, "SD-6-2026");
+  assert.equal(insertedProcessValues?.externalId, "6");
+  assert.equal(insertedProcessValues?.sourceKind, "expense_request");
+  assert.equal(insertedProcessValues?.sourceReference, "SD-6-2026");
+  assert.deepEqual(insertedDepartmentLinks, [
+    { processId: PROCESS_ID, departmentId: DEPARTMENT_ID },
+  ]);
+  assert.equal(response.processNumber, "SD-6-2026");
+  assert.equal(response.sourceKind, "expense_request");
+  assert.ok(JSON.stringify(response.sourceMetadata).includes("requestNumber"));
+  assert.equal(JSON.stringify(response.sourceMetadata).includes("expenseRequestText"), false);
+});
+
+test("createProcessFromExpenseRequestText persists source file traceability when provided", async () => {
+  let insertedProcessValues: Record<string, unknown> | undefined;
+  const department = createDepartmentRow();
+  const tx = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+    },
+    select: () => ({
+      from: () => ({
+        where: async () => [{ id: DEPARTMENT_ID }],
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown> | Array<Record<string, unknown>>) => {
+        if (table === processes) {
+          insertedProcessValues = values as Record<string, unknown>;
+
+          return {
+            returning: async () => [
+              createProcessRow({
+                externalId: (values as Record<string, unknown>).externalId as string | null,
+                issuedAt: (values as Record<string, unknown>).issuedAt as Date,
+                justification: String((values as Record<string, unknown>).justification),
+                object: String((values as Record<string, unknown>).object),
+                processNumber: String((values as Record<string, unknown>).processNumber),
+                responsibleName: String((values as Record<string, unknown>).responsibleName),
+                sourceKind: "expense_request",
+                sourceReference: "SD-6-2026",
+                sourceMetadata: (values as Record<string, unknown>).sourceMetadata as Record<
+                  string,
+                  unknown
+                >,
+                status: String((values as Record<string, unknown>).status),
+                type: String((values as Record<string, unknown>).type),
+              }),
+            ],
+          };
+        }
+
+        return {
+          returning: async () => [],
+        };
+      },
+    }),
+  };
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+      departments: {
+        findMany: async () => [department],
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await createProcessFromExpenseRequestText({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    input: {
+      expenseRequestText: PUREZA_EXPENSE_REQUEST_TEXT,
+      fileName: "SD.pdf",
+      sourceLabel: "SD.pdf",
+      sourceFile: {
+        bucket: "licitadoc-expense-requests",
+        contentType: "application/pdf",
+        etag: "etag-1",
+        key: "expense-requests/2026/04/sd.pdf",
+        sizeBytes: 2048,
+        uploadedAt: "2026-04-21T12:00:00.000Z",
+      },
+    },
+  });
+
+  const sourceMetadata = insertedProcessValues?.sourceMetadata as Record<string, unknown>;
+  assert.ok(sourceMetadata);
+  assert.equal(response.sourceKind, "expense_request");
+  assert.deepEqual((sourceMetadata.sourceFile ?? null) as Record<string, unknown>, {
+    contentType: "application/pdf",
+    etag: "etag-1",
+    fileName: "SD.pdf",
+    sizeBytes: 2048,
+    storageBucket: "licitadoc-expense-requests",
+    storageKey: "expense-requests/2026/04/sd.pdf",
+    uploadedAt: "2026-04-21T12:00:00.000Z",
+  });
+});
+
+test("createProcessFromExpenseRequestPdf uploads first, creates process, and cleans up on failure", async () => {
+  const storedObject = {
+    bucket: "licitadoc-expense-requests",
+    contentType: "application/pdf",
+    etag: "etag-1",
+    key: "expense-requests/2026/04/sd.pdf",
+    sizeBytes: PUREZA_EXPENSE_REQUEST_PDF.byteLength,
+    uploadedAt: "2026-04-21T12:00:00.000Z",
+  };
+  const deletedObjects: Array<{ bucket: string; key: string }> = [];
+  let storedCalls = 0;
+  let insertedProcessValues: Record<string, unknown> | undefined;
+  const department = createDepartmentRow();
+  const tx = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+    },
+    select: () => ({
+      from: () => ({
+        where: async () => [{ id: DEPARTMENT_ID }],
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown> | Array<Record<string, unknown>>) => {
+        if (table === processes) {
+          insertedProcessValues = values as Record<string, unknown>;
+
+          return {
+            returning: async () => [
+              createProcessRow({
+                externalId: (values as Record<string, unknown>).externalId as string | null,
+                issuedAt: (values as Record<string, unknown>).issuedAt as Date,
+                justification: String((values as Record<string, unknown>).justification),
+                object: String((values as Record<string, unknown>).object),
+                processNumber: String((values as Record<string, unknown>).processNumber),
+                responsibleName: String((values as Record<string, unknown>).responsibleName),
+                sourceKind: "expense_request",
+                sourceReference: "SD-6-2026",
+                sourceMetadata: (values as Record<string, unknown>).sourceMetadata as Record<
+                  string,
+                  unknown
+                >,
+                status: String((values as Record<string, unknown>).status),
+                type: String((values as Record<string, unknown>).type),
+              }),
+            ],
+          };
+        }
+
+        return {
+          returning: async () => [],
+        };
+      },
+    }),
+  };
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+      departments: {
+        findMany: async () => [department],
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+  const storage: FileStorageProvider = {
+    deleteObject: async (object) => {
+      deletedObjects.push(object);
+    },
+    storeExpenseRequestPdf: async () => {
+      storedCalls += 1;
+      return storedObject;
+    },
+  };
+
+  const response = await createProcessFromExpenseRequestPdf({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    input: {
+      buffer: PUREZA_EXPENSE_REQUEST_PDF,
+      contentType: "application/pdf",
+      fileName: "SD.pdf",
+      sourceLabel: "SD.pdf",
+    },
+    storage,
+  });
+
+  assert.equal(storedCalls, 1);
+  assert.equal(deletedObjects.length, 0);
+  assert.equal(response.processNumber, "SD-6-2026");
+  assert.deepEqual(
+    ((insertedProcessValues?.sourceMetadata as Record<string, unknown>).sourceFile ?? null) as Record<
+      string,
+      unknown
+    >,
+    {
+      contentType: "application/pdf",
+      etag: "etag-1",
+      fileName: "SD.pdf",
+      sizeBytes: PUREZA_EXPENSE_REQUEST_PDF.byteLength,
+      storageBucket: "licitadoc-expense-requests",
+      storageKey: "expense-requests/2026/04/sd.pdf",
+      uploadedAt: "2026-04-21T12:00:00.000Z",
+    },
+  );
+
+  await assert.rejects(
+    () =>
+      createProcessFromExpenseRequestPdf({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        input: {
+          buffer: createPdfBuffer([]),
+          contentType: "application/pdf",
+          fileName: "empty.pdf",
+        },
+        storage,
+      }),
+    BadRequestError,
+  );
+
+  assert.deepEqual(deletedObjects.at(-1), {
+    bucket: "licitadoc-expense-requests",
+    key: "expense-requests/2026/04/sd.pdf",
+  });
+});
+
+test("createProcessFromExpenseRequestPdf reuses scope rules and stops when storage fails", async () => {
+  const rejectingStorage: FileStorageProvider = {
+    deleteObject: async () => undefined,
+    storeExpenseRequestPdf: async () => {
+      throw new Error("storage down");
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      createProcessFromExpenseRequestPdf({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db: {
+          query: {},
+        } as FastifyInstance["db"],
+        input: {
+          buffer: PUREZA_EXPENSE_REQUEST_PDF,
+          contentType: "application/pdf",
+          fileName: "SD.pdf",
+        },
+        storage: rejectingStorage,
+      }),
+    /storage down/,
+  );
+
+  const department = createDepartmentRow();
+  const tx = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "99.999.999/0001-99" }),
+      },
+    },
+    select: () => ({
+      from: () => ({
+        where: async () => [{ id: DEPARTMENT_ID }],
+      }),
+    }),
+    insert: () => ({
+      values: () => ({
+        returning: async () => [createProcessRow()],
+      }),
+    }),
+  };
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "99.999.999/0001-99" }),
+      },
+      departments: {
+        findMany: async () => [department],
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+  const storage: FileStorageProvider = {
+    deleteObject: async () => undefined,
+    storeExpenseRequestPdf: async () => ({
+      bucket: "licitadoc-expense-requests",
+      contentType: "application/pdf",
+      etag: "etag-1",
+      key: "expense-requests/2026/04/sd.pdf",
+      sizeBytes: PUREZA_EXPENSE_REQUEST_PDF.byteLength,
+      uploadedAt: "2026-04-21T12:00:00.000Z",
+    }),
+  };
+
+  await assert.rejects(
+    () =>
+      createProcessFromExpenseRequestPdf({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        input: {
+          buffer: PUREZA_EXPENSE_REQUEST_PDF,
+          contentType: "application/pdf",
+          fileName: "SD.pdf",
+        },
+        storage,
+      }),
+    ForbiddenError,
+  );
+});
+
+test("createProcessFromExpenseRequest resolves admin organization by CNPJ", async () => {
+  const department = createDepartmentRow();
+  const tx = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+    },
+    select: () => ({
+      from: () => ({
+        where: async () => [{ id: DEPARTMENT_ID }],
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown> | Array<Record<string, unknown>>) => {
+        if (table === processes) {
+          return {
+            returning: async () => [
+              createProcessRow({
+                ...(values as Record<string, unknown>),
+                issuedAt: (values as Record<string, unknown>).issuedAt as Date,
+              }),
+            ],
+          };
+        }
+
+        return {
+          returning: async () => [],
+        };
+      },
+    }),
+  };
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+      departments: {
+        findMany: async () => [department],
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await createProcessFromExpenseRequest({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    request: {
+      expenseRequestText: PUREZA_EXPENSE_REQUEST_TEXT,
+      sourceLabel: null,
+      fileName: null,
+    },
+  });
+
+  assert.equal(response.organizationId, ORGANIZATION_ID);
+});
+
+test("createProcessFromExpenseRequest rejects scoped and department resolution failures", async () => {
+  const baseDb = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "95.100.000/0001-00" }),
+      },
+      departments: {
+        findMany: async () => [createDepartmentRow()],
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      createProcessFromExpenseRequest({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db: baseDb,
+        request: {
+          expenseRequestText: PUREZA_EXPENSE_REQUEST_TEXT,
+          sourceLabel: null,
+          fileName: null,
+        },
+      }),
+    ForbiddenError,
+  );
+
+  const missingDepartmentDb = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+      departments: {
+        findMany: async () => [],
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      createProcessFromExpenseRequest({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db: missingDepartmentDb,
+        request: {
+          expenseRequestText: PUREZA_EXPENSE_REQUEST_TEXT,
+          sourceLabel: null,
+          fileName: null,
+        },
+      }),
+    BadRequestError,
+  );
+
+  const ambiguousDepartmentDb = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+      departments: {
+        findMany: async () => [
+          createDepartmentRow(),
+          createDepartmentRow({
+            id: SECOND_DEPARTMENT_ID,
+            slug: "second-department",
+          }),
+        ],
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      createProcessFromExpenseRequest({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db: ambiguousDepartmentDb,
+        request: {
+          expenseRequestText: PUREZA_EXPENSE_REQUEST_TEXT,
+          sourceLabel: null,
+          fileName: null,
+        },
+      }),
+    BadRequestError,
+  );
+
+  const crossDepartmentDb = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow({ cnpj: "08.290.223/0001-42" }),
+      },
+    },
+    select: () => ({
+      from: () => ({
+        where: async () => [{ id: DEPARTMENT_ID }],
+      }),
+    }),
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      createProcessFromExpenseRequest({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db: crossDepartmentDb,
+        request: {
+          expenseRequestText: PUREZA_EXPENSE_REQUEST_TEXT,
+          sourceLabel: null,
+          fileName: null,
+          departmentIds: [DEPARTMENT_ID, SECOND_DEPARTMENT_ID],
+        },
       }),
     BadRequestError,
   );

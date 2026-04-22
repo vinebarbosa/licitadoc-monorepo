@@ -13,8 +13,11 @@ import { registerCorsPlugin } from "../plugins/cors";
 import { registerDatabasePlugin } from "../plugins/db";
 import { registerEnvPlugin } from "../plugins/env";
 import { registerErrorPlugin } from "../plugins/errors";
+import { registerMultipartPlugin } from "../plugins/multipart";
 import { registerOpenApiPlugin } from "../plugins/openapi";
 import { registerSecurityPlugin } from "../plugins/security";
+import { registerStoragePlugin } from "../plugins/storage";
+import { registerTextGenerationPlugin } from "../plugins/text-generation";
 import { type AppRouteSchema, type AppTypeProvider, z } from "../shared/http/zod";
 
 export async function buildApp() {
@@ -47,8 +50,11 @@ export async function buildApp() {
   await app.register(registerEnvPlugin);
   await app.register(registerSecurityPlugin);
   await app.register(registerCorsPlugin);
+  await app.register(registerMultipartPlugin);
   await app.register(registerDatabasePlugin);
   await app.register(registerAuthPlugin);
+  await app.register(registerStoragePlugin);
+  await app.register(registerTextGenerationPlugin);
   await app.register(registerOpenApiPlugin);
   await app.register(registerErrorPlugin);
 

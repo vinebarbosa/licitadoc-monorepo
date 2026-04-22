@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { canManageDocument } from "./documents.policies";
+import { NotFoundError } from "../../shared/errors/not-found-error";
+import { canReadStoredDocument } from "./documents.policies";
+import { serializeDocumentDetail } from "./documents.shared";
 
 type Input = {
   actor: Actor;
@@ -8,12 +10,16 @@ type Input = {
   documentId: string;
 };
 
-export async function getDocument({ actor, documentId }: Input) {
-  canManageDocument(actor, actor.organizationId ?? "unknown");
+export async function getDocument({ actor, db, documentId }: Input) {
+  const document = await db.query.documents.findFirst({
+    where: (table, { eq }) => eq(table.id, documentId),
+  });
 
-  return {
-    id: documentId,
-    name: "Document Placeholder",
-    organizationId: actor.organizationId,
-  };
+  if (!document) {
+    throw new NotFoundError("Document not found.");
+  }
+
+  canReadStoredDocument(actor, document);
+
+  return serializeDocumentDetail(document);
 }

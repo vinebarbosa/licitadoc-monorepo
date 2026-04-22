@@ -1,0 +1,1500 @@
+{
+  "info": {
+    "_postman_id": "d5873218-0ee3-4f4d-b64d-0dbd1c140f68",
+    "name": "Licitadoc API",
+    "description": "OpenAPI document generated from Fastify route schemas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Access",
+      "item": [
+        {
+          "name": "socialSignIn",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"callbackURL\": \"http://localhost:5173/auth/callback\",\n  \"newUserCallbackURL\": \"http://localhost:5173/auth/callback\",\n  \"errorCallbackURL\": \"http://localhost:5173/auth/callback\",\n  \"provider\": \"exemplo\",\n  \"disableRedirect\": true,\n  \"idToken\": {\n    \"token\": \"token-de-exemplo\",\n    \"nonce\": \"exemplo\",\n    \"accessToken\": \"token-de-exemplo\",\n    \"refreshToken\": \"token-de-exemplo\",\n    \"expiresAt\": 1,\n    \"user\": {\n      \"name\": {\n        \"firstName\": \"Postman Example\",\n        \"lastName\": \"Postman Example\"\n      },\n      \"email\": \"postman@example.com\"\n    }\n  },\n  \"scopes\": [\n    \"exemplo\"\n  ],\n  \"requestSignUp\": true,\n  \"loginHint\": \"exemplo\",\n  \"additionalData\": \"exemplo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in/social",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-in",
+                "social"
+              ]
+            }
+          }
+        },
+        {
+          "name": "signOut",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-out"
+              ]
+            }
+          }
+        },
+        {
+          "name": "signUpWithEmailAndPassword",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Example\",\n  \"email\": \"postman@example.com\",\n  \"password\": \"12345678\",\n  \"image\": \"https://placehold.co/128x128/png\",\n  \"callbackURL\": \"http://localhost:5173/auth/callback\",\n  \"rememberMe\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-up/email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-up",
+                "email"
+              ]
+            }
+          }
+        },
+        {
+          "name": "signInEmail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman@example.com\",\n  \"password\": \"12345678\",\n  \"callbackURL\": \"http://localhost:5173/auth/callback\",\n  \"rememberMe\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in/email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-in",
+                "email"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Accounts",
+      "item": [
+        {
+          "name": "updateUser",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Example\",\n  \"image\": \"https://placehold.co/128x128/png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/update-user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "update-user"
+              ]
+            }
+          }
+        },
+        {
+          "name": "deleteUser",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"callbackURL\": \"http://localhost:5173/auth/callback\",\n  \"password\": \"12345678\",\n  \"token\": \"token-de-exemplo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/delete-user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "delete-user"
+              ]
+            }
+          }
+        },
+        {
+          "name": "linkSocialAccount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"callbackURL\": \"http://localhost:5173/auth/callback\",\n  \"provider\": \"exemplo\",\n  \"idToken\": {\n    \"token\": \"token-de-exemplo\",\n    \"nonce\": \"exemplo\",\n    \"accessToken\": \"token-de-exemplo\",\n    \"refreshToken\": \"token-de-exemplo\",\n    \"scopes\": [\n      \"exemplo\"\n    ]\n  },\n  \"requestSignUp\": true,\n  \"scopes\": [\n    \"exemplo\"\n  ],\n  \"errorCallbackURL\": \"http://localhost:5173/auth/callback\",\n  \"disableRedirect\": true,\n  \"additionalData\": \"exemplo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/link-social",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "link-social"
+              ]
+            }
+          }
+        },
+        {
+          "name": "listUserAccounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/list-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "list-accounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/auth/delete-user/callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/delete-user/callback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "delete-user",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "token-de-exemplo",
+                  "disabled": true
+                },
+                {
+                  "key": "callbackURL",
+                  "value": "http://localhost:5173/auth/callback",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/auth/unlink-account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerId\": \"11111111-1111-4111-8111-111111111111\",\n  \"accountId\": \"11111111-1111-4111-8111-111111111111\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/unlink-account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "unlink-account"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/auth/get-access-token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerId\": \"11111111-1111-4111-8111-111111111111\",\n  \"accountId\": \"11111111-1111-4111-8111-111111111111\",\n  \"userId\": \"11111111-1111-4111-8111-111111111111\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-access-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "get-access-token"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/auth/account-info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/account-info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "account-info"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Callbacks",
+      "item": [
+        {
+          "name": "GET /api/auth/callback/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/callback/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "callback",
+                "{{id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/auth/callback/{id}",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/callback/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "callback",
+                "{{id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Credentials",
+      "item": [
+        {
+          "name": "resetPassword",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"12345678\",\n  \"token\": \"token-de-exemplo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "verifyPassword",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"12345678\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/auth/verify-email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-email"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "token-de-exemplo",
+                  "disabled": false
+                },
+                {
+                  "key": "callbackURL",
+                  "value": "http://localhost:5173/auth/callback",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "sendVerificationEmail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"callbackURL\": \"https://example.com/callback\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/send-verification-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "send-verification-email"
+              ]
+            }
+          }
+        },
+        {
+          "name": "changeEmail",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newEmail\": \"postman@example.com\",\n  \"callbackURL\": \"http://localhost:5173/auth/callback\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "change-email"
+              ]
+            }
+          }
+        },
+        {
+          "name": "changePassword",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"12345678\",\n  \"currentPassword\": \"12345678\",\n  \"revokeOtherSessions\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "change-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "requestPasswordReset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman@example.com\",\n  \"redirectTo\": \"exemplo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/request-password-reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "request-password-reset"
+              ]
+            }
+          }
+        },
+        {
+          "name": "resetPasswordCallback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password/{{token}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password",
+                "{{token}}"
+              ],
+              "query": [
+                {
+                  "key": "callbackURL",
+                  "value": "http://localhost:5173/auth/callback",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Meta",
+      "item": [
+        {
+          "name": "GET /api/auth/ok",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/ok",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "ok"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/auth/error",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/error",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "error"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Sessions",
+      "item": [
+        {
+          "name": "getSession",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "get-session"
+              ]
+            }
+          }
+        },
+        {
+          "name": "getSession_post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/get-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "get-session"
+              ]
+            }
+          }
+        },
+        {
+          "name": "updateSession",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/update-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "update-session"
+              ]
+            }
+          }
+        },
+        {
+          "name": "listUserSessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/list-sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "list-sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/auth/revoke-session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"token-de-exemplo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/revoke-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "revoke-session"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/auth/revoke-sessions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/revoke-sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "revoke-sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/auth/revoke-other-sessions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/revoke-other-sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "revoke-other-sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/auth/refresh-token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerId\": \"11111111-1111-4111-8111-111111111111\",\n  \"accountId\": \"11111111-1111-4111-8111-111111111111\",\n  \"userId\": \"11111111-1111-4111-8111-111111111111\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh-token"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Departments",
+      "item": [
+        {
+          "name": "Create department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Departamento de Compras\",\n  \"slug\": \"departamento-de-compras\",\n  \"budgetUnitCode\": \"06.001\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"responsibleName\": \"Maria Silva\",\n  \"responsibleRole\": \"Diretora Administrativa\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get department",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/{{departmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments",
+                "{{departmentId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update department",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Departamento de Compras\",\n  \"budgetUnitCode\": \"06.002\",\n  \"responsibleRole\": \"Diretora Administrativa\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/{{departmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments",
+                "{{departmentId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "Generate document draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"processId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"documentType\": \"dfd\",\n  \"instructions\": \"Priorizar linguagem objetiva para avaliacao preliminar.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "documents"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "documents"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get document",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/{{documentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "documents",
+                "{{documentId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Application health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invites",
+      "item": [
+        {
+          "name": "Create invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/invites/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List invites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invites/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invites"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Preview invite by token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invites/{{inviteToken}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invites",
+                "{{inviteToken}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept invite",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invites/{{inviteToken}}/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invites",
+                "{{inviteToken}}",
+                "accept"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organizations",
+      "item": [
+        {
+          "name": "Create organization during onboarding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Prefeitura de Fortaleza\",\n  \"slug\": \"prefeitura-de-fortaleza\",\n  \"officialName\": \"Municipio de Fortaleza\",\n  \"cnpj\": \"12.345.678/0001-90\",\n  \"city\": \"Fortaleza\",\n  \"state\": \"CE\",\n  \"address\": \"Rua Exemplo, 123, Centro\",\n  \"zipCode\": \"60000-000\",\n  \"phone\": \"(85) 3333-4444\",\n  \"institutionalEmail\": \"contato@example.gov.br\",\n  \"website\": \"https://licitadoc.example.gov.br\",\n  \"logoUrl\": \"https://licitadoc.example.gov.br/logo.png\",\n  \"authorityName\": \"Maria Silva\",\n  \"authorityRole\": \"Diretora Administrativa\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List organizations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get organization",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/{{organizationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "{{organizationId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update organization",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Prefeitura de Fortaleza\",\n  \"city\": \"Fortaleza\",\n  \"website\": \"https://licitadoc.example.gov.br\",\n  \"institutionalEmail\": \"contato@example.gov.br\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/{{organizationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "{{organizationId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Processes",
+      "item": [
+        {
+          "name": "Create process",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"pregao-eletronico\",\n  \"processNumber\": \"PE-2026-0001\",\n  \"externalId\": \"PROC-2026-001\",\n  \"issuedAt\": \"2026-01-15T10:30:00.000Z\",\n  \"object\": \"Aquisicao de materiais de escritorio\",\n  \"justification\": \"Reposicao de estoque das unidades administrativas.\",\n  \"responsibleName\": \"Maria Silva\",\n  \"status\": \"draft\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"departmentIds\": [\n    \"123e4567-e89b-12d3-a456-426614174000\"\n  ],\n  \"sourceKind\": \"expense_request\",\n  \"sourceReference\": \"SD-6-2026\",\n  \"sourceMetadata\": {\n    \"extractedFields\": {\n      \"budgetUnitCode\": \"06.001\",\n      \"requestNumber\": \"6\"\n    },\n    \"sourceFile\": {\n      \"contentType\": \"application/pdf\",\n      \"etag\": \"abc123\",\n      \"fileName\": \"SD.pdf\",\n      \"sizeBytes\": 245760,\n      \"storageBucket\": \"licitadoc-expense-requests\",\n      \"storageKey\": \"expense-requests/2026/04/2026-04-21t12-00-00-000z-sd.pdf\",\n      \"uploadedAt\": \"2026-04-21T12:00:00.000Z\"\n    },\n    \"warnings\": []\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/processes/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "processes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List processes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/processes/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "processes"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create process from expense request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expenseRequestText\": \"CNPJ: 08.290.223/0001-42\\nUnidade Orcamentaria: 06.001 - Secretaria Municipal de Educacao\\nN Solicitacao:\\n6\\nData Emissao:\\n08/01/2026\\nProcesso:\\nServico\\nClassificacao:\\nContratacao de apresentacao artistica\\nObjeto:\\nJustificativa da necessidade.\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"departmentIds\": [\n    \"123e4567-e89b-12d3-a456-426614174000\"\n  ],\n  \"sourceLabel\": \"SD.pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/processes/from-expense-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "processes",
+                "from-expense-request"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create process from expense request PDF",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/processes/from-expense-request/pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "processes",
+                "from-expense-request",
+                "pdf"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get process",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/processes/{{processId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "processes",
+                "{{processId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update process",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"draft\",\n  \"justification\": \"Reposicao de estoque das unidades administrativas.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/processes/{{processId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "processes",
+                "{{processId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get user by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Maria Silva\",\n  \"role\": \"member\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete user",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3333"
+    }
+  ]
+}

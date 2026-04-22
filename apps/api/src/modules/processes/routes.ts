@@ -1,9 +1,16 @@
 import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
 import { getSessionUser } from "../../shared/auth/get-session-user";
 import { createProcess } from "./create-process";
+import { createProcessFromExpenseRequest } from "./create-process-from-expense-request";
+import {
+  createProcessFromExpenseRequestPdf,
+  normalizeExpenseRequestPdfUpload,
+} from "./expense-request-pdf";
 import { getProcess } from "./get-process";
 import { getProcesses } from "./get-processes";
 import {
+  createProcessFromExpenseRequestSchema,
+  createProcessFromExpenseRequestPdfSchema,
   createProcessSchema,
   getProcessesSchema,
   getProcessSchema,
@@ -43,6 +50,45 @@ export const registerProcessRoutes: FastifyPluginAsyncZodOpenApi = async (app) =
         page: request.query.page,
         pageSize: request.query.pageSize,
       });
+    },
+  );
+
+  app.post(
+    "/from-expense-request",
+    {
+      schema: createProcessFromExpenseRequestSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const process = await createProcessFromExpenseRequest({
+        actor,
+        db: app.db,
+        request: request.body,
+      });
+
+      return reply.status(201).send(process);
+    },
+  );
+
+  app.post(
+    "/from-expense-request/pdf",
+    {
+      schema: createProcessFromExpenseRequestPdfSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const input = await normalizeExpenseRequestPdfUpload({
+        body: request.body as Record<string, unknown> | undefined,
+        maxBytes: app.config.EXPENSE_REQUEST_PDF_MAX_BYTES,
+      });
+      const process = await createProcessFromExpenseRequestPdf({
+        actor,
+        db: app.db,
+        input,
+        storage: app.storage,
+      });
+
+      return reply.status(201).send(process);
     },
   );
 

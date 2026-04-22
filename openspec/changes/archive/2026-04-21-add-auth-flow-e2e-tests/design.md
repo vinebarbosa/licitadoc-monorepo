@@ -1,0 +1,80 @@
+## Context
+
+`apps/api` already exposes a full authentication surface under `/api/auth/*` through `better-auth`, and the application modules use `getSessionUser()` to protect business routes. The project currently has strong module-level tests for departments, organizations, invites, users, and processes, but these tests mock the database and call service functions directly. They do not validate the real HTTP auth handshake, response cookies, session reuse, or session invalidation.
+
+For this change, the most valuable target is API-level end-to-end coverage of the email/password flow that the backend already supports: sign-up or sign-in, session retrieval, authenticated access to a protected route, sign-out, and post-sign-out denial. The codebase already has everything needed to boot the full Fastify app with real auth wiring, so the missing piece is a repeatable E2E harness and an isolated database strategy for test runs.
+
+## Goals / Non-Goals
+
+**Goals:**
+- Add repeatable API E2E tests for the core auth flow in `apps/api`.
+- Exercise the real `/api/auth/*` endpoints and a real protected application route.
+- Verify session cookie lifecycle across multiple requests.
+- Make the flow runnable locally and in CI through a dedicated script.
+- Keep the harness isolated so E2E runs do not depend on production or development data.
+
+**Non-Goals:**
+- Browser or frontend UI automation.
+- Exhaustive coverage of every Better Auth endpoint.
+- Replacing existing unit and module tests.
+- Changing the product-facing auth contract unless testability reveals a real bug.
+
+## Decisions
+
+### Decision: Use API-level E2E tests against a booted Fastify server
+The tests should start the real Fastify app and make HTTP requests against a listening server on an ephemeral local port. This is closer to the actual auth runtime than calling service functions or using only isolated unit mocks, and it verifies how `better-auth`, Fastify headers, cookies, and protected routes behave together.
+
+Alternatives considered:
+- Keep adding module-level tests only.
+  Rejected because they do not validate session cookies or the real auth request pipeline.
+- Use browser automation.
+  Rejected because the request is backend-auth E2E coverage, and introducing browser infrastructure would be heavier than needed.
+
+### Decision: Reuse the Node test runner and Fetch instead of adding a browser-style E2E framework
+The project already uses `tsx --test` and runs cleanly with Node-native tests. For API E2E coverage, a small request helper plus cookie persistence is sufficient, so the first implementation should avoid introducing Playwright or a similar UI-oriented stack.
+
+Alternatives considered:
+- Add Playwright.
+  Rejected because it adds browser orchestration without improving confidence for backend-only auth flows.
+- Add Supertest.
+  Rejected because the project can already exercise real HTTP with built-in tooling and a small helper.
+
+### Decision: Use a dedicated test database path with cleanup between cases
+Auth E2E tests must not rely on leftover local data. The harness should run against a dedicated test database configuration and clear the auth-related tables between tests or test groups so sign-up emails, sessions, and accounts remain deterministic.
+
+Alternatives considered:
+- Reuse the default development database without cleanup.
+  Rejected because auth flows are stateful and would become flaky as user/session data accumulates.
+- Stub auth persistence.
+  Rejected because it defeats the point of E2E verification.
+
+### Decision: Validate protected access through an existing authenticated application route
+The E2E flow should prove that authentication reaches the business layer, not just that `/api/auth/get-session` returns a user. A route such as `GET /api/departments` is a good target because it already requires authentication and can still return a stable response for a signed-in `member` without organization scope.
+
+Alternatives considered:
+- Test only auth endpoints.
+  Rejected because it would miss the handoff from auth session to application authorization.
+- Add a special test-only protected route.
+  Rejected because existing protected routes are already available and more representative.
+
+### Decision: Cover the default sign-up auto-sign-in behavior explicitly
+The current auth configuration enables `emailAndPassword.autoSignIn = true`. The E2E suite should assert this behavior so future auth config changes do not silently alter the user journey.
+
+Alternatives considered:
+- Ignore auto-sign-in and start every scenario with sign-in only.
+  Rejected because the configured behavior is part of the current auth contract.
+
+## Risks / Trade-offs
+
+- [E2E tests can become flaky if data is shared across runs] -> Use dedicated test database configuration and deterministic cleanup.
+- [Cookie handling can be subtly wrong in custom helpers] -> Keep the cookie jar helper minimal and focused on `set-cookie` to `cookie` propagation.
+- [Auth endpoints are generated by Better Auth and may shift across upgrades] -> Pin the covered routes to the current exposed contract and let failing E2E tests highlight integration drift.
+- [Running a real server makes tests slower than unit tests] -> Keep the suite focused on a small number of high-value auth journeys.
+
+## Migration Plan
+
+Add the E2E harness, test script, and auth flow tests without changing production behavior. Document the required test environment, including the dedicated test database URL, and integrate the new E2E command into the verification workflow. No production migration or rollout sequence is required beyond making the new test path available in CI and local development.
+
+## Open Questions
+
+No open questions at this time. This design assumes the team is comfortable using a dedicated test database for backend E2E execution.
