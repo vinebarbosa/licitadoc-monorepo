@@ -2,7 +2,7 @@ export type RequestConfig<TData = unknown> = {
   url: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   params?: Record<string, unknown>;
-  data?: TData;
+  data?: TData | BodyInit;
   headers?: HeadersInit;
   signal?: AbortSignal;
 };
@@ -54,14 +54,20 @@ export const client: Client = async <TData, _TError, TVariables>(
   config: RequestConfig<TVariables>,
 ) => {
   const { url, method, params, data, headers, signal } = config;
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
 
   const response = await fetch(buildUrl(DEFAULT_BASE_URL, url, params), {
     method,
     headers: {
-      "content-type": "application/json",
+      ...(isFormData ? {} : { "content-type": "application/json" }),
       ...headers,
     },
-    body: data === undefined ? undefined : JSON.stringify(data),
+    body:
+      data === undefined
+        ? undefined
+        : isFormData
+          ? data
+          : JSON.stringify(data),
     credentials: "include",
     signal,
   });

@@ -1,8 +1,7 @@
-import { useGetHealth, useGetSession } from "@licitadoc/api-client";
+import { useHomeStatus } from "../api/use-home-status";
 
 export function HomePage() {
-  const health = useGetHealth();
-  const session = useGetSession();
+  const { health, session } = useHomeStatus();
 
   return (
     <section className="grid gap-6">
@@ -25,7 +24,6 @@ export function HomePage() {
         <article className="rounded-[24px] border border-[rgba(29,36,51,0.12)] bg-white/72 p-5 backdrop-blur-xl">
           <h2 className="mb-2 text-lg font-semibold text-[#1d2433]">API</h2>
           <p className="m-0 text-[1.05rem] text-[#6d7688]">
-            {" "}
             Health: {health.isLoading ? "carregando" : (health.data?.status ?? "indisponivel")}
           </p>
         </article>
@@ -37,7 +35,7 @@ export function HomePage() {
               ? "carregando"
               : session.data?.user
                 ? `autenticado como ${session.data.user.email}`
-                : "sem sessão ativa"}
+                : "sem sessao ativa"}
           </p>
         </article>
       </div>
