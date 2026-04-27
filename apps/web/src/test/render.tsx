@@ -2,9 +2,14 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { createQueryClient } from "@/app/query-client";
+import { ThemeProvider } from "@/app/theme";
 
 export function renderWithProviders(ui: ReactElement) {
   const queryClient = createQueryClient();
 
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>{ui}</ThemeProvider>
+    </QueryClientProvider>,
+  );
 }

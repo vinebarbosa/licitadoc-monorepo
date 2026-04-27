@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { test } from "vitest";
 import {
   departments,
-  type documents,
+  documents,
   type organizations,
   processDepartments,
   processes,
@@ -98,9 +98,7 @@ function createPdfBuffer(lines: string[]) {
   const xrefOffset = Buffer.byteLength(pdf, "latin1");
   const xrefEntries = offsets
     .map((offset, index) =>
-      index === 0
-        ? "0000000000 65535 f "
-        : `${String(offset).padStart(10, "0")} 00000 n `,
+      index === 0 ? "0000000000 65535 f " : `${String(offset).padStart(10, "0")} 00000 n `,
     )
     .join("\n");
 
@@ -849,10 +847,8 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
   assert.equal(deletedObjects.length, 0);
   assert.equal(response.processNumber, "SD-6-2026");
   assert.deepEqual(
-    ((insertedProcessValues?.sourceMetadata as Record<string, unknown>).sourceFile ?? null) as Record<
-      string,
-      unknown
-    >,
+    ((insertedProcessValues?.sourceMetadata as Record<string, unknown>).sourceFile ??
+      null) as Record<string, unknown>,
     {
       contentType: "application/pdf",
       etag: "etag-1",
@@ -1182,6 +1178,23 @@ test("getProcesses returns paginated processes for admins and empty page without
             return [{ total: 3 }];
           }
 
+          if (table === documents) {
+            return [
+              createDocumentRow({
+                processId: PROCESS_ID,
+                type: "dfd",
+                status: "completed",
+                updatedAt: new Date("2029-12-03T00:00:00.000Z"),
+              }),
+              createDocumentRow({
+                processId: PROCESS_ID,
+                type: "etp",
+                status: "failed",
+                updatedAt: new Date("2029-12-04T00:00:00.000Z"),
+              }),
+            ];
+          }
+
           return [
             { processId: PROCESS_ID, departmentId: DEPARTMENT_ID },
             { processId: PROCESS_ID, departmentId: SECOND_DEPARTMENT_ID },
@@ -1219,6 +1232,14 @@ test("getProcesses returns paginated processes for admins and empty page without
   assert.equal(adminResponse.total, 3);
   assert.equal(adminResponse.totalPages, 2);
   assert.deepEqual(adminResponse.items[0]?.departmentIds, [SECOND_DEPARTMENT_ID, DEPARTMENT_ID]);
+  assert.deepEqual(adminResponse.items[0]?.documents, {
+    completedCount: 1,
+    totalRequiredCount: 4,
+    completedTypes: ["dfd"],
+    missingTypes: ["etp", "tr", "minuta"],
+  });
+  assert.equal(adminResponse.items[0]?.updatedAt, "2029-12-01T00:00:00.000Z");
+  assert.equal(adminResponse.items[0]?.listUpdatedAt, "2029-12-04T00:00:00.000Z");
 
   const emptyResponse = await getProcesses({
     actor: {
@@ -1234,11 +1255,115 @@ test("getProcesses returns paginated processes for admins and empty page without
   assert.equal(emptyResponse.totalPages, 0);
 });
 
+test("getProcesses applies listing filters and aggregates completed document types once", async () => {
+  let capturedListWhere: unknown;
+  let capturedCountWhere: unknown;
+  const documentRows = [
+    createDocumentRow({
+      processId: PROCESS_ID,
+      type: "dfd",
+      status: "completed",
+      updatedAt: new Date("2029-12-03T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      processId: PROCESS_ID,
+      type: "dfd",
+      status: "completed",
+      updatedAt: new Date("2029-12-04T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      processId: PROCESS_ID,
+      type: "etp",
+      status: "completed",
+      updatedAt: new Date("2029-12-05T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      processId: PROCESS_ID,
+      type: "tr",
+      status: "failed",
+      updatedAt: new Date("2029-12-06T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      processId: PROCESS_ID,
+      type: "attachment",
+      status: "completed",
+      updatedAt: new Date("2029-12-07T00:00:00.000Z"),
+    }),
+  ];
+
+  const db = {
+    select: () => ({
+      from: (table: unknown) => ({
+        where: async (where?: unknown) => {
+          if (table === processes) {
+            capturedCountWhere = where;
+
+            return [{ total: 1 }];
+          }
+
+          if (table === documents) {
+            return documentRows;
+          }
+
+          return [{ processId: PROCESS_ID, departmentId: DEPARTMENT_ID }];
+        },
+      }),
+    }),
+    query: {
+      processes: {
+        findMany: async (options?: { where?: unknown }) => {
+          capturedListWhere = options?.where;
+
+          return [
+            createProcessRow({
+              processNumber: "PROC-SEARCH-001",
+              externalId: "EXT-SEARCH-001",
+              object: "Aquisicao de material permanente",
+              responsibleName: "Maria Costa",
+              status: "em_edicao",
+              type: "pregao-eletronico",
+              updatedAt: new Date("2029-12-02T00:00:00.000Z"),
+            }),
+          ];
+        },
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getProcesses({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    search: "material",
+    status: "em_edicao",
+    type: "pregao-eletronico",
+  });
+
+  assert.ok(capturedCountWhere);
+  assert.ok(capturedListWhere);
+  assert.deepEqual(response.items[0]?.documents, {
+    completedCount: 2,
+    totalRequiredCount: 4,
+    completedTypes: ["dfd", "etp"],
+    missingTypes: ["tr", "minuta"],
+  });
+  assert.equal(response.items[0]?.listUpdatedAt, "2029-12-07T00:00:00.000Z");
+});
+
 test("getProcess allows admins and rejects members outside organization", async () => {
   const db = {
     query: {
       processes: {
         findFirst: async () => createProcessRow({ organizationId: OTHER_ORGANIZATION_ID }),
+      },
+      departments: {
+        findMany: async () => [],
+      },
+      documents: {
+        findMany: async () => [],
       },
     },
     select: () => ({
@@ -1259,6 +1384,71 @@ test("getProcess allows admins and rejects members outside organization", async 
   });
 
   assert.equal(response.organizationId, OTHER_ORGANIZATION_ID);
+  assert.deepEqual(response.departments, []);
+  assert.equal(response.estimatedValue, null);
+  assert.deepEqual(response.documents, [
+    {
+      type: "dfd",
+      label: "DFD",
+      title: "Documento de Formalização de Demanda",
+      description: "Justificativa da necessidade de contratação",
+      status: "pendente",
+      documentId: null,
+      lastUpdatedAt: null,
+      progress: null,
+      availableActions: {
+        create: true,
+        edit: false,
+        view: false,
+      },
+    },
+    {
+      type: "etp",
+      label: "ETP",
+      title: "Estudo Técnico Preliminar",
+      description: "Análise técnica e levantamento de soluções",
+      status: "pendente",
+      documentId: null,
+      lastUpdatedAt: null,
+      progress: null,
+      availableActions: {
+        create: true,
+        edit: false,
+        view: false,
+      },
+    },
+    {
+      type: "tr",
+      label: "TR",
+      title: "Termo de Referência",
+      description: "Especificações técnicas e requisitos",
+      status: "pendente",
+      documentId: null,
+      lastUpdatedAt: null,
+      progress: null,
+      availableActions: {
+        create: true,
+        edit: false,
+        view: false,
+      },
+    },
+    {
+      type: "minuta",
+      label: "Minuta",
+      title: "Minuta do Contrato",
+      description: "Cláusulas e condições contratuais",
+      status: "pendente",
+      documentId: null,
+      lastUpdatedAt: null,
+      progress: null,
+      availableActions: {
+        create: true,
+        edit: false,
+        view: false,
+      },
+    },
+  ]);
+  assert.equal(response.detailUpdatedAt, "2029-12-01T00:00:00.000Z");
 
   await assert.rejects(
     () =>
@@ -1273,6 +1463,179 @@ test("getProcess allows admins and rejects members outside organization", async 
       }),
     ForbiddenError,
   );
+});
+
+test("getProcess returns enriched detail data and keeps base fields compatible", async () => {
+  const dfdDocumentId = "6a6a6a6a-e2e5-4876-b4c3-b35306c6e733";
+  const etpDocumentId = "5a5a5a5a-e2e5-4876-b4c3-b35306c6e733";
+  const failedEtpDocumentId = "4a4a4a4a-e2e5-4876-b4c3-b35306c6e733";
+  const minutaDocumentId = "3a3a3a3a-e2e5-4876-b4c3-b35306c6e733";
+  const process = createProcessRow({
+    sourceMetadata: {
+      extractedFields: {
+        totalValue: "R$ 450.000,00",
+      },
+    },
+    updatedAt: new Date("2029-12-02T00:00:00.000Z"),
+  });
+  const departmentRows = [
+    createDepartmentRow({
+      updatedAt: new Date("2029-12-03T00:00:00.000Z"),
+    }),
+    createDepartmentRow({
+      id: SECOND_DEPARTMENT_ID,
+      name: "Departamento de Tecnologia",
+      budgetUnitCode: null,
+      updatedAt: new Date("2029-12-04T00:00:00.000Z"),
+    }),
+  ];
+  const documentRows = [
+    createDocumentRow({
+      id: dfdDocumentId,
+      type: "dfd",
+      status: "completed",
+      updatedAt: new Date("2029-12-05T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      id: etpDocumentId,
+      type: "etp",
+      status: "generating",
+      updatedAt: new Date("2029-12-06T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      id: failedEtpDocumentId,
+      type: "etp",
+      status: "failed",
+      updatedAt: new Date("2029-12-01T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      id: minutaDocumentId,
+      type: "minuta",
+      status: "failed",
+      updatedAt: new Date("2029-12-07T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      id: "2a2a2a2a-e2e5-4876-b4c3-b35306c6e733",
+      type: "attachment",
+      status: "completed",
+      updatedAt: new Date("2029-12-08T00:00:00.000Z"),
+    }),
+  ];
+  const db = {
+    query: {
+      processes: {
+        findFirst: async () => process,
+      },
+      departments: {
+        findMany: async () => departmentRows,
+      },
+      documents: {
+        findMany: async () => documentRows,
+      },
+    },
+    select: () => ({
+      from: () => ({
+        where: async () => [
+          { departmentId: DEPARTMENT_ID },
+          { departmentId: SECOND_DEPARTMENT_ID },
+        ],
+      }),
+    }),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getProcess({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    processId: PROCESS_ID,
+  });
+
+  assert.equal(response.processNumber, process.processNumber);
+  assert.equal(response.status, process.status);
+  assert.equal(response.estimatedValue, "R$ 450.000,00");
+  assert.deepEqual(response.departmentIds, [SECOND_DEPARTMENT_ID, DEPARTMENT_ID]);
+  assert.deepEqual(response.departments, [
+    {
+      id: SECOND_DEPARTMENT_ID,
+      organizationId: ORGANIZATION_ID,
+      name: "Departamento de Tecnologia",
+      budgetUnitCode: null,
+      label: "Departamento de Tecnologia",
+    },
+    {
+      id: DEPARTMENT_ID,
+      organizationId: ORGANIZATION_ID,
+      name: "Sec.Mun.de Educ,Cultura, Esporte e Lazer",
+      budgetUnitCode: "06.001",
+      label: "06.001 - Sec.Mun.de Educ,Cultura, Esporte e Lazer",
+    },
+  ]);
+  assert.deepEqual(response.documents, [
+    {
+      type: "dfd",
+      label: "DFD",
+      title: "Documento de Formalização de Demanda",
+      description: "Justificativa da necessidade de contratação",
+      status: "concluido",
+      documentId: dfdDocumentId,
+      lastUpdatedAt: "2029-12-05T00:00:00.000Z",
+      progress: null,
+      availableActions: {
+        create: false,
+        edit: true,
+        view: true,
+      },
+    },
+    {
+      type: "etp",
+      label: "ETP",
+      title: "Estudo Técnico Preliminar",
+      description: "Análise técnica e levantamento de soluções",
+      status: "em_edicao",
+      documentId: etpDocumentId,
+      lastUpdatedAt: "2029-12-06T00:00:00.000Z",
+      progress: null,
+      availableActions: {
+        create: false,
+        edit: true,
+        view: true,
+      },
+    },
+    {
+      type: "tr",
+      label: "TR",
+      title: "Termo de Referência",
+      description: "Especificações técnicas e requisitos",
+      status: "pendente",
+      documentId: null,
+      lastUpdatedAt: null,
+      progress: null,
+      availableActions: {
+        create: true,
+        edit: false,
+        view: false,
+      },
+    },
+    {
+      type: "minuta",
+      label: "Minuta",
+      title: "Minuta do Contrato",
+      description: "Cláusulas e condições contratuais",
+      status: "erro",
+      documentId: minutaDocumentId,
+      lastUpdatedAt: "2029-12-07T00:00:00.000Z",
+      progress: null,
+      availableActions: {
+        create: false,
+        edit: true,
+        view: true,
+      },
+    },
+  ]);
+  assert.equal(response.detailUpdatedAt, "2029-12-08T00:00:00.000Z");
 });
 
 test("updateProcess lets admins and members update fields and department links", async () => {

@@ -1,6 +1,7 @@
 import { pickErrorResponses } from "../../shared/http/errors";
 import {
   type AppRouteSchema,
+  OPENAPI_EXAMPLE_EMAIL,
   OPENAPI_EXAMPLE_PERSON_NAME,
   OPENAPI_EXAMPLE_UUID,
   openApiEmailSchema,
@@ -35,6 +36,12 @@ export const userParamsSchema = z.object({
 export const usersPaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
+  search: withOpenApiExample(z.string().trim().min(1).optional(), OPENAPI_EXAMPLE_EMAIL),
+  role: withOpenApiExample(
+    z.enum(["admin", "organization_owner", "member"]).optional(),
+    UPDATE_USER_ROLE_EXAMPLE,
+  ),
+  organizationId: withOpenApiExample(openApiUuidSchema().optional(), OPENAPI_EXAMPLE_UUID),
 });
 
 export const updateUserBodySchema = withOpenApiExample(

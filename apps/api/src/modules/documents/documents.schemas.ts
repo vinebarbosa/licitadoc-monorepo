@@ -32,8 +32,10 @@ const documentSummarySchema = z.object({
   name: z.string(),
   organizationId: openApiUuidSchema(),
   processId: openApiUuidSchema(),
+  processNumber: z.string().nullable(),
   type: z.string(),
   status: z.string(),
+  responsibles: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -53,6 +55,10 @@ export const createDocumentBodySchema = withOpenApiExample(
     .object({
       processId: openApiUuidSchema(),
       documentType: documentTypeSchema,
+      name: withOpenApiExample(
+        z.string().nullable().optional().transform(normalizeNullableOptionalText),
+        "DFD - PE-2024-045",
+      ),
       instructions: withOpenApiExample(
         z.string().nullable().optional().transform(normalizeNullableOptionalText),
         OPENAPI_EXAMPLE_TEXT,
@@ -62,6 +68,7 @@ export const createDocumentBodySchema = withOpenApiExample(
   {
     processId: OPENAPI_EXAMPLE_UUID,
     documentType: "dfd",
+    name: null,
     instructions: "Priorizar linguagem objetiva para avaliacao preliminar.",
   },
 );

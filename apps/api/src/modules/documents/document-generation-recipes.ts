@@ -29,11 +29,41 @@ const dfdRecipe: DocumentGenerationRecipe = Object.freeze({
   template: readRecipeAsset("dfd-template.md"),
 });
 
+const etpRecipe: DocumentGenerationRecipe = Object.freeze({
+  documentType: "etp",
+  instructions: readRecipeAsset("etp.instructions.md"),
+  template: readRecipeAsset("etp.template.md"),
+});
+
+const trRecipe: DocumentGenerationRecipe = Object.freeze({
+  documentType: "tr",
+  instructions: readRecipeAsset("tr.instructions.md"),
+  template: readRecipeAsset("tr.template.md"),
+});
+
+const minutaRecipe: DocumentGenerationRecipe = Object.freeze({
+  documentType: "minuta",
+  instructions: readRecipeAsset("minuta.instructions.md"),
+  template: readRecipeAsset("minuta.template.md"),
+});
+
 export function resolveDocumentGenerationRecipe(
   documentType: GeneratedDocumentType,
 ): DocumentGenerationRecipe | null {
   if (documentType === "dfd") {
     return dfdRecipe;
+  }
+
+  if (documentType === "etp") {
+    return etpRecipe;
+  }
+
+  if (documentType === "tr") {
+    return trRecipe;
+  }
+
+  if (documentType === "minuta") {
+    return minutaRecipe;
   }
 
   return null;

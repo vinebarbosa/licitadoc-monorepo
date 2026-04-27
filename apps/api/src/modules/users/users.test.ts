@@ -115,6 +115,96 @@ test("getUsers scopes organization owners to their organization", async () => {
   assert.equal(response.totalPages, 1);
 });
 
+test("getUsers applies search, role, and organization filters for admins", async () => {
+  let capturedCountWhere: unknown;
+  let capturedFindManyWhere: unknown;
+
+  const db = {
+    select: () => ({
+      from: () => ({
+        where: async (where: unknown) => {
+          capturedCountWhere = where;
+          return [{ total: 1 }];
+        },
+      }),
+    }),
+    query: {
+      users: {
+        findMany: async (options?: { where?: unknown }) => {
+          capturedFindManyWhere = options?.where;
+          return [
+            createUserRow({
+              id: "owner_1",
+              name: "Maria Admin",
+              email: "maria.admin@example.com",
+              role: "organization_owner",
+              organizationId: "org_2",
+            }),
+          ];
+        },
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getUsers({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    search: "maria",
+    role: "organization_owner",
+    organizationId: "org_2",
+  });
+
+  assert.ok(capturedCountWhere);
+  assert.ok(capturedFindManyWhere);
+  assert.equal(response.total, 1);
+  assert.equal(response.items[0]?.role, "organization_owner");
+  assert.equal(response.items[0]?.organizationId, "org_2");
+});
+
+test("getUsers keeps organization owners scoped to their organization when filtering", async () => {
+  let capturedCountWhere: unknown;
+  let capturedFindManyWhere: unknown;
+
+  const db = {
+    select: () => ({
+      from: () => ({
+        where: async (where: unknown) => {
+          capturedCountWhere = where;
+          return [{ total: 1 }];
+        },
+      }),
+    }),
+    query: {
+      users: {
+        findMany: async (options?: { where?: unknown }) => {
+          capturedFindManyWhere = options?.where;
+          return [createUserRow({ id: "member_1", organizationId: "org_1" })];
+        },
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getUsers({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: "org_1",
+    },
+    db,
+    organizationId: "org_2",
+    search: "user",
+  });
+
+  assert.ok(capturedCountWhere);
+  assert.ok(capturedFindManyWhere);
+  assert.equal(response.items.length, 1);
+  assert.equal(response.items[0]?.organizationId, "org_1");
+});
+
 test("getUsers returns an empty page when owner has no organization", async () => {
   const db = {} as FastifyInstance["db"];
 

@@ -2,7 +2,12 @@ import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { canReadStoredProcess } from "./processes.policies";
-import { getProcessDepartmentIds, serializeProcess } from "./processes.shared";
+import {
+  getProcessDepartmentIds,
+  getProcessDetailDepartments,
+  getProcessDetailDocuments,
+  serializeProcessDetail,
+} from "./processes.shared";
 
 type Input = {
   actor: Actor;
@@ -26,5 +31,20 @@ export async function getProcess({ actor, db, processId }: Input) {
     processId,
   });
 
-  return serializeProcess(process, departmentIds);
+  const [departments, documents] = await Promise.all([
+    getProcessDetailDepartments({
+      db,
+      departmentIds,
+    }),
+    getProcessDetailDocuments({
+      db,
+      processId,
+    }),
+  ]);
+
+  return serializeProcessDetail(process, {
+    departmentIds,
+    departments,
+    documents,
+  });
 }

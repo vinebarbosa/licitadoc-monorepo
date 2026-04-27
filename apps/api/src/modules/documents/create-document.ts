@@ -5,8 +5,8 @@ import { documentGenerationRuns, documents } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { TextGenerationProvider } from "../../shared/text-generation/types";
 import { TextGenerationError } from "../../shared/text-generation/types";
-import { getProcessDepartmentIds } from "../processes/processes.shared";
 import { canReadStoredProcess } from "../processes/processes.policies";
+import { getProcessDepartmentIds } from "../processes/processes.shared";
 import type { CreateDocumentInput } from "./documents.schemas";
 import {
   buildDocumentGenerationPrompt,
@@ -102,7 +102,7 @@ export async function createDocument({ actor, db, document, textGeneration }: In
       .values({
         organizationId: process.organizationId,
         processId: process.id,
-        name: getGeneratedDocumentName(document.documentType, process),
+        name: document.name ?? getGeneratedDocumentName(document.documentType, process),
         type: document.documentType,
         status: "generating",
         draftContent: null,

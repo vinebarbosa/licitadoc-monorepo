@@ -1,18 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { anonymousSessionResponse, healthOkResponse } from "../src/test/msw/fixtures";
 
-test("home route renders with deterministic backend responses", async ({ page }) => {
-  await page.route("http://localhost:3333/health", async (route) => {
-    await route.fulfill({ json: healthOkResponse });
-  });
-
-  await page.route("http://localhost:3333/api/auth/get-session", async (route) => {
-    await route.fulfill({ json: anonymousSessionResponse });
-  });
-
+test("landing route renders public marketing content", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "Licitadoc" })).toBeVisible();
-  await expect(page.getByText("Health: ok")).toBeVisible();
-  await expect(page.getByText("Session: sem sessao ativa")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Documentos para Contratações Públicas" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /Solicitar Acesso/ }).first()).toBeVisible();
+  await expect(page.getByText("Tudo que você precisa para suas contratações")).toBeVisible();
+  await expect(page.getByText("Desenvolvido para o setor público brasileiro")).toBeVisible();
 });

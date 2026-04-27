@@ -1,15 +1,42 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
 type RequireSessionProps = {
   children: ReactNode;
-  isAllowed: boolean;
+  isLoading?: boolean;
+  isAuthenticated: boolean;
+  isAuthorized?: boolean;
   redirectTo?: string;
+  unauthorizedTo?: string;
+  loadingFallback?: ReactNode;
 };
 
-export function RequireSession({ children, isAllowed, redirectTo = "/" }: RequireSessionProps) {
-  if (!isAllowed) {
-    return <Navigate to={redirectTo} replace />;
+export function RequireSession({
+  children,
+  isLoading = false,
+  isAuthenticated,
+  isAuthorized = true,
+  redirectTo = "/entrar",
+  unauthorizedTo = "/nao-autorizado",
+  loadingFallback = null,
+}: RequireSessionProps) {
+  const location = useLocation();
+
+  if (isLoading) {
+    return <>{loadingFallback}</>;
+  }
+
+  if (!isAuthenticated) {
+    const attemptedPath = `${location.pathname}${location.search}`;
+    const signInPath = redirectTo.includes("?")
+      ? redirectTo
+      : `${redirectTo}?redirectTo=${encodeURIComponent(attemptedPath)}`;
+
+    return <Navigate to={signInPath} replace />;
+  }
+
+  if (!isAuthorized) {
+    return <Navigate to={unauthorizedTo} replace />;
   }
 
   return children;

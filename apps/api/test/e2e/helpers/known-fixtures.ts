@@ -64,6 +64,21 @@ export const API_E2E_TEST_ORGANIZATION_SLUGS = [
   "document-e2e-other-org",
 ] as const;
 
+export const API_E2E_PROCESS_TEST_ORGANIZATION_CNPJS = [
+  "08.290.223/0001-42",
+  "08.290.223/0001-43",
+  "94100000000001",
+  "94200000000001",
+  "94200000000002",
+  "94300000000001",
+  "94300000000002",
+  "94400000000001",
+  "94400000000002",
+  "94500000000001",
+  "94600000000001",
+  "94600000000002",
+] as const;
+
 export const API_E2E_TEST_DEPARTMENT_SLUGS = [
   "department-e2e-admin-created",
   "department-e2e-owner-created",

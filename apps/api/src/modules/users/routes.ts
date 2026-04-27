@@ -21,6 +21,9 @@ export const registerUserRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
         db: app.db,
         page: request.query.page,
         pageSize: request.query.pageSize,
+        search: request.query.search,
+        role: request.query.role,
+        organizationId: request.query.organizationId,
       });
     },
   );

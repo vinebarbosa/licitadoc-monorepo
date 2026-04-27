@@ -9,8 +9,8 @@ import {
 import { getProcess } from "./get-process";
 import { getProcesses } from "./get-processes";
 import {
-  createProcessFromExpenseRequestSchema,
   createProcessFromExpenseRequestPdfSchema,
+  createProcessFromExpenseRequestSchema,
   createProcessSchema,
   getProcessesSchema,
   getProcessSchema,
@@ -49,6 +49,9 @@ export const registerProcessRoutes: FastifyPluginAsyncZodOpenApi = async (app) =
         db: app.db,
         page: request.query.page,
         pageSize: request.query.pageSize,
+        search: request.query.search,
+        status: request.query.status,
+        type: request.query.type,
       });
     },
   );

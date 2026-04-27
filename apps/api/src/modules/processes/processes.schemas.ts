@@ -175,6 +175,150 @@ const processSchema = z.object({
   updatedAt: z.string(),
 });
 
+const expectedProcessDocumentTypeSchema = z.enum(["dfd", "etp", "tr", "minuta"]);
+
+const processDocumentProgressSchema = z.object({
+  completedCount: z.number().int().nonnegative(),
+  totalRequiredCount: z.number().int().nonnegative(),
+  completedTypes: z.array(expectedProcessDocumentTypeSchema),
+  missingTypes: z.array(expectedProcessDocumentTypeSchema),
+});
+
+const processListItemSchema = processSchema.extend({
+  documents: processDocumentProgressSchema,
+  listUpdatedAt: z.string(),
+});
+
+const processDetailDepartmentSchema = z.object({
+  id: openApiUuidSchema(),
+  organizationId: openApiUuidSchema(),
+  name: z.string(),
+  budgetUnitCode: z.string().nullable(),
+  label: z.string(),
+});
+
+const processDetailDocumentStatusSchema = z.enum(["concluido", "em_edicao", "pendente", "erro"]);
+
+const processDetailDocumentActionsSchema = z.object({
+  create: z.boolean(),
+  edit: z.boolean(),
+  view: z.boolean(),
+});
+
+const processDetailDocumentCardSchema = z.object({
+  type: expectedProcessDocumentTypeSchema,
+  label: z.string(),
+  title: z.string(),
+  description: z.string(),
+  status: processDetailDocumentStatusSchema,
+  documentId: openApiUuidSchema().nullable(),
+  lastUpdatedAt: z.string().nullable(),
+  progress: z.number().int().min(0).max(100).nullable(),
+  availableActions: processDetailDocumentActionsSchema,
+});
+
+const processDetailExample = {
+  id: OPENAPI_EXAMPLE_UUID,
+  organizationId: OPENAPI_EXAMPLE_UUID,
+  type: OPENAPI_EXAMPLE_PROCESS_TYPE,
+  processNumber: OPENAPI_EXAMPLE_PROCESS_NUMBER,
+  externalId: OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
+  issuedAt: OPENAPI_EXAMPLE_DATE_TIME,
+  object: OPENAPI_EXAMPLE_PROCESS_OBJECT,
+  justification: OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION,
+  responsibleName: OPENAPI_EXAMPLE_PERSON_NAME,
+  status: OPENAPI_EXAMPLE_PROCESS_STATUS,
+  sourceKind: "expense_request",
+  sourceReference: "SD-6-2026",
+  sourceMetadata: OPENAPI_EXAMPLE_PROCESS_SOURCE_METADATA,
+  departmentIds: OPENAPI_EXAMPLE_UUID_LIST,
+  createdAt: OPENAPI_EXAMPLE_DATE_TIME,
+  updatedAt: OPENAPI_EXAMPLE_DATE_TIME,
+  departments: [
+    {
+      id: OPENAPI_EXAMPLE_UUID,
+      organizationId: OPENAPI_EXAMPLE_UUID,
+      name: "Secretaria Municipal de Educacao",
+      budgetUnitCode: "06.001",
+      label: "06.001 - Secretaria Municipal de Educacao",
+    },
+  ],
+  estimatedValue: "R$ 245.760,00",
+  documents: [
+    {
+      type: "dfd",
+      label: "DFD",
+      title: "Documento de Formalização de Demanda",
+      description: "Justificativa da necessidade de contratação",
+      status: "concluido",
+      documentId: OPENAPI_EXAMPLE_UUID,
+      lastUpdatedAt: OPENAPI_EXAMPLE_DATE_TIME,
+      progress: null,
+      availableActions: {
+        create: false,
+        edit: true,
+        view: true,
+      },
+    },
+    {
+      type: "etp",
+      label: "ETP",
+      title: "Estudo Técnico Preliminar",
+      description: "Análise técnica e levantamento de soluções",
+      status: "em_edicao",
+      documentId: OPENAPI_EXAMPLE_UUID,
+      lastUpdatedAt: OPENAPI_EXAMPLE_DATE_TIME,
+      progress: null,
+      availableActions: {
+        create: false,
+        edit: true,
+        view: true,
+      },
+    },
+    {
+      type: "tr",
+      label: "TR",
+      title: "Termo de Referência",
+      description: "Especificações técnicas e requisitos",
+      status: "pendente",
+      documentId: null,
+      lastUpdatedAt: null,
+      progress: null,
+      availableActions: {
+        create: true,
+        edit: false,
+        view: false,
+      },
+    },
+    {
+      type: "minuta",
+      label: "Minuta",
+      title: "Minuta do Contrato",
+      description: "Cláusulas e condições contratuais",
+      status: "erro",
+      documentId: OPENAPI_EXAMPLE_UUID,
+      lastUpdatedAt: OPENAPI_EXAMPLE_DATE_TIME,
+      progress: null,
+      availableActions: {
+        create: false,
+        edit: true,
+        view: true,
+      },
+    },
+  ],
+  detailUpdatedAt: OPENAPI_EXAMPLE_DATE_TIME,
+};
+
+const processDetailSchema = withOpenApiExample(
+  processSchema.extend({
+    departments: z.array(processDetailDepartmentSchema),
+    estimatedValue: z.string().nullable(),
+    documents: z.array(processDetailDocumentCardSchema),
+    detailUpdatedAt: z.string(),
+  }),
+  processDetailExample,
+);
+
 export const processParamsSchema = z.object({
   processId: openApiUuidSchema(),
 });
@@ -182,6 +326,9 @@ export const processParamsSchema = z.object({
 export const processesPaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
+  search: z.string().optional().transform(normalizeNullableOptionalText),
+  status: z.string().optional().transform(normalizeNullableOptionalText),
+  type: z.string().optional().transform(normalizeNullableOptionalText),
 });
 
 export const createProcessBodySchema = withOpenApiExample(
@@ -282,7 +429,7 @@ const createProcessFromExpenseRequestPdfBodySchema = withOpenApiExample(
 );
 
 const paginatedProcessesSchema = z.object({
-  items: z.array(processSchema),
+  items: z.array(processListItemSchema),
   page: z.number().int().positive(),
   pageSize: z.number().int().positive(),
   total: z.number().int().nonnegative(),
@@ -341,7 +488,7 @@ export const getProcessSchema = {
   summary: "Get process",
   params: processParamsSchema,
   response: {
-    200: processSchema,
+    200: processDetailSchema,
     ...pickErrorResponses(400, 401, 403, 404, 500),
   },
 } satisfies AppRouteSchema;

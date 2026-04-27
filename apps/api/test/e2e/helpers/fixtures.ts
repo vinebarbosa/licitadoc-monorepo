@@ -19,6 +19,7 @@ type TestDb = FastifyInstance["db"];
 type CleanupApiE2EStateInput = {
   departmentSlugs?: string[];
   emails?: string[];
+  organizationCnpjs?: string[];
   organizationSlugs?: string[];
 };
 
@@ -36,7 +37,10 @@ type CreateDocumentFixtureInput = {
   organizationId: string;
   processId: string;
   responsibles?: string[];
+  status?: string;
   storageKey: string;
+  type?: string;
+  updatedAt?: string;
 };
 
 type CreateOrganizationFixtureInput = {
@@ -77,22 +81,44 @@ function uniqueSlugs(slugs: string[]) {
   return Array.from(new Set(slugs.map((slug) => slug.trim()).filter(Boolean)));
 }
 
+function uniqueCnpjs(cnpjs: string[]) {
+  return Array.from(new Set(cnpjs.map((cnpj) => cnpj.trim()).filter(Boolean)));
+}
+
 export async function cleanupApiE2EState(
   db: TestDb,
-  { departmentSlugs = [], emails = [], organizationSlugs = [] }: CleanupApiE2EStateInput,
+  {
+    departmentSlugs = [],
+    emails = [],
+    organizationCnpjs = [],
+    organizationSlugs = [],
+  }: CleanupApiE2EStateInput,
 ) {
   const normalizedDepartmentSlugs = uniqueSlugs(departmentSlugs);
+  const normalizedCnpjs = uniqueCnpjs(organizationCnpjs);
   const normalizedEmails = uniqueEmails(emails);
   const normalizedSlugs = uniqueSlugs(organizationSlugs);
+  const organizationLookupConditions = [];
+
+  if (normalizedSlugs.length > 0) {
+    organizationLookupConditions.push(inArray(organizations.slug, normalizedSlugs));
+  }
+
+  if (normalizedCnpjs.length > 0) {
+    organizationLookupConditions.push(inArray(organizations.cnpj, normalizedCnpjs));
+  }
 
   const existingOrganizations =
-    normalizedSlugs.length === 0
+    organizationLookupConditions.length === 0
       ? []
       : await db.query.organizations.findMany({
           columns: {
             id: true,
           },
-          where: inArray(organizations.slug, normalizedSlugs),
+          where:
+            organizationLookupConditions.length === 1
+              ? organizationLookupConditions[0]
+              : or(...organizationLookupConditions),
         });
   const organizationIds = existingOrganizations.map((organization) => organization.id);
   const existingDepartments =
@@ -356,7 +382,10 @@ export async function createDocumentFixture(
     organizationId,
     processId,
     responsibles = ["Responsavel de Teste"],
+    status = "completed",
     storageKey,
+    type = "attachment",
+    updatedAt,
   }: CreateDocumentFixtureInput,
 ) {
   const [document] = await db
@@ -365,7 +394,10 @@ export async function createDocumentFixture(
       organizationId,
       processId,
       name,
+      status,
       storageKey,
+      type,
+      ...(updatedAt ? { updatedAt: new Date(updatedAt) } : {}),
       responsibles,
     })
     .returning();

@@ -1,4 +1,4 @@
-import { count } from "drizzle-orm";
+import { and, count, eq, ilike, or } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import { users } from "../../db";
@@ -11,9 +11,12 @@ type Input = {
   db: FastifyInstance["db"];
   page?: number;
   pageSize?: number;
+  search?: string;
+  role?: Actor["role"];
+  organizationId?: string;
 };
 
-export async function getUsers({ actor, db, page, pageSize }: Input) {
+export async function getUsers({ actor, db, page, pageSize, search, role, organizationId }: Input) {
   canListUsers(actor);
 
   const pagination = normalizePagination({ page, pageSize });
@@ -28,15 +31,28 @@ export async function getUsers({ actor, db, page, pageSize }: Input) {
     };
   }
 
+  const normalizedSearch = search?.trim();
+  const normalizedOrganizationId =
+    actor.role === "organization_owner" ? (actor.organizationId ?? undefined) : organizationId;
   const scope = getUsersVisibilityScope(actor);
+  const filters = [
+    scope,
+    normalizedSearch
+      ? or(ilike(users.name, `%${normalizedSearch}%`), ilike(users.email, `%${normalizedSearch}%`))
+      : undefined,
+    role ? eq(users.role, role) : undefined,
+    normalizedOrganizationId ? eq(users.organizationId, normalizedOrganizationId) : undefined,
+  ].filter((value) => value !== undefined);
+  const where = filters.length === 0 ? undefined : and(...filters);
+
   const [countResult] = await db
     .select({
       total: count(),
     })
     .from(users)
-    .where(scope);
+    .where(where);
   const rows = await db.query.users.findMany({
-    where: scope,
+    where,
     orderBy: (table, { desc }) => [desc(table.createdAt)],
     limit: pagination.pageSize,
     offset: pagination.offset,

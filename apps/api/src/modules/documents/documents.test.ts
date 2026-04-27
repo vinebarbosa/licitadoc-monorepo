@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { test } from "vitest";
 import {
-  departments as departmentsTable,
+  type departments as departmentsTable,
   documentGenerationRuns,
   documents,
-  processDepartments,
   type organizations,
+  processDepartments,
   type processes,
 } from "../../db";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
@@ -16,6 +16,7 @@ import {
 } from "../../shared/text-generation/types";
 import { createDocument } from "./create-document";
 import { createDocumentBodySchema } from "./documents.schemas";
+import { getDocuments } from "./get-documents";
 
 const ORGANIZATION_ID = "4fd5b7df-e2e5-4876-b4c3-b35306c6e733";
 const OTHER_ORGANIZATION_ID = "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228";
@@ -259,6 +260,151 @@ test("createDocument generates and persists a completed draft", async () => {
   assert.match(receivedPrompt ?? "", /Usar linguagem objetiva\./);
 });
 
+test("createDocument uses the canonical ETP recipe and zero-value safety", async () => {
+  let receivedPrompt: string | undefined;
+  let updatedDocument: Record<string, unknown> | undefined;
+
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb({
+      onDocumentUpdate: (values) => {
+        updatedDocument = values;
+      },
+      process: createProcessRow({
+        sourceKind: "expense_request",
+        sourceReference: "SD-6-2026",
+        sourceMetadata: {
+          extractedFields: {
+            budgetUnitCode: "06.001",
+            budgetUnitName: "Secretaria Municipal de Cultura",
+            item: {
+              description: "Apresentacao artistica musical",
+              totalValue: "R$ 0,00",
+            },
+            requestNumber: "6",
+          },
+          warnings: ["item_value_missing"],
+        },
+      }),
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "etp",
+      instructions: "Manter consistencia com o DFD.",
+    }),
+    textGeneration: createTextGenerationProvider(async (input) => {
+      receivedPrompt = input.prompt;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: [
+          "# ESTUDO TECNICO PRELIMINAR (ETP)",
+          "",
+          "## 1. INTRODUCAO",
+          "Conteudo gerado do ETP.",
+          "",
+          "## 5. ESTIMATIVA DO VALOR DA CONTRATACAO",
+          "Valor nao informado no contexto; sera objeto de apuracao posterior.",
+        ].join("\n"),
+        responseMetadata: {
+          finishReason: "stop",
+        },
+      };
+    }),
+  });
+
+  assert.match(receivedPrompt ?? "", /# ESTUDO TECNICO PRELIMINAR \(ETP\)/);
+  assert.match(receivedPrompt ?? "", /- Estimativa disponivel: nao/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto extraido da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /nao simule pesquisa de mercado/i);
+  assert.match(receivedPrompt ?? "", /Manter consistencia com o DFD\./);
+  assert.equal(updatedDocument?.status, "completed");
+  assert.equal(updatedDocument?.draftContent, response.draftContent);
+  assert.match(response.draftContent ?? "", /ESTIMATIVA DO VALOR DA CONTRATACAO/);
+  assert.match(response.draftContent ?? "", /Valor nao informado no contexto/);
+});
+
+test("createDocument uses the canonical TR recipe and zero-value safety", async () => {
+  let receivedPrompt: string | undefined;
+  let updatedDocument: Record<string, unknown> | undefined;
+
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb({
+      onDocumentUpdate: (values) => {
+        updatedDocument = values;
+      },
+      process: createProcessRow({
+        object: "Contratacao de apresentacao artistica musical da banda FORRO TSUNAMI",
+        sourceKind: "expense_request",
+        sourceReference: "SD-6-2026",
+        sourceMetadata: {
+          extractedFields: {
+            budgetUnitCode: "06.001",
+            budgetUnitName: "Secretaria Municipal de Cultura",
+            item: {
+              description: "Apresentacao artistica musical",
+              totalValue: "R$ 0,00",
+            },
+            requestNumber: "6",
+          },
+          warnings: ["item_value_missing"],
+        },
+      }),
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "tr",
+      instructions: "Manter consistencia operacional com o ETP.",
+    }),
+    textGeneration: createTextGenerationProvider(async (input) => {
+      receivedPrompt = input.prompt;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: [
+          "# TERMO DE REFERENCIA",
+          "",
+          "## 1. OBJETO",
+          "Conteudo gerado do TR.",
+          "",
+          "## 7. VALOR ESTIMADO E DOTACAO ORCAMENTARIA",
+          "Valor nao informado no contexto; sera apurado posteriormente por pesquisa de mercado.",
+        ].join("\n"),
+        responseMetadata: {
+          finishReason: "stop",
+        },
+      };
+    }),
+  });
+
+  assert.match(receivedPrompt ?? "", /# TERMO DE REFERENCIA/);
+  assert.match(receivedPrompt ?? "", /- Tipo de documento: TR/);
+  assert.match(
+    receivedPrompt ?? "",
+    /- Tipo de contratacao inferido para obrigacoes: apresentacao_artistica/,
+  );
+  assert.match(receivedPrompt ?? "", /- Estimativa disponivel: nao/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto extraido da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
+  assert.match(receivedPrompt ?? "", /nao invente valores/i);
+  assert.match(receivedPrompt ?? "", /Manter consistencia operacional com o ETP\./);
+  assert.equal(updatedDocument?.status, "completed");
+  assert.equal(updatedDocument?.draftContent, response.draftContent);
+  assert.match(response.draftContent ?? "", /VALOR ESTIMADO E DOTACAO ORCAMENTARIA/);
+  assert.match(response.draftContent ?? "", /Valor nao informado no contexto/);
+});
+
 test("createDocumentBodySchema rejects unsupported document types", () => {
   assert.equal(
     createDocumentBodySchema.safeParse({
@@ -267,6 +413,83 @@ test("createDocumentBodySchema rejects unsupported document types", () => {
     }).success,
     false,
   );
+});
+
+test("createDocument persists a custom name when provided", async () => {
+  let insertedDocument: Record<string, unknown> | undefined;
+
+  await createDocument({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db: createDb({
+      onDocumentInsert: (values) => {
+        insertedDocument = values;
+      },
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+      name: "Meu DFD Personalizado",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Conteudo",
+      responseMetadata: { finishReason: "stop" },
+    })),
+  });
+
+  assert.equal(insertedDocument?.name, "Meu DFD Personalizado");
+});
+
+test("createDocument uses generated name when custom name is blank or omitted", async () => {
+  let insertedWithBlank: Record<string, unknown> | undefined;
+  let insertedWithOmit: Record<string, unknown> | undefined;
+
+  await createDocument({
+    actor: { id: "admin_user", role: "admin", organizationId: null },
+    db: createDb({
+      onDocumentInsert: (v) => {
+        insertedWithBlank = v;
+      },
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "etp",
+      name: "   ",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Conteudo",
+      responseMetadata: { finishReason: "stop" },
+    })),
+  });
+
+  await createDocument({
+    actor: { id: "admin_user", role: "admin", organizationId: null },
+    db: createDb({
+      onDocumentInsert: (v) => {
+        insertedWithOmit = v;
+      },
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "etp",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Conteudo",
+      responseMetadata: { finishReason: "stop" },
+    })),
+  });
+
+  assert.equal(insertedWithBlank?.name, "ETP - PROC-2026-001");
+  assert.equal(insertedWithOmit?.name, "ETP - PROC-2026-001");
 });
 
 test("createDocument rejects actors outside the process organization", async () => {
@@ -399,4 +622,378 @@ test("createDocument strips ETP and TR sections from generated DFD content", asy
   );
   assert.equal(/ESTUDO TECNICO PRELIMINAR/i.test(response.draftContent ?? ""), false);
   assert.equal(/TERMO DE REFERENCIA/i.test(response.draftContent ?? ""), false);
+});
+
+test("createDocument strips DFD and TR sections from generated ETP content", async () => {
+  let updatedDocument: Record<string, unknown> | undefined;
+
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb({
+      onDocumentUpdate: (values) => {
+        updatedDocument = values;
+      },
+      process: createProcessRow({
+        sourceMetadata: {
+          extractedFields: {
+            item: {
+              totalValue: "0,00",
+            },
+            requestNumber: "6",
+          },
+          warnings: [],
+        },
+      }),
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "etp",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: [
+        "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)",
+        "Conteudo que deve ser descartado.",
+        "",
+        "# ESTUDO TECNICO PRELIMINAR (ETP)",
+        "",
+        "## 1. INTRODUCAO",
+        "Conteudo ETP valido.",
+        "",
+        "## 5. ESTIMATIVA DO VALOR DA CONTRATACAO",
+        "Valor R$ 0,00.",
+        "",
+        "## TERMO DE REFERENCIA",
+        "Conteudo adicional indevido.",
+      ].join("\n"),
+      responseMetadata: {
+        finishReason: "stop",
+      },
+    })),
+  });
+
+  assert.equal(
+    updatedDocument?.draftContent,
+    [
+      "# ESTUDO TECNICO PRELIMINAR (ETP)",
+      "",
+      "## 1. INTRODUCAO",
+      "Conteudo ETP valido.",
+      "",
+      "## 5. ESTIMATIVA DO VALOR DA CONTRATACAO",
+      "Valor nao informado.",
+    ].join("\n"),
+  );
+  assert.equal(/DOCUMENTO DE FORMALIZACAO DE DEMANDA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/TERMO DE REFERENCIA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/R\$ 0,00/i.test(response.draftContent ?? ""), false);
+});
+
+test("createDocument keeps an ETP estimate section when generated content omits it", async () => {
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb(),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "etp",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: [
+        "# ESTUDO TECNICO PRELIMINAR (ETP)",
+        "",
+        "## 1. INTRODUCAO",
+        "Conteudo ETP valido.",
+      ].join("\n"),
+      responseMetadata: {},
+    })),
+  });
+
+  assert.match(response.draftContent ?? "", /## 5\. ESTIMATIVA DO VALOR DA CONTRATACAO/);
+  assert.match(response.draftContent ?? "", /sera objeto de apuracao posterior/);
+});
+
+test("createDocument strips DFD and ETP sections from generated TR content", async () => {
+  let updatedDocument: Record<string, unknown> | undefined;
+
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb({
+      onDocumentUpdate: (values) => {
+        updatedDocument = values;
+      },
+      process: createProcessRow({
+        sourceMetadata: {
+          extractedFields: {
+            item: {
+              totalValue: "0,00",
+            },
+            requestNumber: "6",
+          },
+          warnings: [],
+        },
+      }),
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "tr",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: [
+        "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)",
+        "Conteudo que deve ser descartado.",
+        "",
+        "# TERMO DE REFERENCIA",
+        "",
+        "## 1. OBJETO",
+        "Conteudo TR valido.",
+        "",
+        "## 7. VALOR ESTIMADO E DOTACAO ORCAMENTARIA",
+        "Valor R$ 0,00.",
+        "",
+        "## LEVANTAMENTO DE MERCADO",
+        "Conteudo analitico indevido.",
+        "",
+        "## ESTUDO TECNICO PRELIMINAR (ETP)",
+        "Conteudo adicional indevido.",
+      ].join("\n"),
+      responseMetadata: {
+        finishReason: "stop",
+      },
+    })),
+  });
+
+  assert.equal(
+    updatedDocument?.draftContent,
+    [
+      "# TERMO DE REFERENCIA",
+      "",
+      "## 1. OBJETO",
+      "Conteudo TR valido.",
+      "",
+      "## 7. VALOR ESTIMADO E DOTACAO ORCAMENTARIA",
+      "Valor nao informado.",
+    ].join("\n"),
+  );
+  assert.equal(/DOCUMENTO DE FORMALIZACAO DE DEMANDA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/ESTUDO TECNICO PRELIMINAR/i.test(response.draftContent ?? ""), false);
+  assert.equal(/LEVANTAMENTO DE MERCADO/i.test(response.draftContent ?? ""), false);
+  assert.equal(/R\$ 0,00/i.test(response.draftContent ?? ""), false);
+});
+
+test("createDocument keeps a TR value-estimate section when generated content omits it", async () => {
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb(),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "tr",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: ["# TERMO DE REFERENCIA", "", "## 1. OBJETO", "Conteudo TR valido."].join("\n"),
+      responseMetadata: {},
+    })),
+  });
+
+  assert.match(response.draftContent ?? "", /## 7\. VALOR ESTIMADO E DOTACAO ORCAMENTARIA/);
+  assert.match(response.draftContent ?? "", /pesquisa de mercado ou etapa propria/);
+});
+
+test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED clause rules", async () => {
+  let receivedPrompt: string | undefined;
+  let updatedDocument: Record<string, unknown> | undefined;
+
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb({
+      onDocumentUpdate: (values) => {
+        updatedDocument = values;
+      },
+      process: createProcessRow({
+        object: "Contratacao de apresentacao artistica musical da banda FORRO TSUNAMI",
+        sourceKind: "expense_request",
+        sourceReference: "SD-6-2026",
+        sourceMetadata: {
+          extractedFields: {
+            budgetUnitCode: "06.001",
+            budgetUnitName: "Secretaria Municipal de Cultura",
+            item: {
+              description: "Apresentacao artistica musical",
+              totalValue: "R$ 0,00",
+            },
+            requestNumber: "6",
+          },
+          warnings: ["item_value_missing"],
+        },
+      }),
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "minuta",
+      instructions: "Manter consistencia contratual com o TR.",
+    }),
+    textGeneration: createTextGenerationProvider(async (input) => {
+      receivedPrompt = input.prompt;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: [
+          "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)",
+          "Conteudo que deve ser descartado.",
+          "",
+          "# MINUTA DO CONTRATO N. XXX/2026",
+          "",
+          "## CLAUSULA PRIMEIRA - DO OBJETO",
+          "Objeto contratual valido.",
+          "",
+          "## CLAUSULA SEGUNDA - DO PRECO",
+          "Valor R$ 0,00.",
+          "",
+          "## CLAUSULA DECIMA TERCEIRA - DAS PRERROGATIVAS",
+          "Texto reescrito indevidamente.",
+          "",
+          "## TERMO DE REFERENCIA",
+          "Conteudo adicional indevido.",
+        ].join("\n"),
+        responseMetadata: {
+          finishReason: "stop",
+        },
+      };
+    }),
+  });
+
+  assert.match(receivedPrompt ?? "", /# MINUTA DO CONTRATO/);
+  assert.match(receivedPrompt ?? "", /- Tipo de documento: MINUTA/);
+  assert.match(
+    receivedPrompt ?? "",
+    /- Tipo de contratacao inferido para obrigacoes: apresentacao_artistica/,
+  );
+  assert.match(receivedPrompt ?? "", /- Preco disponivel: nao/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto extraido da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /- Valor a usar na clausula DO PRECO: R\$ XX\.XXX,XX/);
+  assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
+  assert.match(receivedPrompt ?? "", /Clausulas FIXED do template:/);
+  assert.match(receivedPrompt ?? "", /Manter consistencia contratual com o TR\./);
+  assert.equal(updatedDocument?.status, "completed");
+  assert.equal(updatedDocument?.draftContent, response.draftContent);
+  assert.equal(/DOCUMENTO DE FORMALIZACAO DE DEMANDA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/TERMO DE REFERENCIA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/R\$ 0,00/i.test(response.draftContent ?? ""), false);
+  assert.equal(/Texto reescrito indevidamente/i.test(response.draftContent ?? ""), false);
+  assert.match(response.draftContent ?? "", /R\$ XX\.XXX,XX/);
+  assert.match(
+    response.draftContent ?? "",
+    /13\.1\. A CONTRATADA reconhece os direitos da CONTRATANTE relativos ao presente contrato/,
+  );
+  assert.match(response.draftContent ?? "", /## CLAUSULA DECIMA OITAVA - DO FORO/);
+});
+
+test("createDocument keeps Minuta price and FIXED clauses when generated content omits them", async () => {
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb(),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "minuta",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: [
+        "# MINUTA DO CONTRATO N. XXX/2026",
+        "",
+        "## CLAUSULA PRIMEIRA - DO OBJETO",
+        "Objeto contratual valido.",
+      ].join("\n"),
+      responseMetadata: {},
+    })),
+  });
+
+  assert.match(response.draftContent ?? "", /## CLAUSULA SEGUNDA - DO PRECO/);
+  assert.match(response.draftContent ?? "", /R\$ XX\.XXX,XX/);
+  assert.match(response.draftContent ?? "", /## CLAUSULA DECIMA TERCEIRA - DAS PRERROGATIVAS/);
+  assert.match(response.draftContent ?? "", /## CLAUSULA DECIMA OITAVA - DO FORO/);
+  assert.equal(/FIXED_CLAUSE/i.test(response.draftContent ?? ""), false);
+});
+
+function createGetDocumentsDb({
+  documentRows = [createDocumentRow()],
+  processRows = [createProcessRow()],
+}: {
+  documentRows?: Array<typeof documents.$inferSelect>;
+  processRows?: Array<typeof processes.$inferSelect>;
+} = {}) {
+  return {
+    query: {
+      documents: {
+        findMany: async () => documentRows,
+      },
+      processes: {
+        findMany: async () => processRows,
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+}
+
+test("getDocuments returns enriched items with processNumber and responsibles for admin", async () => {
+  const result = await getDocuments({
+    actor: { id: "admin_user", role: "admin", organizationId: null },
+    db: createGetDocumentsDb(),
+  });
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].processNumber, "PROC-2026-001");
+  assert.deepEqual(result.items[0].responsibles, ["Ana Souza"]);
+  assert.equal(result.items[0].id, DOCUMENT_ID);
+  assert.equal(result.items[0].type, "dfd");
+  assert.equal(result.items[0].status, "generating");
+});
+
+test("getDocuments returns null processNumber when process is not found", async () => {
+  const result = await getDocuments({
+    actor: { id: "admin_user", role: "admin", organizationId: null },
+    db: createGetDocumentsDb({ processRows: [] }),
+  });
+
+  assert.equal(result.items[0].processNumber, null);
+});
+
+test("getDocuments returns empty list for org-scoped actor without organizationId", async () => {
+  const result = await getDocuments({
+    actor: { id: "member_user", role: "member", organizationId: undefined as unknown as null },
+    db: createGetDocumentsDb(),
+  });
+
+  assert.deepEqual(result.items, []);
 });
