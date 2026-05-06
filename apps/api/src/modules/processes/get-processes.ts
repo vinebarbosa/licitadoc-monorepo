@@ -1,13 +1,18 @@
-import { count } from "drizzle-orm";
+import { and, count, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { processes } from "../../db";
+import { documents, processes } from "../../db";
 import { normalizePagination } from "../../shared/http/pagination";
 import { canListProcesses } from "./processes.policies";
 import {
+  createEmptyProcessListAggregation,
+  type ExpectedProcessDocumentType,
+  expectedProcessDocumentTypes,
   getDepartmentIdsByProcessIds,
   getProcessesVisibilityScope,
-  serializeProcess,
+  isExpectedProcessDocumentType,
+  type ProcessListAggregation,
+  serializeProcessListItem,
 } from "./processes.shared";
 
 type Input = {
@@ -15,9 +20,134 @@ type Input = {
   db: FastifyInstance["db"];
   page?: number;
   pageSize?: number;
+  search?: string | null;
+  status?: string | null;
+  type?: string | null;
 };
 
-export async function getProcesses({ actor, db, page, pageSize }: Input) {
+function buildProcessesListScope({
+  actor,
+  search,
+  status,
+  type,
+}: Pick<Input, "actor" | "search" | "status" | "type">) {
+  const conditions: SQL<unknown>[] = [];
+  const visibilityScope = getProcessesVisibilityScope(actor);
+
+  if (visibilityScope) {
+    conditions.push(visibilityScope);
+  }
+
+  if (search) {
+    const pattern = `%${search}%`;
+    const searchScope = or(
+      ilike(processes.processNumber, pattern),
+      ilike(processes.externalId, pattern),
+      ilike(processes.object, pattern),
+      ilike(processes.responsibleName, pattern),
+    );
+
+    if (searchScope) {
+      conditions.push(searchScope);
+    }
+  }
+
+  if (status) {
+    conditions.push(ilike(processes.status, status));
+  }
+
+  if (type) {
+    conditions.push(ilike(processes.type, type));
+  }
+
+  if (conditions.length === 0) {
+    return undefined;
+  }
+
+  if (conditions.length === 1) {
+    return conditions[0];
+  }
+
+  return and(...conditions);
+}
+
+async function getProcessListAggregations({
+  db,
+  processes: processRows,
+}: {
+  db: FastifyInstance["db"];
+  processes: Array<typeof processes.$inferSelect>;
+}) {
+  const aggregations = new Map<string, ProcessListAggregation>();
+
+  for (const process of processRows) {
+    aggregations.set(process.id, createEmptyProcessListAggregation(process));
+  }
+
+  if (processRows.length === 0) {
+    return aggregations;
+  }
+
+  const rows = await db
+    .select({
+      processId: documents.processId,
+      status: documents.status,
+      type: documents.type,
+      updatedAt: documents.updatedAt,
+    })
+    .from(documents)
+    .where(
+      inArray(
+        documents.processId,
+        processRows.map((process) => process.id),
+      ),
+    );
+
+  const completedTypesByProcessId = new Map<string, Set<ExpectedProcessDocumentType>>();
+
+  for (const row of rows) {
+    const aggregation = aggregations.get(row.processId);
+
+    if (!aggregation) {
+      continue;
+    }
+
+    if (row.updatedAt > aggregation.listUpdatedAt) {
+      aggregation.listUpdatedAt = row.updatedAt;
+    }
+
+    if (row.status === "completed" && isExpectedProcessDocumentType(row.type)) {
+      const completedTypes = completedTypesByProcessId.get(row.processId) ?? new Set();
+      completedTypes.add(row.type);
+      completedTypesByProcessId.set(row.processId, completedTypes);
+    }
+  }
+
+  for (const [processId, completedTypes] of completedTypesByProcessId.entries()) {
+    const aggregation = aggregations.get(processId);
+
+    if (!aggregation) {
+      continue;
+    }
+
+    const completed = expectedProcessDocumentTypes.filter((documentType) =>
+      completedTypes.has(documentType),
+    );
+
+    aggregation.documents = {
+      completedCount: completed.length,
+      totalRequiredCount: expectedProcessDocumentTypes.length,
+      completedTypes: completed,
+      missingTypes: expectedProcessDocumentTypes.filter(
+        (documentType) => !completedTypes.has(documentType),
+      ),
+    };
+  }
+
+  return aggregations;
+}
+
+export async function getProcesses({ actor, db, page, pageSize, search, status, type }: Input) {
   canListProcesses(actor);
 
   const pagination = normalizePagination({ page, pageSize });
@@ -32,7 +162,7 @@ export async function getProcesses({ actor, db, page, pageSize }: Input) {
     };
   }
 
-  const scope = getProcessesVisibilityScope(actor);
+  const scope = buildProcessesListScope({ actor, search, status, type });
   const [[countResult], rows] = await Promise.all([
     db
       .select({
@@ -53,9 +183,19 @@ export async function getProcesses({ actor, db, page, pageSize }: Input) {
     db,
     processIds: rows.map((row) => row.id),
   });
+  const aggregationsByProcessId = await getProcessListAggregations({
+    db,
+    processes: rows,
+  });
 
   return {
-    items: rows.map((row) => serializeProcess(row, departmentIdsByProcessId.get(row.id) ?? [])),
+    items: rows.map((row) =>
+      serializeProcessListItem(
+        row,
+        departmentIdsByProcessId.get(row.id) ?? [],
+        aggregationsByProcessId.get(row.id),
+      ),
+    ),
     page: pagination.page,
     pageSize: pagination.pageSize,
     total,

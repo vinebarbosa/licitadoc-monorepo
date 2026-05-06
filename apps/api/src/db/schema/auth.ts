@@ -13,6 +13,11 @@ import {
 import { organizations } from "./organizations";
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "organization_owner", "member"]);
+export const userOnboardingStatusEnum = pgEnum("user_onboarding_status", [
+  "pending_profile",
+  "pending_organization",
+  "complete",
+]);
 
 export const users = pgTable(
   "users",
@@ -26,6 +31,9 @@ export const users = pgTable(
     organizationId: uuid("organization_id").references(() => organizations.id, {
       onDelete: "set null",
     }),
+    onboardingStatus: userOnboardingStatusEnum("onboarding_status").notNull().default("complete"),
+    temporaryPasswordCreatedAt: timestamp("temporary_password_created_at", { withTimezone: true }),
+    temporaryPasswordExpiresAt: timestamp("temporary_password_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -33,9 +41,21 @@ export const users = pgTable(
     uniqueIndex("user_email_unique").on(table.email),
     index("user_organization_id_idx").on(table.organizationId),
     index("user_role_idx").on(table.role),
+    index("user_onboarding_status_idx").on(table.onboardingStatus),
     check(
       "user_role_organization_consistency",
       sql`(${table.role} = 'admin' AND ${table.organizationId} IS NULL) OR (${table.role} = 'organization_owner') OR (${table.role} = 'member')`,
+    ),
+    check(
+      "user_onboarding_status_consistency",
+      sql`(${table.onboardingStatus} = 'complete' AND ${table.temporaryPasswordExpiresAt} IS NULL)
+        OR (${table.onboardingStatus} = 'pending_profile'
+          AND ${table.role} IN ('organization_owner', 'member')
+          AND ${table.temporaryPasswordCreatedAt} IS NOT NULL
+          AND ${table.temporaryPasswordExpiresAt} IS NOT NULL)
+        OR (${table.onboardingStatus} = 'pending_organization'
+          AND ${table.role} = 'organization_owner'
+          AND ${table.temporaryPasswordExpiresAt} IS NULL)`,
     ),
   ],
 );

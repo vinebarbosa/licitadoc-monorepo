@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { describe, test } from "vitest";
-import { type invites, users } from "../../db";
+import { accounts, type invites, users } from "../../db";
+import type { InviteEmailInput, InviteMailer } from "../../shared/email/invite-mailer";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { acceptInvite } from "./accept-invite";
 import { createInvite } from "./create-invite";
@@ -17,6 +18,7 @@ function createInviteRow(
     role: "organization_owner",
     organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
     invitedByUserId: "admin_user",
+    provisionedUserId: null,
     acceptedByUserId: null,
     tokenHash: hashInviteToken("invite-token"),
     status: "pending",
@@ -39,23 +41,53 @@ function createUserRow(
     image: null,
     role: "member",
     organizationId: null,
+    onboardingStatus: "complete",
+    temporaryPasswordCreatedAt: null,
+    temporaryPasswordExpiresAt: null,
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
     updatedAt: new Date("2029-12-01T00:00:00.000Z"),
     ...overrides,
   };
 }
 
+function createCapturingMailer() {
+  const deliveries: InviteEmailInput[] = [];
+  const mailer: InviteMailer = {
+    async sendInviteEmail(input) {
+      deliveries.push(input);
+    },
+  };
+
+  return {
+    deliveries,
+    mailer,
+  };
+}
+
 test("createInvite creates organization owner invites for admins", async () => {
   let insertedValues: Record<string, unknown> | undefined;
+  let insertedUserValues: Record<string, unknown> | undefined;
+  let insertedAccountValues: Record<string, unknown> | undefined;
+  const { deliveries, mailer } = createCapturingMailer();
 
-  const db = {
+  const tx = {
     query: {
-      invites: {
+      users: {
         findFirst: async () => undefined,
       },
     },
-    insert: () => ({
+    insert: (table: unknown) => ({
       values: (values: Record<string, unknown>) => {
+        if (table === users) {
+          insertedUserValues = values;
+          return {};
+        }
+
+        if (table === accounts) {
+          insertedAccountValues = values;
+          return {};
+        }
+
         insertedValues = values;
 
         return {
@@ -65,6 +97,7 @@ test("createInvite creates organization owner invites for admins", async () => {
               role: "organization_owner",
               organizationId: (values.organizationId as string | null) ?? null,
               invitedByUserId: String(values.invitedByUserId),
+              provisionedUserId: values.provisionedUserId as string,
               tokenHash: String(values.tokenHash),
               expiresAt: values.expiresAt as Date,
             }),
@@ -72,6 +105,16 @@ test("createInvite creates organization owner invites for admins", async () => {
         };
       },
     }),
+  };
+
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => undefined,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
   } as unknown as FastifyInstance["db"];
 
   const invite = await createInvite({
@@ -83,27 +126,50 @@ test("createInvite creates organization owner invites for admins", async () => {
     db,
     baseUrl: "https://app.example.com",
     email: "Owner@Example.com",
+    mailer,
     organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
   });
 
   assert.equal(invite.role, "organization_owner");
-  assert.equal(invite.organizationId, "4fd5b7df-e2e5-4876-b4c3-b35306c6e733");
+  assert.equal(invite.organizationId, null);
   assert.equal(invite.email, "owner@example.com");
   assert.match(invite.inviteUrl, /^https:\/\/app\.example\.com\/invites\//);
   assert.equal(insertedValues?.role, "organization_owner");
+  assert.equal(insertedValues?.organizationId, null);
+  assert.equal(insertedValues?.provisionedUserId, invite.provisionedUserId);
+  assert.equal(insertedUserValues?.email, "owner@example.com");
+  assert.equal(insertedUserValues?.role, "organization_owner");
+  assert.equal(insertedUserValues?.organizationId, null);
+  assert.equal(insertedUserValues?.onboardingStatus, "pending_profile");
+  assert.ok(insertedUserValues?.temporaryPasswordCreatedAt instanceof Date);
+  assert.ok(insertedUserValues?.temporaryPasswordExpiresAt instanceof Date);
+  assert.equal(insertedAccountValues?.providerId, "credential");
+  assert.equal(insertedAccountValues?.userId, invite.provisionedUserId);
+  assert.equal(deliveries.length, 1);
+  assert.equal(deliveries[0]?.to, "owner@example.com");
+  assert.equal(deliveries[0]?.inviteId, invite.id);
+  assert.equal(deliveries[0]?.inviteUrl, invite.inviteUrl);
+  assert.equal(deliveries[0]?.role, "organization_owner");
+  assert.equal(deliveries[0]?.signInUrl, "https://app.example.com/entrar");
+  assert.equal(typeof deliveries[0]?.temporaryPassword, "string");
 });
 
 test("createInvite forces member role and inviter organization for organization owners", async () => {
   let insertedValues: Record<string, unknown> | undefined;
+  const { mailer } = createCapturingMailer();
 
-  const db = {
+  const tx = {
     query: {
-      invites: {
+      users: {
         findFirst: async () => undefined,
       },
     },
-    insert: () => ({
+    insert: (table: unknown) => ({
       values: (values: Record<string, unknown>) => {
+        if (table === users || table === accounts) {
+          return {};
+        }
+
         insertedValues = values;
 
         return {
@@ -113,6 +179,7 @@ test("createInvite forces member role and inviter organization for organization 
               role: "member",
               organizationId: String(values.organizationId),
               invitedByUserId: String(values.invitedByUserId),
+              provisionedUserId: values.provisionedUserId as string,
               tokenHash: String(values.tokenHash),
               expiresAt: values.expiresAt as Date,
             }),
@@ -120,6 +187,16 @@ test("createInvite forces member role and inviter organization for organization 
         };
       },
     }),
+  };
+
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => undefined,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
   } as unknown as FastifyInstance["db"];
 
   const invite = await createInvite({
@@ -131,12 +208,243 @@ test("createInvite forces member role and inviter organization for organization 
     db,
     baseUrl: "https://app.example.com/",
     email: "member@example.com",
+    mailer,
     organizationId: "ignored_org",
   });
 
   assert.equal(invite.role, "member");
   assert.equal(invite.organizationId, "org_from_actor");
   assert.equal(insertedValues?.organizationId, "org_from_actor");
+  assert.ok(insertedValues?.provisionedUserId, "member invite should provision a user");
+});
+
+test("createInvite provisions a member user with temporary credentials and sends email with signInUrl", async () => {
+  let insertedUserValues: Record<string, unknown> | undefined;
+  let insertedAccountValues: Record<string, unknown> | undefined;
+  const { deliveries, mailer } = createCapturingMailer();
+
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () => undefined,
+      },
+    },
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown>) => {
+        if (table === users) {
+          insertedUserValues = values;
+          return {};
+        }
+
+        if (table === accounts) {
+          insertedAccountValues = values;
+          return {};
+        }
+
+        return {
+          returning: async () => [
+            createInviteRow({
+              email: String(values.email),
+              role: "member",
+              organizationId: String(values.organizationId),
+              invitedByUserId: String(values.invitedByUserId),
+              provisionedUserId: values.provisionedUserId as string,
+              tokenHash: String(values.tokenHash),
+              expiresAt: values.expiresAt as Date,
+            }),
+          ],
+        };
+      },
+    }),
+  };
+
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => undefined,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const invite = await createInvite({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: "org_from_actor",
+    },
+    db,
+    baseUrl: "https://app.example.com",
+    email: "Member@Example.com",
+    mailer,
+    organizationId: "ignored_org",
+  });
+
+  assert.equal(invite.role, "member");
+  assert.equal(invite.organizationId, "org_from_actor");
+  assert.equal(insertedUserValues?.email, "member@example.com");
+  assert.equal(insertedUserValues?.role, "member");
+  assert.equal(insertedUserValues?.organizationId, "org_from_actor");
+  assert.equal(insertedUserValues?.onboardingStatus, "pending_profile");
+  assert.ok(insertedUserValues?.temporaryPasswordCreatedAt instanceof Date);
+  assert.ok(insertedUserValues?.temporaryPasswordExpiresAt instanceof Date);
+  assert.equal(insertedAccountValues?.providerId, "credential");
+  assert.equal(insertedAccountValues?.userId, invite.provisionedUserId);
+  assert.equal(deliveries.length, 1);
+  assert.equal(deliveries[0]?.to, "member@example.com");
+  assert.equal(deliveries[0]?.role, "member");
+  assert.equal(deliveries[0]?.signInUrl, "https://app.example.com/entrar");
+  assert.equal(typeof deliveries[0]?.temporaryPassword, "string");
+});
+
+test("createInvite persists pending invites before surfacing email delivery failures", async () => {
+  let insertedValues: Record<string, unknown> | undefined;
+
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () => undefined,
+      },
+    },
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown>) => {
+        if (table === users || table === accounts) {
+          return {};
+        }
+
+        insertedValues = values;
+
+        return {
+          returning: async () => [
+            createInviteRow({
+              email: String(values.email),
+              role: "organization_owner",
+              organizationId: (values.organizationId as string | null) ?? null,
+              invitedByUserId: String(values.invitedByUserId),
+              provisionedUserId: values.provisionedUserId as string,
+              tokenHash: String(values.tokenHash),
+              expiresAt: values.expiresAt as Date,
+            }),
+          ],
+        };
+      },
+    }),
+  };
+
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => undefined,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const failingMailer: InviteMailer = {
+    async sendInviteEmail() {
+      throw new Error("Invite email delivery failed.");
+    },
+  };
+
+  await assert.rejects(
+    createInvite({
+      actor: {
+        id: "admin_user",
+        role: "admin",
+        organizationId: null,
+      },
+      db,
+      baseUrl: "https://app.example.com/",
+      email: "delivery-failure@example.com",
+      mailer: failingMailer,
+      organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+    }),
+    /Invite email delivery failed/,
+  );
+
+  assert.equal(insertedValues?.email, "delivery-failure@example.com");
+  assert.equal(insertedValues?.status, undefined);
+});
+
+test("createInvite rejects owner invites when a user already exists for the email", async () => {
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () => createUserRow({ email: "owner@example.com" }),
+      },
+    },
+  };
+
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => undefined,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const { mailer } = createCapturingMailer();
+
+  await assert.rejects(
+    () =>
+      createInvite({
+        actor: {
+          id: "admin_user",
+          role: "admin",
+          organizationId: null,
+        },
+        db,
+        baseUrl: "https://app.example.com/",
+        email: "owner@example.com",
+        mailer,
+        organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+      }),
+    (error: unknown) =>
+      error instanceof Error && error.message === "A user already exists for this email.",
+  );
+});
+
+test("createInvite rejects member invites when a user already exists for the email", async () => {
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () => createUserRow({ email: "member@example.com" }),
+      },
+    },
+  };
+
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => undefined,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const { mailer } = createCapturingMailer();
+
+  await assert.rejects(
+    () =>
+      createInvite({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: "org_from_actor",
+        },
+        db,
+        baseUrl: "https://app.example.com/",
+        email: "member@example.com",
+        mailer,
+      }),
+    (error: unknown) =>
+      error instanceof Error && error.message === "A user already exists for this email.",
+  );
 });
 
 test("getInvites returns only organization-scoped rows for organization owners", async () => {
@@ -312,6 +620,87 @@ test("acceptInvite applies role and organization for a valid invite", async () =
   assert.equal(updatedUserPayload?.organizationId, "4fd5b7df-e2e5-4876-b4c3-b35306c6e733");
   assert.equal(acceptedInvite.status, "accepted");
   assert.equal(acceptedInvite.acceptedByUserId, "user_123");
+});
+
+test("acceptInvite rejects provisioned organization-owner invites", async () => {
+  const tx = {
+    query: {
+      invites: {
+        findFirst: async () =>
+          createInviteRow({
+            organizationId: null,
+            provisionedUserId: "owner_user",
+          }),
+      },
+      users: {
+        findFirst: async () => createUserRow({ id: "owner_user", email: "owner@example.com" }),
+      },
+    },
+  };
+
+  const db = {
+    transaction: async (
+      callback: (transaction: typeof tx) => Promise<ReturnType<typeof acceptInvite>>,
+    ) => callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      acceptInvite({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: null,
+        },
+        db,
+        inviteToken: "invite-token",
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestError &&
+      error.message === "Organization owner invites must be completed through onboarding.",
+  );
+});
+
+test("acceptInvite rejects provisioned member invites", async () => {
+  const tx = {
+    query: {
+      invites: {
+        findFirst: async () =>
+          createInviteRow({
+            email: "member@example.com",
+            role: "member",
+            organizationId: "org_1",
+            provisionedUserId: "member_user",
+          }),
+      },
+      users: {
+        findFirst: async () =>
+          createUserRow({ id: "member_user", email: "member@example.com", role: "member" }),
+      },
+    },
+  };
+
+  const db = {
+    transaction: async (
+      callback: (transaction: typeof tx) => Promise<ReturnType<typeof acceptInvite>>,
+    ) => callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      acceptInvite({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: "org_1",
+        },
+        db,
+        inviteToken: "invite-token",
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestError &&
+      error.message === "Member invites must be completed through first-login onboarding.",
+  );
 });
 
 test("acceptInvite rejects expired invites", async () => {

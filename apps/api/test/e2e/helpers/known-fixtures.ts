@@ -12,6 +12,7 @@ export const API_E2E_TEST_EMAILS = [
   "invite-e2e-mismatch-target@licitadoc.test",
   "invite-e2e-unauthorized-target@licitadoc.test",
   "invite-e2e-outside-scope-target@licitadoc.test",
+  "invite-e2e-delivery-failure-target@licitadoc.test",
   "user-e2e-admin@licitadoc.test",
   "user-e2e-owner@licitadoc.test",
   "user-e2e-member-actor@licitadoc.test",
@@ -40,6 +41,7 @@ export const API_E2E_TEST_EMAILS = [
 
 export const API_E2E_TEST_ORGANIZATION_SLUGS = [
   "invite-e2e-admin-org",
+  "invite-e2e-full-onboarding-org",
   "invite-e2e-owner-org",
   "invite-e2e-outside-scope-org",
   "user-e2e-owner-org",
@@ -62,6 +64,21 @@ export const API_E2E_TEST_ORGANIZATION_SLUGS = [
   "process-e2e-admin-target-org",
   "document-e2e-owner-org",
   "document-e2e-other-org",
+] as const;
+
+export const API_E2E_PROCESS_TEST_ORGANIZATION_CNPJS = [
+  "08.290.223/0001-42",
+  "08.290.223/0001-43",
+  "94100000000001",
+  "94200000000001",
+  "94200000000002",
+  "94300000000001",
+  "94300000000002",
+  "94400000000001",
+  "94400000000002",
+  "94500000000001",
+  "94600000000001",
+  "94600000000002",
 ] as const;
 
 export const API_E2E_TEST_DEPARTMENT_SLUGS = [

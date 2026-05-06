@@ -1,17 +1,14 @@
-import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import { documentGenerationRuns, documents } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { TextGenerationProvider } from "../../shared/text-generation/types";
-import { TextGenerationError } from "../../shared/text-generation/types";
-import { getProcessDepartmentIds } from "../processes/processes.shared";
 import { canReadStoredProcess } from "../processes/processes.policies";
+import { getProcessDepartmentIds } from "../processes/processes.shared";
 import type { CreateDocumentInput } from "./documents.schemas";
 import {
   buildDocumentGenerationPrompt,
   getGeneratedDocumentName,
-  sanitizeGeneratedDocumentDraft,
   serializeDocumentDetail,
 } from "./documents.shared";
 
@@ -19,28 +16,9 @@ type Input = {
   actor: Actor;
   db: FastifyInstance["db"];
   document: CreateDocumentInput;
-  textGeneration: TextGenerationProvider;
+  scheduleGeneration?: (generationRunId: string) => void;
+  textGeneration?: TextGenerationProvider;
 };
-
-function toTextGenerationError(error: unknown, provider: TextGenerationProvider) {
-  if (error instanceof TextGenerationError) {
-    return error;
-  }
-
-  return new TextGenerationError({
-    code: "unknown",
-    message: "Unexpected text generation failure.",
-    providerKey: provider.providerKey,
-    model: provider.model,
-    details:
-      error instanceof Error
-        ? {
-            name: error.name,
-            message: error.message,
-          }
-        : null,
-  });
-}
 
 async function loadProcessDepartments({
   db,
@@ -65,7 +43,7 @@ async function loadProcessDepartments({
     .filter((department): department is NonNullable<typeof department> => department !== null);
 }
 
-export async function createDocument({ actor, db, document, textGeneration }: Input) {
+export async function createDocument({ actor, db, document, scheduleGeneration }: Input) {
   const process = await db.query.processes.findFirst({
     where: (table, { eq: equals }) => equals(table.id, document.processId),
   });
@@ -96,13 +74,13 @@ export async function createDocument({ actor, db, document, textGeneration }: In
     process,
   });
 
-  return db.transaction(async (tx) => {
+  const { createdDocument, generationRunId } = await db.transaction(async (tx) => {
     const [createdDocument] = await tx
       .insert(documents)
       .values({
         organizationId: process.organizationId,
         processId: process.id,
-        name: getGeneratedDocumentName(document.documentType, process),
+        name: document.name ?? getGeneratedDocumentName(document.documentType, process),
         type: document.documentType,
         status: "generating",
         draftContent: null,
@@ -119,11 +97,12 @@ export async function createDocument({ actor, db, document, textGeneration }: In
       .insert(documentGenerationRuns)
       .values({
         documentId: createdDocument.id,
-        providerKey: textGeneration.providerKey,
-        model: textGeneration.model,
+        providerKey: "pending",
+        model: "pending",
         status: "generating",
         requestMetadata: {
           documentType: document.documentType,
+          prompt,
           processId: process.id,
           organizationId: process.organizationId,
           instructions: document.instructions,
@@ -135,72 +114,15 @@ export async function createDocument({ actor, db, document, textGeneration }: In
       })
       .returning();
 
-    try {
-      const result = await textGeneration.generateText({
-        documentType: document.documentType,
-        prompt,
-        subject: {
-          documentId: createdDocument.id,
-          organizationId: process.organizationId,
-          processId: process.id,
-        },
-      });
-      const draftContent = sanitizeGeneratedDocumentDraft({
-        documentType: document.documentType,
-        text: result.text,
-      });
-
-      const [completedDocument] = await tx
-        .update(documents)
-        .set({
-          status: "completed",
-          draftContent,
-          updatedAt: new Date(),
-        })
-        .where(eq(documents.id, createdDocument.id))
-        .returning();
-
-      if (generationRun) {
-        await tx
-          .update(documentGenerationRuns)
-          .set({
-            providerKey: result.providerKey,
-            model: result.model,
-            status: "completed",
-            responseMetadata: result.responseMetadata,
-            finishedAt: new Date(),
-          })
-          .where(eq(documentGenerationRuns.id, generationRun.id));
-      }
-
-      return serializeDocumentDetail(completedDocument ?? createdDocument);
-    } catch (error) {
-      const generationError = toTextGenerationError(error, textGeneration);
-      const [failedDocument] = await tx
-        .update(documents)
-        .set({
-          status: "failed",
-          updatedAt: new Date(),
-        })
-        .where(eq(documents.id, createdDocument.id))
-        .returning();
-
-      if (generationRun) {
-        await tx
-          .update(documentGenerationRuns)
-          .set({
-            providerKey: generationError.providerKey,
-            model: generationError.model ?? textGeneration.model,
-            status: "failed",
-            errorCode: generationError.code,
-            errorMessage: generationError.message,
-            errorDetails: generationError.details,
-            finishedAt: new Date(),
-          })
-          .where(eq(documentGenerationRuns.id, generationRun.id));
-      }
-
-      return serializeDocumentDetail(failedDocument ?? createdDocument);
-    }
+    return {
+      createdDocument,
+      generationRunId: generationRun?.id ?? null,
+    };
   });
+
+  if (generationRunId) {
+    scheduleGeneration?.(generationRunId);
+  }
+
+  return serializeDocumentDetail(createdDocument);
 }

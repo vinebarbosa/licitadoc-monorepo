@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { test } from "vitest";
-import type { users } from "../../db";
+import { accounts, type users } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
+import { completeOwnerProfileOnboarding } from "./complete-owner-profile-onboarding";
 import { deleteUser } from "./delete-user";
 import { getUser } from "./get-user";
 import { getUsers } from "./get-users";
@@ -20,6 +21,9 @@ function createUserRow(
     image: null,
     role: "member",
     organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+    onboardingStatus: "complete",
+    temporaryPasswordCreatedAt: null,
+    temporaryPasswordExpiresAt: null,
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
     updatedAt: new Date("2029-12-01T00:00:00.000Z"),
     ...overrides,
@@ -113,6 +117,145 @@ test("getUsers scopes organization owners to their organization", async () => {
   assert.equal(response.items[0]?.organizationId, "org_1");
   assert.equal(response.total, 1);
   assert.equal(response.totalPages, 1);
+});
+
+test("getUsers includes pending and complete members for organization owners", async () => {
+  const db = {
+    select: () => ({
+      from: () => ({
+        where: async () => [{ total: 2 }],
+      }),
+    }),
+    query: {
+      users: {
+        findMany: async () => [
+          createUserRow({
+            id: "member_complete",
+            email: "complete@example.com",
+            organizationId: "org_1",
+            onboardingStatus: "complete",
+          }),
+          createUserRow({
+            id: "member_pending",
+            email: "pending@example.com",
+            organizationId: "org_1",
+            onboardingStatus: "pending_profile",
+            temporaryPasswordCreatedAt: new Date("2029-12-01T00:00:00.000Z"),
+            temporaryPasswordExpiresAt: new Date("2029-12-02T00:00:00.000Z"),
+          }),
+        ],
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getUsers({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: "org_1",
+    },
+    db,
+    role: "member",
+  });
+
+  assert.equal(response.items.length, 2);
+  assert.equal(response.total, 2);
+  assert.deepEqual(
+    response.items.map((item) => item.onboardingStatus).sort(),
+    ["complete", "pending_profile"],
+  );
+  assert.ok(response.items.every((item) => item.role === "member"));
+  assert.ok(response.items.every((item) => item.organizationId === "org_1"));
+});
+
+test("getUsers applies search, role, and organization filters for admins", async () => {
+  let capturedCountWhere: unknown;
+  let capturedFindManyWhere: unknown;
+
+  const db = {
+    select: () => ({
+      from: () => ({
+        where: async (where: unknown) => {
+          capturedCountWhere = where;
+          return [{ total: 1 }];
+        },
+      }),
+    }),
+    query: {
+      users: {
+        findMany: async (options?: { where?: unknown }) => {
+          capturedFindManyWhere = options?.where;
+          return [
+            createUserRow({
+              id: "owner_1",
+              name: "Maria Admin",
+              email: "maria.admin@example.com",
+              role: "organization_owner",
+              organizationId: "org_2",
+            }),
+          ];
+        },
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getUsers({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    search: "maria",
+    role: "organization_owner",
+    organizationId: "org_2",
+  });
+
+  assert.ok(capturedCountWhere);
+  assert.ok(capturedFindManyWhere);
+  assert.equal(response.total, 1);
+  assert.equal(response.items[0]?.role, "organization_owner");
+  assert.equal(response.items[0]?.organizationId, "org_2");
+});
+
+test("getUsers keeps organization owners scoped to their organization when filtering", async () => {
+  let capturedCountWhere: unknown;
+  let capturedFindManyWhere: unknown;
+
+  const db = {
+    select: () => ({
+      from: () => ({
+        where: async (where: unknown) => {
+          capturedCountWhere = where;
+          return [{ total: 1 }];
+        },
+      }),
+    }),
+    query: {
+      users: {
+        findMany: async (options?: { where?: unknown }) => {
+          capturedFindManyWhere = options?.where;
+          return [createUserRow({ id: "member_1", organizationId: "org_1" })];
+        },
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getUsers({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: "org_1",
+    },
+    db,
+    organizationId: "org_2",
+    search: "user",
+  });
+
+  assert.ok(capturedCountWhere);
+  assert.ok(capturedFindManyWhere);
+  assert.equal(response.items.length, 1);
+  assert.equal(response.items[0]?.organizationId, "org_1");
 });
 
 test("getUsers returns an empty page when owner has no organization", async () => {
@@ -396,5 +539,237 @@ test("deleteUser rejects organization owners outside their management scope", as
         userId: "admin_1",
       }),
     ForbiddenError,
+  );
+});
+
+test("completeOwnerProfileOnboarding updates the temporary password and advances status", async () => {
+  let credentialUpdateValues: Record<string, unknown> | undefined;
+  let userUpdateValues: Record<string, unknown> | undefined;
+
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () =>
+          createUserRow({
+            id: "owner_user",
+            role: "organization_owner",
+            organizationId: null,
+            onboardingStatus: "pending_profile",
+            temporaryPasswordCreatedAt: new Date("2029-12-01T00:00:00.000Z"),
+            temporaryPasswordExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
+          }),
+      },
+    },
+    update: (table: unknown) => ({
+      set: (values: Record<string, unknown>) => {
+        if (table === accounts) {
+          credentialUpdateValues = values;
+
+          return {
+            where: () => ({
+              returning: async () => [{ id: "credential_account" }],
+            }),
+          };
+        }
+
+        userUpdateValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [
+              createUserRow({
+                id: "owner_user",
+                name: String(values.name),
+                role: "organization_owner",
+                organizationId: null,
+                onboardingStatus: "pending_organization",
+                temporaryPasswordCreatedAt: null,
+                temporaryPasswordExpiresAt: null,
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  };
+
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await completeOwnerProfileOnboarding({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: null,
+    },
+    db,
+    profile: {
+      name: "Maria Silva",
+      password: "nova-senha-segura",
+    },
+  });
+
+  assert.equal(typeof credentialUpdateValues?.password, "string");
+  assert.equal(userUpdateValues?.name, "Maria Silva");
+  assert.equal(userUpdateValues?.onboardingStatus, "pending_organization");
+  assert.equal(userUpdateValues?.temporaryPasswordCreatedAt, null);
+  assert.equal(userUpdateValues?.temporaryPasswordExpiresAt, null);
+  assert.equal(response.onboardingStatus, "pending_organization");
+});
+
+test("completeOwnerProfileOnboarding rejects expired temporary passwords", async () => {
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () =>
+          createUserRow({
+            id: "owner_user",
+            role: "organization_owner",
+            organizationId: null,
+            onboardingStatus: "pending_profile",
+            temporaryPasswordExpiresAt: new Date("2000-01-01T00:00:00.000Z"),
+          }),
+      },
+    },
+  };
+
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      completeOwnerProfileOnboarding({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: null,
+        },
+        db,
+        profile: {
+          name: "Maria Silva",
+          password: "nova-senha-segura",
+        },
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestError && error.message === "Temporary password has expired.",
+  );
+});
+
+test("completeOwnerProfileOnboarding advances a member user directly to complete", async () => {
+  let userUpdateValues: Record<string, unknown> | undefined;
+
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () =>
+          createUserRow({
+            id: "member_user",
+            role: "member",
+            organizationId: "org_1",
+            onboardingStatus: "pending_profile",
+            temporaryPasswordCreatedAt: new Date("2029-12-01T00:00:00.000Z"),
+            temporaryPasswordExpiresAt: new Date("2030-01-01T00:00:00.000Z"),
+          }),
+      },
+    },
+    update: (table: unknown) => ({
+      set: (values: Record<string, unknown>) => {
+        if (table === accounts) {
+          return {
+            where: () => ({
+              returning: async () => [{ id: "credential_account" }],
+            }),
+          };
+        }
+
+        userUpdateValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [
+              createUserRow({
+                id: "member_user",
+                name: String(values.name),
+                role: "member",
+                organizationId: "org_1",
+                onboardingStatus: "complete",
+                temporaryPasswordCreatedAt: null,
+                temporaryPasswordExpiresAt: null,
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  };
+
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await completeOwnerProfileOnboarding({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: "org_1",
+    },
+    db,
+    profile: {
+      name: "João Membro",
+      password: "nova-senha-segura",
+    },
+  });
+
+  assert.equal(userUpdateValues?.name, "João Membro");
+  assert.equal(userUpdateValues?.onboardingStatus, "complete");
+  assert.equal(userUpdateValues?.temporaryPasswordCreatedAt, null);
+  assert.equal(userUpdateValues?.temporaryPasswordExpiresAt, null);
+  assert.equal(response.onboardingStatus, "complete");
+  assert.equal(response.organizationId, "org_1");
+});
+
+test("completeOwnerProfileOnboarding rejects users without pending_profile status", async () => {
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () =>
+          createUserRow({
+            id: "member_user",
+            role: "member",
+            onboardingStatus: "complete",
+          }),
+      },
+    },
+  };
+
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      completeOwnerProfileOnboarding({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: null,
+        },
+        db,
+        profile: {
+          name: "João",
+          password: "nova-senha-segura",
+        },
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestError &&
+      error.message === "Profile onboarding is not available for this user.",
   );
 });

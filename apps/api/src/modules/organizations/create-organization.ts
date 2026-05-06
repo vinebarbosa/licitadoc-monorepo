@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import { organizations, users } from "../../db";
+import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { canCreateOrganization } from "./organizations.policies";
 import type { CreateOrganizationInput } from "./organizations.schemas";
@@ -34,6 +35,10 @@ export async function createOrganization({ actor, db, organization }: Input) {
       organizationId: user.organizationId,
     });
 
+    if (user.onboardingStatus !== "pending_organization") {
+      throw new BadRequestError("Owner profile onboarding must be completed first.");
+    }
+
     await assertOrganizationCnpjIsUnique({
       db: tx,
       cnpj: organization.cnpj,
@@ -61,7 +66,10 @@ export async function createOrganization({ actor, db, organization }: Input) {
     const [updatedUser] = await tx
       .update(users)
       .set({
+        onboardingStatus: "complete",
         organizationId: createdOrganization.id,
+        temporaryPasswordCreatedAt: null,
+        temporaryPasswordExpiresAt: null,
         updatedAt: new Date(),
       })
       .where(eq(users.id, actor.id))

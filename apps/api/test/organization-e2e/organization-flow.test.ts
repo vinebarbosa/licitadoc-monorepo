@@ -158,6 +158,7 @@ describe("organization management E2E coverage", () => {
     assert.ok(persistedOwner);
     assert.equal(persistedOwner.organizationId, createBody.id);
     assert.equal(persistedOwner.role, "organization_owner");
+    assert.equal(persistedOwner.onboardingStatus, "complete");
   });
 
   test("admins list organizations across scope and read target details", async () => {

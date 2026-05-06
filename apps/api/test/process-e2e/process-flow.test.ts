@@ -17,6 +17,7 @@ import {
 } from "../e2e/helpers/fixtures";
 import { readJson, request } from "../e2e/helpers/http";
 import {
+  API_E2E_PROCESS_TEST_ORGANIZATION_CNPJS,
   API_E2E_TEST_DEPARTMENT_SLUGS,
   API_E2E_TEST_EMAILS,
   API_E2E_TEST_ORGANIZATION_SLUGS,
@@ -57,10 +58,17 @@ type ProcessPayloadInput = {
 type ProcessResponse = {
   createdAt: string;
   departmentIds: string[];
+  documents?: {
+    completedCount: number;
+    completedTypes: string[];
+    missingTypes: string[];
+    totalRequiredCount: number;
+  };
   externalId: string | null;
   id: string;
   issuedAt: string;
   justification: string;
+  listUpdatedAt?: string;
   object: string;
   organizationId: string;
   processNumber: string;
@@ -138,6 +146,7 @@ beforeEach(async () => {
   await cleanupApiE2EState(server.app.db, {
     departmentSlugs: [...API_E2E_TEST_DEPARTMENT_SLUGS],
     emails: [...API_E2E_TEST_EMAILS],
+    organizationCnpjs: [...API_E2E_PROCESS_TEST_ORGANIZATION_CNPJS],
     organizationSlugs: [...API_E2E_TEST_ORGANIZATION_SLUGS],
   });
 });
@@ -495,7 +504,11 @@ describe("process management E2E coverage", () => {
     const ownerProcess = await createProcessFixture(server.app.db, {
       organizationId: owner.organization.id,
       processNumber: "PROC-SCOPE-001",
+      externalId: "EXT-SCOPE-001",
       object: "Owner Scoped Process",
+      responsibleName: "Scoped Owner",
+      status: "em_edicao",
+      type: "pregao-eletronico",
       departmentIds: [ownerDepartmentA.id, ownerDepartmentB.id],
     });
     const otherProcess = await createProcessFixture(server.app.db, {
@@ -503,6 +516,42 @@ describe("process management E2E coverage", () => {
       processNumber: "PROC-SCOPE-OTHER-001",
       object: "Other Org Process",
       departmentIds: [otherDepartment.id],
+    });
+    await createDocumentFixture(server.app.db, {
+      organizationId: owner.organization.id,
+      processId: ownerProcess.id,
+      name: "DFD Owner",
+      storageKey: "documents/process-e2e/dfd.md",
+      type: "dfd",
+      status: "completed",
+      updatedAt: "2030-01-04T00:00:00.000Z",
+    });
+    await createDocumentFixture(server.app.db, {
+      organizationId: owner.organization.id,
+      processId: ownerProcess.id,
+      name: "DFD Owner Duplicate",
+      storageKey: "documents/process-e2e/dfd-2.md",
+      type: "dfd",
+      status: "completed",
+      updatedAt: "2030-01-05T00:00:00.000Z",
+    });
+    await createDocumentFixture(server.app.db, {
+      organizationId: owner.organization.id,
+      processId: ownerProcess.id,
+      name: "ETP Owner",
+      storageKey: "documents/process-e2e/etp.md",
+      type: "etp",
+      status: "completed",
+      updatedAt: "2030-01-06T00:00:00.000Z",
+    });
+    await createDocumentFixture(server.app.db, {
+      organizationId: owner.organization.id,
+      processId: ownerProcess.id,
+      name: "TR Owner Failed",
+      storageKey: "documents/process-e2e/tr.md",
+      type: "tr",
+      status: "failed",
+      updatedAt: "2030-01-07T00:00:00.000Z",
     });
 
     const adminListResponse = await request(server, "/api/processes/?page=1&pageSize=20", {
@@ -533,6 +582,45 @@ describe("process management E2E coverage", () => {
     assert.deepEqual(ownerListBody.items[0]?.departmentIds, [
       ...[ownerDepartmentA.id, ownerDepartmentB.id].sort(),
     ]);
+    assert.deepEqual(ownerListBody.items[0]?.documents, {
+      completedCount: 2,
+      totalRequiredCount: 4,
+      completedTypes: ["dfd", "etp"],
+      missingTypes: ["tr", "minuta"],
+    });
+    assert.equal(ownerListBody.items[0]?.listUpdatedAt, "2030-01-07T00:00:00.000Z");
+
+    const searchListResponse = await request(
+      server,
+      "/api/processes/?page=1&pageSize=20&search=EXT-SCOPE-001&status=em_edicao&type=pregao-eletronico",
+      {
+        cookieJar: owner.cookieJar,
+      },
+    );
+    const searchListBody = await readJson<PaginatedProcessesResponse>(searchListResponse);
+
+    assert.equal(searchListResponse.status, 200);
+    assert.ok(searchListBody);
+    assert.equal(searchListBody.total, 1);
+    assert.deepEqual(
+      searchListBody.items.map((item) => item.id),
+      [ownerProcess.id],
+    );
+
+    const unmatchedSearchListResponse = await request(
+      server,
+      "/api/processes/?page=1&pageSize=20&search=nao-encontra",
+      {
+        cookieJar: owner.cookieJar,
+      },
+    );
+    const unmatchedSearchListBody = await readJson<PaginatedProcessesResponse>(
+      unmatchedSearchListResponse,
+    );
+
+    assert.equal(unmatchedSearchListResponse.status, 200);
+    assert.ok(unmatchedSearchListBody);
+    assert.equal(unmatchedSearchListBody.total, 0);
 
     const memberListResponse = await request(server, "/api/processes/?page=1&pageSize=20", {
       cookieJar: member.cookieJar,

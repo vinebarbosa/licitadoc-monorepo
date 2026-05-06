@@ -23,7 +23,16 @@ export async function getDocuments({ actor, db }: Input) {
     orderBy: (table, { desc }) => [desc(table.createdAt)],
   });
 
+  const uniqueProcessIds = [...new Set(rows.map((r) => r.processId))];
+  const processRows =
+    uniqueProcessIds.length > 0
+      ? await db.query.processes.findMany({
+          where: (table, { inArray: inArr }) => inArr(table.id, uniqueProcessIds),
+        })
+      : [];
+  const processByIdMap = new Map(processRows.map((p) => [p.id, p]));
+
   return {
-    items: rows.map(serializeDocumentSummary),
+    items: rows.map((doc) => serializeDocumentSummary(doc, processByIdMap.get(doc.processId))),
   };
 }

@@ -22,8 +22,9 @@ export const registerInviteRoutes: FastifyPluginAsyncZodOpenApi = async (app) =>
       const invite = await createInvite({
         actor,
         db: app.db,
-        baseUrl: app.config.BETTER_AUTH_URL,
+        baseUrl: app.config.CORS_ORIGIN.split(",")[0]?.trim() || app.config.BETTER_AUTH_URL,
         email: request.body.email,
+        mailer: app.mailer,
         organizationId: request.body.organizationId,
       });
 

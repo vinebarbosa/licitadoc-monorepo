@@ -8,6 +8,10 @@ function isRole(value: unknown): value is Role {
   return value === "admin" || value === "organization_owner" || value === "member";
 }
 
+function isOnboardingStatus(value: unknown): value is Actor["onboardingStatus"] {
+  return value === "pending_profile" || value === "pending_organization" || value === "complete";
+}
+
 export async function getSessionUser(request: FastifyRequest): Promise<Actor> {
   const session = await getAuthSession(request);
 
@@ -23,5 +27,8 @@ export async function getSessionUser(request: FastifyRequest): Promise<Actor> {
     id: session.user.id,
     role: session.user.role,
     organizationId: session.user.organizationId ?? null,
+    onboardingStatus: isOnboardingStatus(session.user.onboardingStatus)
+      ? session.user.onboardingStatus
+      : "complete",
   };
 }

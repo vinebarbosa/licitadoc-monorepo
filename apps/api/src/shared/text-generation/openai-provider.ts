@@ -24,6 +24,8 @@ type OpenAiResponse = {
   status?: string;
 };
 
+const DEFAULT_OPENAI_TIMEOUT_MS = 2_000_000;
+
 function toError(input: {
   code: TextGenerationError["code"];
   message: string;
@@ -62,10 +64,16 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
   readonly apiKey: string | null;
   readonly model: string;
   readonly providerKey = "openai";
+  readonly timeoutMs: number;
 
-  constructor({ apiKey, model }: { apiKey?: string; model: string }) {
+  constructor({
+    apiKey,
+    model,
+    timeoutMs,
+  }: { apiKey?: string; model: string; timeoutMs?: number }) {
     this.apiKey = apiKey?.trim() ? apiKey.trim() : null;
     this.model = model;
+    this.timeoutMs = timeoutMs ?? DEFAULT_OPENAI_TIMEOUT_MS;
   }
 
   async generateText(input: TextGenerationInput): Promise<TextGenerationResult> {
@@ -79,7 +87,7 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 90_000);
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
       const response = await fetch("https://api.openai.com/v1/responses", {

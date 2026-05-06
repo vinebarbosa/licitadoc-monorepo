@@ -16,6 +16,9 @@ export const invites = pgTable(
     invitedByUserId: text("invited_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    provisionedUserId: text("provisioned_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     acceptedByUserId: text("accepted_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -32,5 +35,6 @@ export const invites = pgTable(
     index("invites_status_idx").on(table.status),
     index("invites_organization_id_idx").on(table.organizationId),
     index("invites_invited_by_user_id_idx").on(table.invitedByUserId),
+    index("invites_provisioned_user_id_idx").on(table.provisionedUserId),
   ],
 );
