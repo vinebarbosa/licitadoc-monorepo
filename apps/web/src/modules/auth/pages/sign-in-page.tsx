@@ -27,7 +27,7 @@ export function SignInPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const redirectTo = getAuthRedirectTarget(searchParams.get("redirectTo"));
+  const requestedRedirectTo = getAuthRedirectTarget(searchParams.get("redirectTo"));
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,7 +39,7 @@ export function SignInPage() {
           email,
           password,
           rememberMe,
-          callbackURL: redirectTo,
+          callbackURL: requestedRedirectTo,
         },
       });
 
@@ -48,7 +48,12 @@ export function SignInPage() {
         return;
       }
 
-      navigate(redirectTo, { replace: true });
+      navigate(
+        getAuthRedirectTarget(requestedRedirectTo, result.user.onboardingStatus, result.user.role),
+        {
+          replace: true,
+        },
+      );
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error, DEFAULT_SIGN_IN_ERROR));
     }

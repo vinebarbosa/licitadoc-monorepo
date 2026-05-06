@@ -128,6 +128,41 @@ describe("DocumentPreviewPage", () => {
     expect(screen.queryByText("Preview do Documento")).not.toBeInTheDocument();
   });
 
+  it("polls while document generation is pending and stops after completion", async () => {
+    let requests = 0;
+
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () => {
+        requests += 1;
+
+        if (requests === 1) {
+          return HttpResponse.json(generatingDocumentDetailResponse);
+        }
+
+        return HttpResponse.json({
+          ...documentDetailResponse,
+          id: "document-2",
+          name: "ETP - PE-2024-045",
+          type: "etp",
+          status: "completed",
+          draftContent: "# ESTUDO TECNICO PRELIMINAR\n\nConteudo finalizado.",
+        });
+      }),
+    );
+
+    renderDocumentPreviewPage("/app/documento/document-2/preview");
+
+    expect(await screen.findByText("Preview em geração")).toBeInTheDocument();
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/Conteudo finalizado/)).toBeInTheDocument();
+      },
+      { timeout: 2500 },
+    );
+    expect(requests).toBe(2);
+  });
+
   it("shows failed generation state", async () => {
     server.use(
       http.get("http://localhost:3333/api/documents/:documentId", () =>

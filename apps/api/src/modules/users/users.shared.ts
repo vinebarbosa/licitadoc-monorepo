@@ -32,6 +32,7 @@ export function serializeUser(user: StoredUser) {
     image: user.image ?? null,
     role: user.role,
     organizationId: user.organizationId,
+    onboardingStatus: user.onboardingStatus,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };

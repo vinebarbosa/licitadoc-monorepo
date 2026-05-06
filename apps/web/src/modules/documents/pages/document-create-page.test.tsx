@@ -31,6 +31,7 @@ function renderDocumentCreatePage(initialEntry = "/app/documento/novo") {
       <Routes>
         <Route path="/app/documento/novo" element={<DocumentCreatePage />} />
         <Route path="/app/documentos" element={<div>Documentos</div>} />
+        <Route path="/app/documento/:documentId/preview" element={<div>Preview</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -52,7 +53,7 @@ describe("DocumentCreatePage", () => {
       expect(screen.getByText("Minuta")).toBeInTheDocument();
 
       expect(screen.getByRole("combobox")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Criar e Editar/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Criar documento/i })).toBeInTheDocument();
     });
 
     it("preselects the DFD card when ?tipo=dfd is in the URL", async () => {
@@ -142,7 +143,7 @@ describe("DocumentCreatePage", () => {
       expect(nameInput.value).toBe("Meu DFD Personalizado");
     });
 
-    it("calls the create mutation and navigates to /app/documentos on success", async () => {
+    it("calls the create mutation and navigates to the generated document preview on success", async () => {
       server.use(
         http.get("http://localhost:3333/api/processes/", () =>
           HttpResponse.json(processesListResponse),
@@ -163,13 +164,13 @@ describe("DocumentCreatePage", () => {
       const option = await screen.findByRole("option", { name: /PE-2024-045/ });
       fireEvent.click(option);
 
-      fireEvent.click(screen.getByRole("button", { name: /Criar e Editar/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Criar documento/i }));
 
       await waitFor(() => {
-        expect(toast.success).toHaveBeenCalledWith("Documento criado com sucesso.");
+        expect(toast.success).toHaveBeenCalledWith("Geração do documento iniciada.");
       });
 
-      expect(mockNavigate).toHaveBeenCalledWith("/app/documentos");
+      expect(mockNavigate).toHaveBeenCalledWith("/app/documento/document-created/preview");
     });
 
     it("shows an error toast and stays on page when the create mutation fails", async () => {
@@ -196,7 +197,7 @@ describe("DocumentCreatePage", () => {
       const option = await screen.findByRole("option", { name: /PE-2024-045/ });
       fireEvent.click(option);
 
-      fireEvent.click(screen.getByRole("button", { name: /Criar e Editar/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Criar documento/i }));
 
       await waitFor(() => {
         expect(toast.error).toHaveBeenCalledWith("Sem permissão para criar documentos.");
@@ -209,7 +210,7 @@ describe("DocumentCreatePage", () => {
     it("submit button is disabled when type or process is not selected", () => {
       renderDocumentCreatePage();
 
-      const submitButton = screen.getByRole("button", { name: /Criar e Editar/i });
+      const submitButton = screen.getByRole("button", { name: /Criar documento/i });
       expect(submitButton).toBeDisabled();
     });
   });

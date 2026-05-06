@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 export type AuthRole = "admin" | "organization_owner" | "member";
+export type AuthOnboardingStatus = "pending_profile" | "pending_organization" | "complete";
 
 export type AuthSession = NonNullable<GetSessionQueryResponse>;
 
@@ -21,7 +22,43 @@ function normalizeRole(value?: string | null): AuthRole | null {
   return null;
 }
 
-export function getAuthRedirectTarget(input?: string | null) {
+function normalizeOnboardingStatus(value?: string | null): AuthOnboardingStatus {
+  if (value === "pending_profile" || value === "pending_organization" || value === "complete") {
+    return value;
+  }
+
+  return "complete";
+}
+
+export function getOnboardingRedirectTarget(
+  status: AuthOnboardingStatus | null,
+  role?: AuthRole | null,
+) {
+  if (status === "pending_profile") {
+    return role === "member" ? null : "/onboarding/perfil";
+  }
+
+  if (status === "pending_organization") {
+    return "/onboarding/organizacao";
+  }
+
+  return null;
+}
+
+export function getAuthRedirectTarget(
+  input?: string | null,
+  onboardingStatus?: string | null,
+  role?: string | null,
+) {
+  const onboardingTarget = getOnboardingRedirectTarget(
+    normalizeOnboardingStatus(onboardingStatus),
+    normalizeRole(role),
+  );
+
+  if (onboardingTarget) {
+    return onboardingTarget;
+  }
+
   if (!input?.startsWith("/") || input.startsWith("//")) {
     return "/app";
   }
@@ -86,11 +123,13 @@ export function useAuthSession() {
   const sessionQuery = useGetSession();
   const session = sessionQuery.data ?? null;
   const role = normalizeRole(session?.user.role);
+  const onboardingStatus = normalizeOnboardingStatus(session?.user.onboardingStatus);
 
   return {
     ...sessionQuery,
     session,
     role,
+    onboardingStatus,
     organizationId: session?.user.organizationId ?? null,
     isAuthenticated: Boolean(session?.user),
   };

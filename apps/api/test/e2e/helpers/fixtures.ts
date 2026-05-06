@@ -255,6 +255,10 @@ export async function promoteUserToRole(
   const [updatedUser] = await db
     .update(users)
     .set({
+      onboardingStatus:
+        role === "organization_owner" && organizationId === null
+          ? "pending_organization"
+          : "complete",
       role,
       organizationId,
       updatedAt: new Date(),

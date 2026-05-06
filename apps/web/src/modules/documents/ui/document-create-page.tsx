@@ -127,9 +127,9 @@ export function DocumentCreatePageUI() {
         },
       },
       {
-        onSuccess: () => {
-          toast.success("Documento criado com sucesso.");
-          navigate("/app/documentos");
+        onSuccess: (createdDocument) => {
+          toast.success("Geração do documento iniciada.");
+          navigate(`/app/documento/${createdDocument.id}/preview`);
         },
         onError: (error) => {
           const message =
@@ -291,7 +291,7 @@ export function DocumentCreatePageUI() {
                 </>
               ) : (
                 <>
-                  Criar e Editar
+                  Criar documento
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}

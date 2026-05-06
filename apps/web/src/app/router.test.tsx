@@ -87,11 +87,11 @@ describe("appRoutes", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/app");
       expect(router.state.location.search).toBe("");
-      expect(screen.getByLabelText("Área inicial do app")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Central de Trabalho" })).toBeInTheDocument();
     });
   });
 
-  it("renders the app shell and blank home route for authenticated users", async () => {
+  it("renders the app shell and authenticated home route for authenticated users", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
         return HttpResponse.json(authenticatedSessionResponse);
@@ -112,7 +112,8 @@ describe("appRoutes", () => {
       "href",
       "/app",
     );
-    expect(screen.getByLabelText("Área inicial do app")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Central de Trabalho" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ações Rápidas" })).toBeInTheDocument();
     expect(screen.queryByText("Documento em Geração")).not.toBeInTheDocument();
   });
 
@@ -209,7 +210,7 @@ describe("appRoutes", () => {
       "href",
       "/app/documentos",
     );
-    expect(screen.getByText("Preview do Documento")).toBeInTheDocument();
+    expect(screen.getByText(/Contratacao de Servicos de TI/)).toBeInTheDocument();
   });
 
   it("redirects visitors away from the protected document preview route", async () => {
@@ -274,6 +275,72 @@ describe("appRoutes", () => {
     });
   });
 
+  it("redirects non-owner users away from the owner members route", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json(authenticatedSessionResponse);
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app/membros"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/nao-autorizado");
+      expect(
+        screen.getByRole("heading", { name: "Você não tem permissão para esta área" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("renders the owner members route for organization_owner sessions", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "organization_owner",
+            organizationId: "organization-1",
+          },
+        });
+      }),
+      http.get("http://localhost:3333/api/users/", () =>
+        HttpResponse.json({
+          items: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 0,
+        }),
+      ),
+      http.get("http://localhost:3333/api/invites/", () =>
+        HttpResponse.json({
+          items: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 0,
+        }),
+      ),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app/membros"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Administração da Organização" }),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("renders the admin users route for admin sessions", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
@@ -322,6 +389,128 @@ describe("appRoutes", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/admin/usuarios");
       expect(screen.getByRole("heading", { name: "Usuários do Sistema" })).toBeInTheDocument();
+    });
+  });
+
+  it("renders a blocking onboarding modal for member with pending_profile inside the app", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "member",
+            onboardingStatus: "pending_profile",
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/app");
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Complete seu cadastro" })).toBeInTheDocument();
+    });
+  });
+
+  it("keeps legacy member onboarding route in the app with the blocking modal", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "member",
+            onboardingStatus: "pending_profile",
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/onboarding/membro/perfil"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/app");
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Complete seu cadastro" })).toBeInTheDocument();
+    });
+  });
+
+  it("redirects completed member away from member onboarding to app", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "member",
+            onboardingStatus: "complete",
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/onboarding/membro/perfil"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/app");
+    });
+  });
+
+  it("signs in as invited member and opens the blocking onboarding modal", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json(null);
+      }),
+      http.post("http://localhost:3333/api/auth/sign-in/email", () => {
+        return HttpResponse.json({
+          redirect: false,
+          token: "session-token",
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "member",
+            onboardingStatus: "pending_profile",
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/entrar"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Acesse sua conta" })).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("E-mail"), {
+      target: { value: "member@licitadoc.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Senha"), {
+      target: { value: "senha-temporaria" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Entrar/ }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/app");
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Complete seu cadastro" })).toBeInTheDocument();
     });
   });
 

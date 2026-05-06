@@ -1,10 +1,17 @@
 import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
 import { getSessionUser } from "../../shared/auth/get-session-user";
+import { completeOwnerProfileOnboarding } from "./complete-owner-profile-onboarding";
 import { deleteUser } from "./delete-user";
 import { getUser } from "./get-user";
 import { getUsers } from "./get-users";
 import { updateUser } from "./update-user";
-import { deleteUserSchema, getUserSchema, getUsersSchema, updateUserSchema } from "./users.schemas";
+import {
+  completeOwnerProfileOnboardingSchema,
+  deleteUserSchema,
+  getUserSchema,
+  getUsersSchema,
+  updateUserSchema,
+} from "./users.schemas";
 
 export const registerUserRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
   // User creation stays in the invite + auth flow; this module only manages stored users.
@@ -24,6 +31,22 @@ export const registerUserRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
         search: request.query.search,
         role: request.query.role,
         organizationId: request.query.organizationId,
+      });
+    },
+  );
+
+  app.post(
+    "/me/onboarding/profile",
+    {
+      schema: completeOwnerProfileOnboardingSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+
+      return completeOwnerProfileOnboarding({
+        actor,
+        db: app.db,
+        profile: request.body,
       });
     },
   );

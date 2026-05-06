@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import {
+  type AuthOnboardingStatus,
+  type AuthRole,
+  getOnboardingRedirectTarget,
+} from "@/modules/auth";
 
 type RequireSessionProps = {
   children: ReactNode;
@@ -37,6 +42,50 @@ export function RequireSession({
 
   if (!isAuthorized) {
     return <Navigate to={unauthorizedTo} replace />;
+  }
+
+  return children;
+}
+
+type OnboardingGateProps = {
+  children: ReactNode;
+  onboardingStatus: AuthOnboardingStatus | null;
+  role?: AuthRole | null;
+};
+
+export function RequireCompletedOnboarding({
+  children,
+  onboardingStatus,
+  role,
+}: OnboardingGateProps) {
+  const location = useLocation();
+  const onboardingTarget = getOnboardingRedirectTarget(onboardingStatus, role);
+
+  if (onboardingTarget && location.pathname !== onboardingTarget) {
+    return <Navigate to={onboardingTarget} replace />;
+  }
+
+  return children;
+}
+
+type RequireOnboardingStepProps = OnboardingGateProps & {
+  expectedStatus: AuthOnboardingStatus;
+};
+
+export function RequireOnboardingStep({
+  children,
+  expectedStatus,
+  onboardingStatus,
+  role,
+}: RequireOnboardingStepProps) {
+  const onboardingTarget = getOnboardingRedirectTarget(onboardingStatus, role);
+
+  if (!onboardingTarget) {
+    return <Navigate to="/app" replace />;
+  }
+
+  if (onboardingStatus !== expectedStatus) {
+    return <Navigate to={onboardingTarget} replace />;
   }
 
   return children;

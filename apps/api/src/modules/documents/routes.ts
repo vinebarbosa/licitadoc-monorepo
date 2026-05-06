@@ -17,7 +17,7 @@ export const registerDocumentRoutes: FastifyPluginAsyncZodOpenApi = async (app) 
         actor,
         db: app.db,
         document: request.body,
-        textGeneration: app.textGeneration,
+        scheduleGeneration: app.documentGenerationQueue.schedule,
       });
 
       return reply.status(201).send(document);

@@ -16,6 +16,10 @@ const updateUserBodyExample = {
   role: UPDATE_USER_ROLE_EXAMPLE,
   organizationId: OPENAPI_EXAMPLE_UUID,
 };
+const completeOwnerProfileBodyExample = {
+  name: OPENAPI_EXAMPLE_PERSON_NAME,
+  password: "NovaSenha123!",
+};
 
 const userSchema = z.object({
   id: z.string(),
@@ -25,6 +29,7 @@ const userSchema = z.object({
   image: z.string().nullable(),
   role: z.enum(["admin", "organization_owner", "member"]),
   organizationId: openApiUuidSchema().nullable(),
+  onboardingStatus: z.enum(["pending_profile", "pending_organization", "complete"]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -63,6 +68,18 @@ export const updateUserBodySchema = withOpenApiExample(
   updateUserBodyExample,
 );
 
+export const completeOwnerProfileOnboardingBodySchema = withOpenApiExample(
+  z.object({
+    name: withOpenApiExample(z.string().trim().min(2), OPENAPI_EXAMPLE_PERSON_NAME),
+    password: withOpenApiExample(z.string().min(8).max(128), "NovaSenha123!"),
+  }),
+  completeOwnerProfileBodyExample,
+);
+
+export type CompleteOwnerProfileOnboardingInput = z.infer<
+  typeof completeOwnerProfileOnboardingBodySchema
+>;
+
 const paginatedUsersSchema = z.object({
   items: z.array(userSchema),
   page: z.number().int().positive(),
@@ -99,6 +116,16 @@ export const updateUserSchema = {
   response: {
     200: userSchema,
     ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const completeOwnerProfileOnboardingSchema = {
+  tags: ["Users"],
+  summary: "Complete current user profile onboarding",
+  body: completeOwnerProfileOnboardingBodySchema,
+  response: {
+    200: userSchema,
+    ...pickErrorResponses(400, 401, 500),
   },
 } satisfies AppRouteSchema;
 

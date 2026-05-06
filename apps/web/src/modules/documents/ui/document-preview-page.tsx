@@ -5,7 +5,7 @@ import { useAppShellHeader } from "@/modules/app-shell";
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Card, CardContent, CardHeader } from "@/shared/ui/card";
 import {
   Empty,
   EmptyContent,

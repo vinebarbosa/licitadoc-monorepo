@@ -41,6 +41,14 @@ export async function acceptInvite({ actor, db, inviteToken }: Input) {
       throw new BadRequestError("Invite is no longer pending.");
     }
 
+    if (invite.role === "organization_owner" && invite.provisionedUserId) {
+      throw new BadRequestError("Organization owner invites must be completed through onboarding.");
+    }
+
+    if (invite.role === "member" && invite.provisionedUserId) {
+      throw new BadRequestError("Member invites must be completed through first-login onboarding.");
+    }
+
     if (invite.expiresAt.getTime() <= Date.now()) {
       throw new BadRequestError("Invite has expired.");
     }

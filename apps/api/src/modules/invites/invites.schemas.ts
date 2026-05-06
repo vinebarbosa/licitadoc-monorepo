@@ -18,6 +18,7 @@ const inviteSchema = z.object({
   role: inviteRoleSchema,
   organizationId: openApiUuidSchema().nullable(),
   invitedByUserId: z.string().nullable(),
+  provisionedUserId: z.string().nullable(),
   acceptedByUserId: z.string().nullable(),
   status: inviteStatusSchema,
   expiresAt: z.string(),

@@ -48,6 +48,9 @@ export async function startTestServer(): Promise<ApiTestServer> {
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     CORS_ORIGIN: process.env.CORS_ORIGIN,
     DATABASE_URL: process.env.DATABASE_URL,
+    INVITE_EMAIL_PROVIDER: process.env.INVITE_EMAIL_PROVIDER,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
   };
 
   process.env.NODE_ENV = "test";
@@ -55,6 +58,9 @@ export async function startTestServer(): Promise<ApiTestServer> {
   process.env.PORT = String(port);
   process.env.BETTER_AUTH_URL = baseUrl;
   process.env.CORS_ORIGIN = baseUrl;
+  process.env.INVITE_EMAIL_PROVIDER = "stub";
+  delete process.env.RESEND_API_KEY;
+  delete process.env.RESEND_FROM_EMAIL;
 
   if (process.env.AUTH_E2E_DATABASE_URL) {
     process.env.DATABASE_URL = process.env.AUTH_E2E_DATABASE_URL;

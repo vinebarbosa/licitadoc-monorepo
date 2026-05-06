@@ -44,6 +44,12 @@ export function createAuth(app: FastifyInstance) {
           required: false,
           input: false,
         },
+        onboardingStatus: {
+          type: "string",
+          required: false,
+          defaultValue: "complete",
+          input: false,
+        },
       },
     },
     plugins: [

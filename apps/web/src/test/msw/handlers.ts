@@ -1,6 +1,7 @@
 import { HttpResponse, http } from "msw";
 import {
   anonymousSessionResponse,
+  departmentCreateResponse,
   departmentsListResponse,
   documentCreateResponse,
   documentDetailResponse,
@@ -29,11 +30,23 @@ export const handlers = [
   http.get("http://localhost:3333/api/users/", () => {
     return HttpResponse.json(usersListResponse);
   }),
+  http.get("http://localhost:3333/api/invites/", () => {
+    return HttpResponse.json({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      totalPages: 0,
+    });
+  }),
   http.get("http://localhost:3333/api/organizations/", () => {
     return HttpResponse.json(organizationsListResponse);
   }),
   http.get("http://localhost:3333/api/departments/", () => {
     return HttpResponse.json(departmentsListResponse);
+  }),
+  http.post("http://localhost:3333/api/departments/", () => {
+    return HttpResponse.json(departmentCreateResponse, { status: 201 });
   }),
   http.get("http://localhost:3333/api/processes/", () => {
     return HttpResponse.json(processesListResponse);

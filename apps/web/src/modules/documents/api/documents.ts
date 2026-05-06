@@ -33,6 +33,7 @@ export function useDocumentDetail(documentId: string) {
   >({
     enabled: documentId.length > 0,
     queryKey: getApiDocumentsDocumentidQueryKey({ documentId }),
+    refetchInterval: (query) => (query.state.data?.status === "generating" ? 1000 : false),
     retry: false,
     queryFn: async () => {
       const response = await client<

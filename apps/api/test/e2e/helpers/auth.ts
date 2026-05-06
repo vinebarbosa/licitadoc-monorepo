@@ -7,6 +7,7 @@ export const DEFAULT_E2E_PASSWORD = "P@ssword123!";
 export type AuthUserResponse = {
   email: string;
   name: string;
+  onboardingStatus?: string | null;
   role: string;
   organizationId?: string | null;
 };
@@ -22,6 +23,7 @@ export type AuthSessionResponse = {
   };
   user: {
     email: string;
+    onboardingStatus?: string | null;
     role: string;
     organizationId?: string | null;
   };

@@ -64,6 +64,20 @@
       "when": 1776772800000,
       "tag": "0008_expense_request_process_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777507200000,
+      "tag": "0009_owner_invite_onboarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777748400000,
+      "tag": "0010_blocking_member_onboarding_modal",
+      "breakpoints": true
     }
   ]
 }

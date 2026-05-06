@@ -19,6 +19,7 @@ export const authenticatedSessionResponse = {
     email: "maria@licitadoc.test",
     role: "member",
     organizationId: "organization-1",
+    onboardingStatus: "complete",
     createdAt: "2026-04-25T00:00:00.000Z",
     updatedAt: "2026-04-25T00:00:00.000Z",
   },
@@ -74,6 +75,18 @@ export const departmentsListResponse = {
   totalPages: 1,
 };
 
+export const departmentCreateResponse = {
+  id: "department-created",
+  name: "Secretaria de Saude",
+  slug: "secretaria-de-saude",
+  organizationId: "organization-1",
+  budgetUnitCode: "07.001",
+  responsibleName: "Ana Souza",
+  responsibleRole: "Secretaria",
+  createdAt: "2026-05-02T00:00:00.000Z",
+  updatedAt: "2026-05-02T00:00:00.000Z",
+};
+
 export const usersListResponse = {
   items: [
     {
@@ -84,6 +97,7 @@ export const usersListResponse = {
       image: null,
       role: "admin",
       organizationId: "organization-1",
+      onboardingStatus: "complete",
       createdAt: "2026-04-25T00:00:00.000Z",
       updatedAt: "2026-04-25T00:00:00.000Z",
     },
@@ -361,4 +375,6 @@ export const documentCreateResponse = {
   responsibles: ["Maria Silva"],
   createdAt: "2026-04-26T00:00:00.000Z",
   updatedAt: "2026-04-26T00:00:00.000Z",
+  draftContent: null,
+  storageKey: null,
 };

@@ -14,8 +14,10 @@ import {
   TextGenerationError,
   type TextGenerationProvider,
 } from "../../shared/text-generation/types";
-import { createDocument } from "./create-document";
+import { createDocument as createPendingDocument } from "./create-document";
+import { executeDocumentGeneration } from "./document-generation-worker";
 import { createDocumentBodySchema } from "./documents.schemas";
+import { serializeDocumentDetail } from "./documents.shared";
 import { getDocuments } from "./get-documents";
 
 const ORGANIZATION_ID = "4fd5b7df-e2e5-4876-b4c3-b35306c6e733";
@@ -24,6 +26,11 @@ const PROCESS_ID = "1f1f1f1f-e2e5-4876-b4c3-b35306c6e733";
 const DEPARTMENT_ID = "9f9f9f9f-e2e5-4876-b4c3-b35306c6e733";
 const DOCUMENT_ID = "7a7a7a7a-e2e5-4876-b4c3-b35306c6e733";
 const GENERATION_RUN_ID = "6b6b6b6b-e2e5-4876-b4c3-b35306c6e733";
+
+type TestDb = FastifyInstance["db"] & {
+  getCurrentDocument(): typeof documents.$inferSelect;
+  getCurrentGenerationRun(): typeof documentGenerationRuns.$inferSelect | null;
+};
 
 function createOrganizationRow(
   overrides: Partial<typeof organizations.$inferSelect> = {},
@@ -138,26 +145,41 @@ function createDb({
   onDocumentUpdate?: (values: Record<string, unknown>) => void;
   onGenerationRunUpdate?: (values: Record<string, unknown>) => void;
 } = {}) {
+  let currentDocument: typeof documents.$inferSelect | null = null;
+  let currentGenerationRun: typeof documentGenerationRuns.$inferSelect | null = null;
+
   const tx = {
     insert: (table: unknown) => ({
       values: (values: Record<string, unknown>) => {
         if (table === documents) {
           onDocumentInsert?.(values);
+          currentDocument = createDocumentRow(values);
 
           return {
-            returning: async () => [createDocumentRow(values)],
+            returning: async () => [currentDocument],
           };
         }
 
         assert.equal(table, documentGenerationRuns);
+        currentGenerationRun = {
+          id: GENERATION_RUN_ID,
+          documentId: DOCUMENT_ID,
+          providerKey: "stub",
+          model: "stub-model",
+          status: "generating",
+          requestMetadata: {},
+          responseMetadata: null,
+          errorCode: null,
+          errorMessage: null,
+          errorDetails: null,
+          startedAt: new Date("2029-12-01T00:00:00.000Z"),
+          finishedAt: null,
+          createdAt: new Date("2029-12-01T00:00:00.000Z"),
+          ...values,
+        } as typeof documentGenerationRuns.$inferSelect;
 
         return {
-          returning: async () => [
-            {
-              id: GENERATION_RUN_ID,
-              ...values,
-            },
-          ],
+          returning: async () => [currentGenerationRun],
         };
       },
     }),
@@ -166,14 +188,36 @@ function createDb({
         where: () => {
           if (table === documents) {
             onDocumentUpdate?.(values);
+            currentDocument = createDocumentRow({
+              ...(currentDocument ?? createDocumentRow()),
+              ...values,
+            });
 
             return {
-              returning: async () => [createDocumentRow(values)],
+              returning: async () => [currentDocument],
             };
           }
 
           assert.equal(table, documentGenerationRuns);
           onGenerationRunUpdate?.(values);
+          currentGenerationRun = {
+            ...(currentGenerationRun ?? {
+              id: GENERATION_RUN_ID,
+              documentId: DOCUMENT_ID,
+              providerKey: "stub",
+              model: "stub-model",
+              status: "generating",
+              requestMetadata: {},
+              responseMetadata: null,
+              errorCode: null,
+              errorMessage: null,
+              errorDetails: null,
+              startedAt: new Date("2029-12-01T00:00:00.000Z"),
+              finishedAt: null,
+              createdAt: new Date("2029-12-01T00:00:00.000Z"),
+            }),
+            ...values,
+          } as typeof documentGenerationRuns.$inferSelect;
 
           return Promise.resolve();
         },
@@ -189,6 +233,13 @@ function createDb({
       organizations: {
         findFirst: async () => organization,
       },
+      documentGenerationRuns: {
+        findFirst: async () => currentGenerationRun,
+        findMany: async () => (currentGenerationRun ? [currentGenerationRun] : []),
+      },
+      documents: {
+        findFirst: async () => currentDocument,
+      },
       processes: {
         findFirst: async () => process,
       },
@@ -203,8 +254,81 @@ function createDb({
       },
     }),
     transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx),
-  } as unknown as FastifyInstance["db"];
+    getCurrentDocument: () => {
+      assert.ok(currentDocument);
+      return currentDocument;
+    },
+    getCurrentGenerationRun: () => currentGenerationRun,
+  } as unknown as TestDb;
 }
+
+async function createDocument(
+  input: Parameters<typeof createPendingDocument>[0] & {
+    db: TestDb;
+    textGeneration: TextGenerationProvider;
+  },
+) {
+  await createPendingDocument(input);
+  const generationRun = input.db.getCurrentGenerationRun();
+  assert.ok(generationRun);
+
+  await executeDocumentGeneration({
+    db: input.db,
+    generationRunId: generationRun.id,
+    textGeneration: input.textGeneration,
+  });
+
+  return serializeDocumentDetail(input.db.getCurrentDocument());
+}
+
+test("createDocument returns a generating draft before provider completion", async () => {
+  let insertedDocument: Record<string, unknown> | undefined;
+  let scheduledGenerationRunId: string | undefined;
+  let providerWasCalled = false;
+  const db = createDb({
+    onDocumentInsert: (values) => {
+      insertedDocument = values;
+    },
+  });
+
+  const response = await createPendingDocument({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+      instructions: "Usar linguagem objetiva.",
+    }),
+    scheduleGeneration: (generationRunId) => {
+      scheduledGenerationRunId = generationRunId;
+    },
+    textGeneration: createTextGenerationProvider(async () => {
+      providerWasCalled = true;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: "Conteudo gerado do DFD",
+        responseMetadata: {},
+      };
+    }),
+  });
+
+  const generationRun = db.getCurrentGenerationRun();
+
+  assert.equal(insertedDocument?.status, "generating");
+  assert.equal(response.status, "generating");
+  assert.equal(response.draftContent, null);
+  assert.equal(providerWasCalled, false);
+  assert.equal(scheduledGenerationRunId, GENERATION_RUN_ID);
+  assert.equal(generationRun?.status, "generating");
+  assert.equal(generationRun?.requestMetadata.documentType, "dfd");
+  assert.match(String(generationRun?.requestMetadata.prompt), /## Modelo Markdown canonico/);
+});
 
 test("createDocument generates and persists a completed draft", async () => {
   let insertedDocument: Record<string, unknown> | undefined;
@@ -554,6 +678,52 @@ test("createDocument persists failed state when the provider fails", async () =>
   assert.equal(failedRun?.errorCode, "rate_limited");
   assert.equal(response.status, "failed");
   assert.equal(response.draftContent, null);
+});
+
+test("executeDocumentGeneration skips runs that are no longer pending", async () => {
+  let callCount = 0;
+  const db = createDb();
+  const textGeneration = createTextGenerationProvider(async () => {
+    callCount += 1;
+
+    return {
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Conteudo gerado",
+      responseMetadata: {},
+    };
+  });
+
+  await createPendingDocument({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+    }),
+  });
+
+  const generationRun = db.getCurrentGenerationRun();
+  assert.ok(generationRun);
+
+  await executeDocumentGeneration({
+    db,
+    generationRunId: generationRun.id,
+    textGeneration,
+  });
+  await executeDocumentGeneration({
+    db,
+    generationRunId: generationRun.id,
+    textGeneration,
+  });
+
+  assert.equal(callCount, 1);
+  assert.equal(db.getCurrentDocument().status, "completed");
+  assert.equal(db.getCurrentGenerationRun()?.status, "completed");
 });
 
 test("createDocument strips ETP and TR sections from generated DFD content", async () => {

@@ -52,6 +52,48 @@ function mockSuccessfulSignIn() {
   );
 }
 
+function mockSuccessfulOwnerSignIn(onboardingStatus: string) {
+  server.use(
+    http.post("http://localhost:3333/api/auth/sign-in/email", () => {
+      return HttpResponse.json({
+        redirect: false,
+        token: "session-token",
+        user: {
+          id: "owner-1",
+          name: "Owner",
+          email: "owner@licitadoc.test",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          role: "organization_owner",
+          organizationId: null,
+          onboardingStatus,
+        },
+      });
+    }),
+  );
+}
+
+function mockSuccessfulMemberSignIn(onboardingStatus: string) {
+  server.use(
+    http.post("http://localhost:3333/api/auth/sign-in/email", () => {
+      return HttpResponse.json({
+        redirect: false,
+        token: "session-token",
+        user: {
+          id: "member-1",
+          name: "Member",
+          email: "member@licitadoc.test",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          role: "member",
+          organizationId: "organization-1",
+          onboardingStatus,
+        },
+      });
+    }),
+  );
+}
+
 function submitSignInForm() {
   fireEvent.change(screen.getByLabelText("E-mail"), {
     target: { value: "maria@licitadoc.test" },
@@ -101,6 +143,30 @@ describe("SignInPage", () => {
       expect(navigateMock).toHaveBeenCalledWith("/app/processos?status=aberto", {
         replace: true,
       });
+    });
+  });
+
+  it("sends invited owners to the first incomplete onboarding step", async () => {
+    mockSuccessfulOwnerSignIn("pending_profile");
+
+    renderSignInPage("/entrar?redirectTo=%2Fapp");
+
+    submitSignInForm();
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith("/onboarding/perfil", { replace: true });
+    });
+  });
+
+  it("keeps invited members in the app so the shell can render the blocking modal", async () => {
+    mockSuccessfulMemberSignIn("pending_profile");
+
+    renderSignInPage("/entrar?redirectTo=%2Fapp");
+
+    submitSignInForm();
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith("/app", { replace: true });
     });
   });
 

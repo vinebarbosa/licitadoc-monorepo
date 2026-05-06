@@ -75,6 +75,8 @@ const documentTypes = [
 
 const adminNavItems = [{ title: "Usuários", url: "/admin/usuarios", icon: Users }];
 
+const ownerNavItems = [{ title: "Membros", url: "/app/membros", icon: Users }];
+
 const secondaryNavItems = [
   { title: "Configurações", url: "/app/configuracoes", icon: Settings },
   { title: "Ajuda", url: "/app/ajuda", icon: HelpCircle },
@@ -216,6 +218,34 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {adminNavItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.url || pathname.startsWith(item.url)}
+                        tooltip={item.title}
+                      >
+                        <Link to={item.url}>
+                          <item.icon className="size-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarSeparator />
+          </>
+        )}
+
+        {role === "organization_owner" && (
+          <>
+            <SidebarGroup>
+              <SidebarGroupLabel>Gestão</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {ownerNavItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
                         asChild

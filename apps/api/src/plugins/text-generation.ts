@@ -13,6 +13,8 @@ export const registerTextGenerationPlugin = fp(async (app) => {
     providerKey: app.config.TEXT_GENERATION_PROVIDER,
     model: app.config.TEXT_GENERATION_MODEL,
     apiKey: app.config.TEXT_GENERATION_API_KEY,
+    baseUrl: app.config.TEXT_GENERATION_BASE_URL,
+    timeoutMs: app.config.TEXT_GENERATION_TIMEOUT_MS,
   });
 
   app.decorate("textGeneration", provider);

@@ -52,6 +52,9 @@ function createUserRow(
     image: null,
     role: "organization_owner",
     organizationId: null,
+    onboardingStatus: "pending_organization",
+    temporaryPasswordCreatedAt: null,
+    temporaryPasswordExpiresAt: null,
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
     updatedAt: new Date("2029-12-01T00:00:00.000Z"),
     ...overrides,
@@ -385,7 +388,54 @@ test("createOrganization creates the prefeitura and links the current organizati
   assert.equal(insertedValues?.createdByUserId, "owner_user");
   assert.equal(insertedValues?.isActive, true);
   assert.equal(updatedUserValues?.organizationId, "4fd5b7df-e2e5-4876-b4c3-b35306c6e733");
+  assert.equal(updatedUserValues?.onboardingStatus, "complete");
+  assert.equal(updatedUserValues?.temporaryPasswordCreatedAt, null);
+  assert.equal(updatedUserValues?.temporaryPasswordExpiresAt, null);
   assert.equal(response.createdByUserId, "owner_user");
+});
+
+test("createOrganization rejects owners before profile onboarding is completed", async () => {
+  const tx = {
+    select: createNoConflictSelect(),
+    query: {
+      users: {
+        findFirst: async () => createUserRow({ onboardingStatus: "pending_profile" }),
+      },
+    },
+  };
+
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => unknown) => callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      createOrganization({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: null,
+        },
+        db,
+        organization: parseCreateOrganizationInput({
+          name: "Prefeitura de Exemplo",
+          slug: "prefeitura-de-exemplo",
+          officialName: "Prefeitura Municipal de Exemplo",
+          cnpj: "12.345.678/0001-99",
+          city: "Exemplo",
+          state: "CE",
+          address: "Rua Principal, 100",
+          zipCode: "60000-000",
+          phone: "(85) 3333-0000",
+          institutionalEmail: "contato@exemplo.ce.gov.br",
+          authorityName: "Maria Silva",
+          authorityRole: "Prefeita",
+        }),
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestError &&
+      error.message === "Owner profile onboarding must be completed first.",
+  );
 });
 
 test("createOrganization rejects actors who already belong to an organization", async () => {
