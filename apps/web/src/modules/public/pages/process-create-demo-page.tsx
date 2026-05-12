@@ -188,7 +188,7 @@ function Stepper({
   }
 
   return (
-    <div className="hidden rounded-lg border bg-card p-4 shadow-sm md:block">
+    <div className="hidden md:block">
       <div className="flex items-start justify-between gap-4">
         {steps.map((step, index) => {
           const isActive = index === currentIndex;
