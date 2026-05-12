@@ -6,7 +6,6 @@ import {
   Calendar,
   Check,
   CheckCircle2,
-  ChevronRight,
   FileText,
   Hash,
   Layers3,
@@ -149,68 +148,6 @@ function formatDate(dateString: string): string {
 }
 
 // Components
-function StepIndicator({
-  step,
-  index,
-  currentIndex,
-  isMobile = false,
-}: {
-  step: (typeof steps)[0];
-  index: number;
-  currentIndex: number;
-  isMobile?: boolean;
-}) {
-  const isActive = index === currentIndex;
-  const isComplete = index < currentIndex;
-
-  if (isMobile) {
-    return (
-      <div
-        className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-all ${
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : isComplete
-              ? "bg-primary/10 text-primary"
-              : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {isComplete ? (
-          <Check className="h-3.5 w-3.5" />
-        ) : (
-          <span className="font-medium">{index + 1}</span>
-        )}
-        <span className="font-medium">{step.label}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3">
-      <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-all ${
-          isActive
-            ? "bg-primary text-primary-foreground shadow-sm"
-            : isComplete
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {isComplete ? <Check className="h-4 w-4" /> : index + 1}
-      </span>
-      <div className="min-w-0">
-        <span
-          className={`block truncate text-sm font-medium ${
-            isActive ? "text-foreground" : "text-muted-foreground"
-          }`}
-        >
-          {step.label}
-        </span>
-        <span className="block truncate text-xs text-muted-foreground">{step.description}</span>
-      </div>
-    </div>
-  );
-}
-
 function Stepper({
   currentStep,
   isMobile = false,
@@ -223,32 +160,91 @@ function Stepper({
   if (isMobile) {
     return (
       <div className="flex items-center justify-center gap-1 overflow-x-auto pb-2 md:hidden">
-        {steps.map((step, index) => (
-          <StepIndicator
-            key={step.id}
-            step={step}
-            index={index}
-            currentIndex={currentIndex}
-            isMobile
-          />
-        ))}
+        {steps.map((step, index) => {
+          const isActive = index === currentIndex;
+          const isComplete = index < currentIndex;
+          return (
+            <div
+              key={step.id}
+              className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-all ${
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : isComplete
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {isComplete ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <span className="font-medium">{index + 1}</span>
+              )}
+              <span className="font-medium">{step.label}</span>
+            </div>
+          );
+        })}
       </div>
     );
   }
 
   return (
     <Card className="hidden md:block">
-      <CardContent className="p-4">
-        <ol className="flex items-center justify-between">
-          {steps.map((step, index) => (
-            <li key={step.id} className="contents">
-              <StepIndicator step={step} index={index} currentIndex={currentIndex} />
-              {index < steps.length - 1 && (
-                <ChevronRight className="mx-2 h-4 w-4 shrink-0 text-muted-foreground/50" />
-              )}
-            </li>
-          ))}
-        </ol>
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          {steps.map((step, index) => {
+            const isActive = index === currentIndex;
+            const isComplete = index < currentIndex;
+            const isLast = index === steps.length - 1;
+
+            return (
+              <div key={step.id} className="flex flex-1 flex-col items-center relative">
+                {/* Connector line */}
+                {!isLast && (
+                  <div
+                    className={`absolute top-4 left-[calc(50%+20px)] right-[calc(-50%+20px)] h-0.5 ${
+                      isComplete ? "bg-primary" : "bg-muted"
+                    }`}
+                  />
+                )}
+
+                {/* Circle indicator */}
+                <div
+                  className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : isComplete
+                        ? "border-2 border-primary bg-background text-primary"
+                        : "border-2 border-muted bg-background text-muted-foreground"
+                  }`}
+                >
+                  {isComplete ? <Check className="h-4 w-4" /> : index + 1}
+                </div>
+
+                {/* Label and description */}
+                <div className="mt-3 text-center">
+                  <span
+                    className={`block text-sm font-medium ${
+                      isActive
+                        ? "text-foreground"
+                        : isComplete
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                  <span
+                    className={`block text-xs mt-0.5 ${
+                      isActive || isComplete ? "text-muted-foreground" : "text-muted-foreground/70"
+                    }`}
+                  >
+                    {step.description}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
