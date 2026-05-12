@@ -11,7 +11,7 @@ import {
 import { DocumentCreatePage, DocumentPreviewPage, DocumentsPage } from "@/modules/documents";
 import { OwnerOrganizationOnboardingPage, OwnerProfileOnboardingPage } from "@/modules/onboarding";
 import { ProcessCreatePage, ProcessDetailPage, ProcessesPage } from "@/modules/processes";
-import { LandingPage } from "@/modules/public";
+import { LandingPage, ProcessCreateDemoPage } from "@/modules/public";
 import { NotFoundPage, UnauthorizedPage } from "@/modules/system";
 import { AdminUsersPage, OwnerMembersPage } from "@/modules/users";
 import { AppLayout } from "@/shared/layouts/app-layout";
@@ -96,6 +96,10 @@ export const appRoutes: RouteObject[] = [
       {
         index: true,
         element: <LandingPage />,
+      },
+      {
+        path: "demo/processo/novo",
+        element: <ProcessCreateDemoPage />,
       },
       {
         path: "entrar",
