@@ -188,65 +188,63 @@ function Stepper({
   }
 
   return (
-    <Card className="hidden md:block">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          {steps.map((step, index) => {
-            const isActive = index === currentIndex;
-            const isComplete = index < currentIndex;
-            const isLast = index === steps.length - 1;
+    <div className="hidden rounded-lg border bg-card p-4 shadow-sm md:block">
+      <div className="flex items-start justify-between gap-4">
+        {steps.map((step, index) => {
+          const isActive = index === currentIndex;
+          const isComplete = index < currentIndex;
+          const isLast = index === steps.length - 1;
 
-            return (
-              <div key={step.id} className="flex flex-1 flex-col items-center relative">
-                {/* Connector line */}
-                {!isLast && (
-                  <div
-                    className={`absolute top-4 left-[calc(50%+20px)] right-[calc(-50%+20px)] h-0.5 ${
-                      isComplete ? "bg-primary" : "bg-muted"
-                    }`}
-                  />
-                )}
-
-                {/* Circle indicator */}
+          return (
+            <div key={step.id} className="flex flex-1 flex-col items-center relative">
+              {/* Connector line */}
+              {!isLast && (
                 <div
-                  className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-all ${
+                  className={`absolute top-3.5 left-[calc(50%+16px)] right-[calc(-50%+16px)] h-0.5 ${
+                    isComplete ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+              )}
+
+              {/* Circle indicator */}
+              <div
+                className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-all ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : isComplete
+                      ? "border-2 border-primary bg-background text-primary"
+                      : "border-2 border-muted bg-background text-muted-foreground"
+                }`}
+              >
+                {isComplete ? <Check className="h-3.5 w-3.5" /> : index + 1}
+              </div>
+
+              {/* Label and description */}
+              <div className="mt-2.5 text-center">
+                <span
+                  className={`block text-xs font-semibold leading-tight ${
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-md"
+                      ? "text-foreground"
                       : isComplete
-                        ? "border-2 border-primary bg-background text-primary"
-                        : "border-2 border-muted bg-background text-muted-foreground"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
                   }`}
                 >
-                  {isComplete ? <Check className="h-4 w-4" /> : index + 1}
-                </div>
-
-                {/* Label and description */}
-                <div className="mt-3 text-center">
-                  <span
-                    className={`block text-sm font-medium ${
-                      isActive
-                        ? "text-foreground"
-                        : isComplete
-                          ? "text-foreground"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                  <span
-                    className={`block text-xs mt-0.5 ${
-                      isActive || isComplete ? "text-muted-foreground" : "text-muted-foreground/70"
-                    }`}
-                  >
-                    {step.description}
-                  </span>
-                </div>
+                  {step.label}
+                </span>
+                <span
+                  className={`block text-xs mt-1 leading-tight ${
+                    isActive || isComplete ? "text-muted-foreground text-[11px]" : "text-muted-foreground/70 text-[11px]"
+                  }`}
+                >
+                  {step.description}
+                </span>
               </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -829,12 +827,12 @@ export function ProcessCreateDemoPage() {
         </div>
 
         {/* Desktop Stepper */}
-        <div className="mb-6">
+        <div className="mb-4">
           <Stepper currentStep={currentStep} />
         </div>
 
         {/* Main Content */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
           {/* Form Area */}
           <div className="space-y-6">
             {/* Step 1: Dados do Processo */}
