@@ -15,6 +15,7 @@ const processesResponse = {
       processNumber: "PE-2024-045",
       externalId: null,
       issuedAt: "2024-03-01T00:00:00.000Z",
+      title: "Serviços de TI",
       object: "Contratação de Serviços de TI",
       justification: "Necessidade de suporte técnico especializado.",
       responsibleName: "Maria Costa",
@@ -68,7 +69,8 @@ describe("ProcessesPage", () => {
       "/app/processo/novo",
     );
     expect(await screen.findByText("PE-2024-045")).toBeInTheDocument();
-    expect(screen.getByText("Contratação de Serviços de TI")).toBeInTheDocument();
+    expect(screen.getByText("Serviços de TI")).toBeInTheDocument();
+    expect(screen.queryByText("Contratação de Serviços de TI")).not.toBeInTheDocument();
     expect(screen.getByText("Em edicao")).toBeInTheDocument();
     expect(screen.getByText("Pregao Eletronico")).toBeInTheDocument();
     expect(screen.getByText("Maria Costa")).toBeInTheDocument();

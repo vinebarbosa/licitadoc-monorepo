@@ -9,10 +9,7 @@ import {
   useAuthSession,
 } from "@/modules/auth";
 import { DocumentCreatePage, DocumentPreviewPage, DocumentsPage } from "@/modules/documents";
-import {
-  OwnerOrganizationOnboardingPage,
-  OwnerProfileOnboardingPage,
-} from "@/modules/onboarding";
+import { OwnerOrganizationOnboardingPage, OwnerProfileOnboardingPage } from "@/modules/onboarding";
 import { ProcessCreatePage, ProcessDetailPage, ProcessesPage } from "@/modules/processes";
 import { LandingPage } from "@/modules/public";
 import { NotFoundPage, UnauthorizedPage } from "@/modules/system";
@@ -145,7 +142,6 @@ export const appRoutes: RouteObject[] = [
             element: <OwnerOnlyRoute />,
             handle: {
               breadcrumbs: [{ label: "Central de Trabalho", href: "/app" }, { label: "Membros" }],
-              showSearch: false,
             },
           },
           {
@@ -175,7 +171,6 @@ export const appRoutes: RouteObject[] = [
                 { label: "Processos", href: "/app/processos" },
                 { label: "Detalhe do Processo" },
               ],
-              showSearch: false,
             },
           },
           {
@@ -208,7 +203,6 @@ export const appRoutes: RouteObject[] = [
                 { label: "Documentos", href: "/app/documentos" },
                 { label: "Preview do Documento" },
               ],
-              showSearch: false,
             },
           },
         ],
@@ -222,7 +216,6 @@ export const appRoutes: RouteObject[] = [
             element: <AdminOnlyRoute />,
             handle: {
               breadcrumbs: [{ label: "Admin", href: "/app" }, { label: "Usuários" }],
-              showSearch: false,
             },
           },
         ],

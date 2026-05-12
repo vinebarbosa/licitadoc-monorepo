@@ -45,11 +45,13 @@ import {
   getProcessDetailDocumentActionLinks,
   getProcessDetailDocumentStatusConfig,
   getProcessDetailErrorMessage,
+  getProcessDetailItems,
   getProcessEditPath,
   getProcessEstimatedValueLabel,
   getProcessPreviewPath,
   getProcessStatusConfig,
   getProcessTypeLabel,
+  type ProcessDetailSourceItem,
 } from "../model/processes";
 
 const processDocumentIcons = {
@@ -61,6 +63,104 @@ const processDocumentIcons = {
 
 const detailSummarySkeletonKeys = ["responsavel", "valor", "criado", "atualizado"];
 const detailDocumentSkeletonKeys = ["dfd", "etp", "tr", "minuta"];
+
+function ProcessItemMetadata({ label, value }: { label: string; value: string | null }) {
+  if (!value) {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-xs text-muted-foreground">
+      <span>{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
+    </span>
+  );
+}
+
+function ProcessDetailItemsSection({ items }: { items: ProcessDetailSourceItem[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-labelledby="process-detail-items-heading"
+      className="space-y-3"
+      data-testid="process-detail-items"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <p id="process-detail-items-heading" className="text-sm text-muted-foreground">
+          Itens da Solicitação
+        </p>
+        <Badge variant="secondary" className="text-xs font-medium">
+          {items.length} {items.length === 1 ? "item" : "itens"}
+        </Badge>
+      </div>
+
+      <div className="overflow-hidden rounded-md border border-border/80">
+        <div className="divide-y divide-border/80">
+          {items.map((item) => (
+            <div key={item.id} className="space-y-3 p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.code ? (
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {item.code}
+                      </Badge>
+                    ) : null}
+                    <p className="text-sm font-medium leading-relaxed break-words">{item.title}</p>
+                  </div>
+                  {item.description ? (
+                    <p className="text-sm leading-relaxed text-muted-foreground break-words">
+                      {item.description}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2 lg:max-w-sm lg:justify-end">
+                  <ProcessItemMetadata label="Qtd." value={item.quantity} />
+                  <ProcessItemMetadata label="Un." value={item.unit} />
+                  <ProcessItemMetadata label="Unit." value={item.unitValue} />
+                  <ProcessItemMetadata label="Total" value={item.totalValue} />
+                </div>
+              </div>
+
+              {item.components.length > 0 ? (
+                <div className="space-y-2 border-l border-border pl-4">
+                  <p className="text-xs font-medium text-muted-foreground">Componentes</p>
+                  <div className="space-y-2">
+                    {item.components.map((component) => (
+                      <div
+                        key={component.id}
+                        className="flex flex-col gap-2 text-sm sm:flex-row sm:items-start sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium leading-relaxed break-words">
+                            {component.title}
+                          </p>
+                          {component.description ? (
+                            <p className="text-muted-foreground leading-relaxed break-words">
+                              {component.description}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                          <ProcessItemMetadata label="Qtd." value={component.quantity} />
+                          <ProcessItemMetadata label="Un." value={component.unit} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function ProcessDetailLoadingState() {
   return (
@@ -167,7 +267,6 @@ export function ProcessDetailPageContent() {
   const breadcrumbs = useMemo(
     () => ({
       breadcrumbs: getProcessDetailBreadcrumbs(process),
-      showSearch: false,
     }),
     [process],
   );
@@ -225,7 +324,7 @@ export function ProcessDetailPageContent() {
   const departmentLabel = getProcessDetailDepartmentLabel(process);
   const previewPath = getProcessPreviewPath(process.id);
   const editPath = getProcessEditPath(process.id);
-  const summaryDescription = process.justification.trim() || process.object;
+  const processItems = getProcessDetailItems(process);
 
   return (
     <main className="flex-1 overflow-auto p-6">
@@ -290,16 +389,23 @@ export function ProcessDetailPageContent() {
 
             <Separator className="my-4" />
 
-            <div>
-              <p className="mb-2 text-sm text-muted-foreground">Descrição</p>
-              <p className="text-sm leading-relaxed">{summaryDescription}</p>
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-sm text-muted-foreground">Objeto</p>
+                <p className="text-sm leading-relaxed">{process.object}</p>
+              </div>
+              <div>
+                <p className="mb-2 text-sm text-muted-foreground">Justificativa</p>
+                <p className="text-sm leading-relaxed">{process.justification}</p>
+              </div>
+              <ProcessDetailItemsSection items={processItems} />
             </div>
           </CardContent>
         </Card>
 
         <div>
           <h2 className="mb-4 text-lg font-medium">Documentos do Processo</h2>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
             {process.documents.map((document) => {
               const DocumentIcon = processDocumentIcons[document.type];
               const documentStatus = getProcessDetailDocumentStatusConfig(document.status);
@@ -310,7 +416,7 @@ export function ProcessDetailPageContent() {
                 <Card
                   key={document.type}
                   className={cn(
-                    "group relative transition-all hover:border-primary/30 hover:shadow-md",
+                    "group relative flex h-full flex-col transition-all hover:border-primary/30 hover:shadow-md",
                     document.status === "em_edicao" && "border-primary/20",
                     document.status === "erro" && "border-critical/30",
                   )}
@@ -357,7 +463,7 @@ export function ProcessDetailPageContent() {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-4">
+                  <CardContent className="flex flex-1 flex-col space-y-4">
                     <p className="text-sm text-muted-foreground">{document.description}</p>
 
                     {document.progress !== null ? (
@@ -376,12 +482,21 @@ export function ProcessDetailPageContent() {
                       </p>
                     ) : null}
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
                       {actionLinks.createHref ? (
                         <Button asChild size="sm">
                           <Link to={actionLinks.createHref}>
                             <Plus className="mr-1 h-4 w-4" />
-                            Criar
+                            Gerar
+                          </Link>
+                        </Button>
+                      ) : null}
+
+                      {actionLinks.regenerateHref ? (
+                        <Button asChild size="sm">
+                          <Link to={actionLinks.regenerateHref}>
+                            <RefreshCw className="mr-1 h-4 w-4" />
+                            Gerar novamente
                           </Link>
                         </Button>
                       ) : null}

@@ -13,12 +13,18 @@ type OllamaGenerateResponse = {
   done?: boolean;
   model?: string;
   response?: string;
+  thinking?: string;
   total_duration?: number;
   load_duration?: number;
   prompt_eval_count?: number;
   eval_count?: number;
   error?: string;
 };
+
+type OllamaResponseMetadata = Pick<
+  OllamaGenerateResponse,
+  "done" | "total_duration" | "load_duration" | "prompt_eval_count" | "eval_count"
+>;
 
 function toError(input: {
   code: TextGenerationError["code"];
@@ -34,6 +40,42 @@ function toError(input: {
     model: input.model,
     details: input.details ?? null,
   });
+}
+
+function updateMetadata(
+  metadata: OllamaResponseMetadata,
+  chunk: OllamaGenerateResponse,
+): OllamaResponseMetadata {
+  return {
+    done: chunk.done ?? metadata.done,
+    total_duration: chunk.total_duration ?? metadata.total_duration,
+    load_duration: chunk.load_duration ?? metadata.load_duration,
+    prompt_eval_count: chunk.prompt_eval_count ?? metadata.prompt_eval_count,
+    eval_count: chunk.eval_count ?? metadata.eval_count,
+  };
+}
+
+async function readOllamaErrorBody(response: Response) {
+  try {
+    const raw = await response.text();
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      return { error: null, raw: null };
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed) as OllamaGenerateResponse;
+      return {
+        error: typeof parsed.error === "string" ? parsed.error : null,
+        raw: trimmed,
+      };
+    } catch {
+      return { error: null, raw: trimmed };
+    }
+  } catch {
+    return { error: null, raw: null };
+  }
 }
 
 export class OllamaTextGenerationProvider implements TextGenerationProvider {
@@ -53,9 +95,6 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
   }
 
   async generateText(input: TextGenerationInput): Promise<TextGenerationResult> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-
     try {
       const response = await fetch(`${this.baseUrl}/api/generate`, {
         method: "POST",
@@ -65,17 +104,16 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
         body: JSON.stringify({
           model: this.model,
           prompt: input.prompt,
-          stream: false,
+          stream: true,
         }),
-        signal: controller.signal,
       });
 
-      const body = (await response.json()) as OllamaGenerateResponse;
-
       if (!response.ok) {
+        const body = await readOllamaErrorBody(response);
         const details = {
           status: response.status,
           error: body.error ?? null,
+          raw: body.raw ?? null,
         };
 
         if (response.status >= 400 && response.status < 500) {
@@ -97,7 +135,113 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
         });
       }
 
-      const text = typeof body.response === "string" ? body.response.trim() : "";
+      if (!response.body) {
+        throw toError({
+          code: "provider_unavailable",
+          message: "Provider returned a response without a readable stream.",
+          providerKey: this.providerKey,
+          model: this.model,
+        });
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const textParts: string[] = [];
+      let metadata: OllamaResponseMetadata = {};
+      let bufferedLine = "";
+
+      const handleLine = async (line: string) => {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine) {
+          return;
+        }
+
+        let chunk: OllamaGenerateResponse;
+
+        try {
+          chunk = JSON.parse(trimmedLine) as OllamaGenerateResponse;
+        } catch (error) {
+          throw toError({
+            code: "provider_unavailable",
+            message: "Provider returned malformed streaming data.",
+            providerKey: this.providerKey,
+            model: this.model,
+            details: {
+              line: trimmedLine,
+              error:
+                error instanceof Error
+                  ? {
+                      name: error.name,
+                      message: error.message,
+                    }
+                  : null,
+            },
+          });
+        }
+
+        if (typeof chunk.error === "string" && chunk.error.trim()) {
+          throw toError({
+            code: "provider_unavailable",
+            message: chunk.error,
+            providerKey: this.providerKey,
+            model: this.model,
+            details: {
+              error: chunk.error,
+              done: chunk.done ?? null,
+            },
+          });
+        }
+
+        if (typeof chunk.thinking === "string" && chunk.thinking.length > 0) {
+          await input.onPlanningChunk?.({
+            planningDelta: chunk.thinking,
+            metadata: {
+              done: chunk.done ?? null,
+              model: chunk.model ?? null,
+            },
+          });
+        }
+
+        if (typeof chunk.response === "string") {
+          textParts.push(chunk.response);
+          if (chunk.response.length > 0) {
+            await input.onChunk?.({
+              textDelta: chunk.response,
+              metadata: {
+                done: chunk.done ?? null,
+                model: chunk.model ?? null,
+              },
+            });
+          }
+        }
+
+        metadata = updateMetadata(metadata, chunk);
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        bufferedLine += decoder.decode(value, { stream: true });
+        const lines = bufferedLine.split("\n");
+        bufferedLine = lines.pop() ?? "";
+
+        for (const line of lines) {
+          await handleLine(line);
+        }
+      }
+
+      bufferedLine += decoder.decode();
+
+      if (bufferedLine.trim()) {
+        await handleLine(bufferedLine);
+      }
+
+      const text = textParts.join("").trim();
 
       if (!text) {
         throw toError({
@@ -106,7 +250,7 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
           providerKey: this.providerKey,
           model: this.model,
           details: {
-            done: body.done ?? null,
+            done: metadata.done ?? null,
           },
         });
       }
@@ -116,11 +260,11 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
         model: this.model,
         text,
         responseMetadata: {
-          done: body.done ?? null,
-          total_duration: body.total_duration ?? null,
-          load_duration: body.load_duration ?? null,
-          prompt_eval_count: body.prompt_eval_count ?? null,
-          eval_count: body.eval_count ?? null,
+          done: metadata.done ?? null,
+          total_duration: metadata.total_duration ?? null,
+          load_duration: metadata.load_duration ?? null,
+          prompt_eval_count: metadata.prompt_eval_count ?? null,
+          eval_count: metadata.eval_count ?? null,
         },
       };
     } catch (error) {
@@ -151,8 +295,6 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
               }
             : null,
       });
-    } finally {
-      clearTimeout(timeout);
     }
   }
 }

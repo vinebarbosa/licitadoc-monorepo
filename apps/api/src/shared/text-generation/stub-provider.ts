@@ -20,6 +20,13 @@ export class StubTextGenerationProvider implements TextGenerationProvider {
       input.prompt,
     ].join("\n");
 
+    await input.onChunk?.({
+      textDelta: text,
+      metadata: {
+        finishReason: "stop",
+      },
+    });
+
     return {
       providerKey: this.providerKey,
       model: this.model,

@@ -47,9 +47,13 @@ describe("DocumentsPage", () => {
     expect(screen.getByText("Com erro")).toBeInTheDocument();
 
     // Table rows from fixture (3 items)
-    expect(screen.getByRole("link", { name: "DFD - PE-2024-045" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "DFD - PE-2024-045" })).toHaveAttribute(
+      "href",
+      "/app/documento/document-1/preview",
+    );
     expect(screen.getByRole("link", { name: "ETP - PE-2024-045" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Minuta - PE-2024-043" })).toBeInTheDocument();
+    expect(document.querySelector('a[href="/app/documento/document-1"]')).toBeNull();
 
     // Process link visible
     expect(screen.getAllByRole("link", { name: "PE-2024-045" }).length).toBeGreaterThan(0);
@@ -62,6 +66,28 @@ describe("DocumentsPage", () => {
     // Responsibles
     expect(screen.getAllByText("Maria Costa").length).toBeGreaterThan(0);
     expect(screen.getByText("Ana Santos")).toBeInTheDocument();
+  });
+
+  it("routes document name and Visualizar action to the preview page", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/documents/", () =>
+        HttpResponse.json(documentsListResponse),
+      ),
+    );
+
+    renderDocumentsPage();
+
+    const nameLink = await screen.findByRole("link", { name: "DFD - PE-2024-045" });
+    expect(nameLink).toHaveAttribute("href", "/app/documento/document-1/preview");
+    expect(document.querySelector('a[href="/app/documento/document-1"]')).toBeNull();
+
+    const overflowTriggers = screen.getAllByRole("button", { name: "Mais ações" });
+    fireEvent.pointerDown(overflowTriggers[0]);
+
+    expect(await screen.findByRole("menuitem", { name: "Visualizar" })).toHaveAttribute(
+      "href",
+      "/app/documento/document-1/preview",
+    );
   });
 
   it("shows loading state while fetching documents", () => {

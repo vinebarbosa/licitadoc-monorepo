@@ -50,12 +50,54 @@ function processDepartmentIdsSchema(fieldLabel: string) {
 
 const OPENAPI_EXAMPLE_PROCESS_TYPE = "pregao-eletronico";
 const OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID = "PROC-2026-001";
+const OPENAPI_EXAMPLE_PROCESS_TITLE = "Materiais de escritorio";
 const OPENAPI_EXAMPLE_PROCESS_OBJECT = "Aquisicao de materiais de escritorio";
 const OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION = "Reposicao de estoque das unidades administrativas.";
 const OPENAPI_EXAMPLE_PROCESS_SOURCE_METADATA = {
   extractedFields: {
     budgetUnitCode: "06.001",
     requestNumber: "6",
+    item: {
+      code: "1",
+      components: [
+        {
+          description: "Caderno brochura capa dura",
+          quantity: "2",
+          title: "Caderno",
+          unit: "unidade",
+        },
+      ],
+      description: "Kit escolar com componentes separados",
+      kind: "kit",
+      quantity: "100",
+      title: "Kit escolar",
+      totalValue: "R$ 12.000,00",
+      unit: "kit",
+      unitValue: "R$ 120,00",
+    },
+    items: [
+      {
+        code: "1",
+        components: [
+          {
+            description: "Caderno brochura capa dura",
+            quantity: "2",
+            title: "Caderno",
+            unit: "unidade",
+          },
+        ],
+        description: "Kit escolar com componentes separados",
+        kind: "kit",
+        quantity: "100",
+        title: "Kit escolar",
+        totalValue: "R$ 12.000,00",
+        unit: "kit",
+        unitValue: "R$ 120,00",
+      },
+    ],
+  },
+  source: {
+    inputMode: "native_form",
   },
   sourceFile: {
     contentType: "application/pdf",
@@ -73,6 +115,7 @@ const createProcessBodyExample = {
   processNumber: OPENAPI_EXAMPLE_PROCESS_NUMBER,
   externalId: OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
   issuedAt: OPENAPI_EXAMPLE_DATE_TIME,
+  title: OPENAPI_EXAMPLE_PROCESS_TITLE,
   object: OPENAPI_EXAMPLE_PROCESS_OBJECT,
   justification: OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION,
   responsibleName: OPENAPI_EXAMPLE_PERSON_NAME,
@@ -116,6 +159,14 @@ const processExternalIdCreateSchema = withOpenApiExample(
 const processExternalIdUpdateSchema = withOpenApiExample(
   z.string().nullable().transform(normalizeNullableOptionalText).optional(),
   OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
+);
+const processTitleCreateSchema = withOpenApiExample(
+  z.string().nullable().optional().transform(normalizeNullableOptionalText),
+  OPENAPI_EXAMPLE_PROCESS_TITLE,
+);
+const processTitleUpdateSchema = withOpenApiExample(
+  z.string().nullable().transform(normalizeNullableOptionalText).optional(),
+  OPENAPI_EXAMPLE_PROCESS_TITLE,
 );
 const processIssuedAtSchema = withOpenApiExample(
   dateTimeSchema("Process issued at"),
@@ -161,6 +212,7 @@ const processSchema = z.object({
   processNumber: z.string(),
   externalId: z.string().nullable(),
   issuedAt: z.string(),
+  title: z.string(),
   object: z.string(),
   justification: z.string(),
   responsibleName: z.string(),
@@ -224,6 +276,7 @@ const processDetailExample = {
   processNumber: OPENAPI_EXAMPLE_PROCESS_NUMBER,
   externalId: OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
   issuedAt: OPENAPI_EXAMPLE_DATE_TIME,
+  title: OPENAPI_EXAMPLE_PROCESS_TITLE,
   object: OPENAPI_EXAMPLE_PROCESS_OBJECT,
   justification: OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION,
   responsibleName: OPENAPI_EXAMPLE_PERSON_NAME,
@@ -338,6 +391,7 @@ export const createProcessBodySchema = withOpenApiExample(
       processNumber: processNumberSchema,
       externalId: processExternalIdCreateSchema,
       issuedAt: processIssuedAtSchema,
+      title: processTitleCreateSchema,
       object: processObjectSchema,
       justification: processJustificationSchema,
       responsibleName: processResponsibleNameSchema,
@@ -368,6 +422,7 @@ export const updateProcessBodySchema = withOpenApiExample(
       ),
       externalId: processExternalIdUpdateSchema,
       issuedAt: withOpenApiExample(processIssuedAtSchema.optional(), OPENAPI_EXAMPLE_DATE_TIME),
+      title: processTitleUpdateSchema,
       object: withOpenApiExample(processObjectSchema.optional(), OPENAPI_EXAMPLE_PROCESS_OBJECT),
       justification: withOpenApiExample(
         processJustificationSchema.optional(),

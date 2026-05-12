@@ -6,6 +6,7 @@ import { resolveProcessOrganizationIdForCreate } from "./processes.policies";
 import type { CreateProcessInput } from "./processes.schemas";
 import {
   assertDepartmentIdsBelongToOrganization,
+  deriveConciseProcessTitle,
   serializeProcess,
   throwIfProcessConflict,
 } from "./processes.shared";
@@ -45,6 +46,11 @@ export async function createProcess({ actor, db, process }: Input) {
           processNumber: process.processNumber,
           externalId: process.externalId,
           issuedAt: new Date(process.issuedAt),
+          title: deriveConciseProcessTitle({
+            title: process.title,
+            object: process.object,
+            processNumber: process.processNumber,
+          }),
           object: process.object,
           justification: process.justification,
           responsibleName: process.responsibleName,

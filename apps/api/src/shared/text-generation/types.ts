@@ -12,12 +12,24 @@ export type TextGenerationFailureCode =
 
 export type TextGenerationInput = {
   documentType: GeneratedDocumentType;
+  onChunk?: (chunk: TextGenerationChunk) => void | Promise<void>;
+  onPlanningChunk?: (chunk: TextGenerationPlanningChunk) => void | Promise<void>;
   prompt: string;
   subject: {
     documentId: string;
     organizationId: string;
     processId: string;
   };
+};
+
+export type TextGenerationChunk = {
+  metadata?: Record<string, unknown>;
+  textDelta: string;
+};
+
+export type TextGenerationPlanningChunk = {
+  metadata?: Record<string, unknown>;
+  planningDelta: string;
 };
 
 export type TextGenerationResult = {

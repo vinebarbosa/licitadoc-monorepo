@@ -10,6 +10,7 @@ import {
   supportedGeneratedDocumentTypes,
   TextGenerationError,
 } from "../../shared/text-generation/types";
+import type { DocumentGenerationEvents } from "./document-generation-events";
 import { sanitizeGeneratedDocumentDraft } from "./documents.shared";
 
 type AppDatabase = FastifyInstance["db"];
@@ -73,12 +74,14 @@ async function markGenerationFailed({
   db,
   documentId,
   error,
+  generationEvents,
   generationRunId,
   textGeneration,
 }: {
   db: AppDatabase;
   documentId: string;
   error: unknown;
+  generationEvents?: DocumentGenerationEvents;
   generationRunId: string;
   textGeneration: TextGenerationProvider;
 }) {
@@ -112,14 +115,22 @@ async function markGenerationFailed({
         ),
       );
   });
+
+  generationEvents?.publishFailed({
+    documentId,
+    errorCode: generationError.code,
+    errorMessage: generationError.message,
+  });
 }
 
 export async function executeDocumentGeneration({
   db,
+  generationEvents,
   generationRunId,
   textGeneration,
 }: {
   db: AppDatabase;
+  generationEvents?: DocumentGenerationEvents;
   generationRunId: string;
   textGeneration: TextGenerationProvider;
 }) {
@@ -151,6 +162,7 @@ export async function executeDocumentGeneration({
         providerKey: textGeneration.providerKey,
         model: textGeneration.model,
       }),
+      generationEvents,
       generationRunId: generationRun.id,
       textGeneration,
     });
@@ -165,6 +177,22 @@ export async function executeDocumentGeneration({
         documentId: document.id,
         organizationId: input.organizationId,
         processId: input.processId,
+      },
+      onChunk: (chunk) => {
+        if (chunk.textDelta.length > 0) {
+          generationEvents?.publishChunk({
+            documentId: document.id,
+            textDelta: chunk.textDelta,
+          });
+        }
+      },
+      onPlanningChunk: (chunk) => {
+        if (chunk.planningDelta.length > 0) {
+          generationEvents?.publishPlanning({
+            documentId: document.id,
+            planningDelta: chunk.planningDelta,
+          });
+        }
       },
     });
     const draftContent = sanitizeGeneratedDocumentDraft({
@@ -199,11 +227,17 @@ export async function executeDocumentGeneration({
           ),
         );
     });
+
+    generationEvents?.publishCompleted({
+      documentId: document.id,
+      content: draftContent,
+    });
   } catch (error) {
     await markGenerationFailed({
       db,
       documentId: document.id,
       error,
+      generationEvents,
       generationRunId: generationRun.id,
       textGeneration,
     });
@@ -212,10 +246,12 @@ export async function executeDocumentGeneration({
 
 export function createDocumentGenerationQueue({
   db,
+  generationEvents,
   logger,
   textGeneration,
 }: {
   db: AppDatabase;
+  generationEvents?: DocumentGenerationEvents;
   logger?: FastifyBaseLogger;
   textGeneration: TextGenerationProvider;
 }): DocumentGenerationQueue {
@@ -230,6 +266,7 @@ export function createDocumentGenerationQueue({
     setTimeout(() => {
       void executeDocumentGeneration({
         db,
+        generationEvents,
         generationRunId,
         textGeneration,
       })
@@ -261,6 +298,7 @@ export function createDocumentGenerationQueue({
 export const registerDocumentGenerationQueuePlugin = fp(async (app) => {
   const queue = createDocumentGenerationQueue({
     db: app.db,
+    generationEvents: app.documentGenerationEvents,
     logger: app.log,
     textGeneration: app.textGeneration,
   });

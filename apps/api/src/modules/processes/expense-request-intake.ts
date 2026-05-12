@@ -7,7 +7,10 @@ import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { StoredObject } from "../../shared/storage/types";
 import { createProcess } from "./create-process";
 import { parseExpenseRequestText } from "./expense-request-parser";
-import { assertDepartmentIdsBelongToOrganization } from "./processes.shared";
+import {
+  assertDepartmentIdsBelongToOrganization,
+  deriveConciseProcessTitle,
+} from "./processes.shared";
 
 type StoredOrganization = typeof organizations.$inferSelect;
 type StoredDepartment = typeof departments.$inferSelect;
@@ -255,6 +258,11 @@ export async function createProcessFromExpenseRequestText({
       processNumber: parsed.sourceReference,
       externalId: parsed.requestNumber,
       issuedAt: parsed.issueDate,
+      title: deriveConciseProcessTitle({
+        itemDescription: parsed.item.description,
+        object: parsed.object,
+        processNumber: parsed.sourceReference,
+      }),
       object: parsed.object,
       justification: parsed.justification,
       responsibleName: getResponsibleName({

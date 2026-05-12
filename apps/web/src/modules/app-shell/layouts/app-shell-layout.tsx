@@ -8,7 +8,6 @@ import { AppSidebar } from "../components/app-sidebar";
 type AppShellHeaderHandle = {
   breadcrumbs?: Array<{ label: string; href?: string }>;
   title?: string;
-  showSearch?: boolean;
 };
 
 const AppShellHeaderContext = createContext<React.Dispatch<
@@ -36,7 +35,7 @@ export function AppShellLayout() {
   const routeHeaderHandle = [...matches]
     .reverse()
     .map((match) => match.handle as AppShellHeaderHandle | undefined)
-    .find((handle) => handle?.breadcrumbs || handle?.title || handle?.showSearch !== undefined);
+    .find((handle) => handle?.breadcrumbs || handle?.title);
   const [headerOverride, setHeaderOverride] = useState<AppShellHeaderHandle | undefined>();
   const headerHandle = headerOverride ?? routeHeaderHandle;
 
@@ -48,7 +47,6 @@ export function AppShellLayout() {
           <AppHeader
             breadcrumbs={headerHandle?.breadcrumbs ?? [{ label: "Central de Trabalho" }]}
             title={headerHandle?.title}
-            showSearch={headerHandle?.showSearch ?? true}
           />
           <Outlet />
         </SidebarInset>

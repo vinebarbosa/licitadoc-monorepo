@@ -1,83 +1,114 @@
-# TERMO DE REFERENCIA
+# TERMO DE REFERÊNCIA
 
 ## 1. OBJETO
 
-Descreva o objeto da contratacao de forma direta e operacional, incluindo:
+Descreva o objeto da contratação de forma direta, operacional e contratualmente compreensível, incluindo:
 
-- o servico, bem, obra, locacao ou evento pretendido
-- a finalidade publica do objeto
-- condicoes de execucao conhecidas no contexto
-- data, local, duracao, quantidade ou escopo apenas quando constarem no contexto
+- o serviço, bem, obra, locação, evento ou solução pretendida
+- a finalidade pública do objeto, em redação objetiva
+- a forma geral de execução ou entrega quando for possível inferir do contexto
+- data, local, duração, quantidade, unidade, escopo ou condição operacional apenas quando constarem no contexto
 
-Quando algum dado operacional nao estiver informado, registre `nao informado`, `nao consta no contexto`, `a ser definido posteriormente` ou `conforme definicao da Administracao`.
+O objeto deve iniciar a lógica operacional do TR, sem repetir análise extensa do ETP. Quando algum dado operacional não estiver informado, não se limite a registrar ausência: indique que a definição deverá ser alinhada, confirmada ou consolidada em etapa própria, sem inventar o dado.
 
-## 2. JUSTIFICATIVA DA CONTRATACAO
+## 2. JUSTIFICATIVA DA CONTRATAÇÃO
 
-Apresente justificativa objetiva e revisavel, abordando:
+Apresente justificativa objetiva, prática e revisável, abordando:
 
-- necessidade administrativa ou publica
-- aderencia do objeto ao interesse publico
-- beneficios esperados
-- impacto de nao contratar, quando constar no contexto
+- necessidade administrativa ou pública
+- razão operacional da contratação
+- impacto prático da execução do objeto
+- benefícios esperados em nível compatível com TR
+- consequência de não contratar quando houver suporte no contexto
 
-## 3. ESPECIFICACOES TECNICAS DO SERVICO
+A justificativa deve ser mais objetiva que a do ETP. Não desenvolva análise estratégica extensa, estudo de viabilidade, levantamento de mercado, análise de alternativas, parecer jurídico ou justificativa da solução escolhida.
 
-Detalhe especificacoes tecnicas, operacionais e requisitos de execucao compatíveis com o objeto, sem inventar detalhes nao informados.
+## 3. ESPECIFICAÇÕES TÉCNICAS DO SERVIÇO
 
-Use bullets objetivos. Quando informacoes como data, periodo, local, duracao, infraestrutura, equipe, equipamentos, materiais, quantitativos ou rider tecnico nao constarem no contexto, indique que serao definidos posteriormente ou conforme definicao da Administracao.
+Esta é a principal seção operacional do TR. Detalhe especificações técnicas, operacionais e requisitos de execução compatíveis com o objeto, sem inventar detalhes não informados.
 
-## 4. OBRIGACOES DA CONTRATADA
+Estruture, conforme a natureza do objeto:
 
-Liste obrigacoes da contratada em bullets, derivadas prioritariamente do bloco de obrigacoes por tipo de contratacao fornecido nas instrucoes.
+- dinâmica de execução, entrega, disponibilização ou prestação
+- requisitos operacionais mínimos
+- interfaces entre contratada, Administração e unidade demandante
+- responsabilidades práticas de preparação, execução, comunicação e correção
+- condições de recebimento, validação, evidência ou documentação quando compatíveis
+- alinhamentos prévios necessários antes da execução
+- condicionantes operacionais que dependerão de confirmação posterior
 
-Adapte os itens ao contexto especifico e evite obrigacoes incompatíveis com o objeto.
+Em aquisição composta, organize entrega, conferência, recebimento, correção e fiscalização para o conjunto dos grupos de itens identificados, preservando os grupos materiais da SD. Evite especificações desproporcionais concentradas em um único item e evite categorias abstratas que escondam os materiais efetivamente solicitados.
 
-## 5. OBRIGACOES DA CONTRATANTE
+Quando informações como data, período, local, duração, infraestrutura, equipe, equipamentos, materiais, quantitativos, cronograma, rider técnico, suporte ou metodologia específica não constarem no contexto, explique como essas definições deverão ser alinhadas ou confirmadas, observadas as necessidades da contratação e as diretrizes da Administração.
 
-Liste obrigacoes da contratante em bullets, derivadas prioritariamente do bloco de obrigacoes por tipo de contratacao fornecido nas instrucoes.
+Evite bullets vazios como "execução com qualidade", "conforme especificações" ou "quando aplicável" sem descrever comportamento operacional verificável. Não invente infraestrutura, equipe, equipamentos, cronograma, local, quantidade, duração, rider técnico, metodologia ou exigência técnica não informada.
 
-Adapte os itens ao contexto especifico e evite obrigacoes incompatíveis com o objeto.
+## 4. OBRIGAÇÕES DA CONTRATADA
 
-## 6. PRAZO DE EXECUCAO
+Liste obrigações da contratada em bullets operacionais, executáveis e fiscalizáveis, derivadas prioritariamente do bloco de obrigações por tipo de contratação fornecido nas instruções.
 
-Descreva prazo, periodo, vigencia ou janela de execucao apenas quando constarem no contexto.
+As obrigações devem refletir a dinâmica prática do objeto, podendo tratar de execução, logística, comunicação, apoio técnico, conformidade, entrega, correção de falhas, documentação, evidências, cronograma ou integração operacional quando compatível com o contexto.
 
-Quando nao houver prazo ou data suficiente, registre que sera definido posteriormente ou conforme definicao da Administracao.
+Adapte os itens ao contexto específico e evite obrigações incompatíveis com o objeto. Não escreva cláusulas jurídicas extensas próprias de minuta contratual. Não invente equipe, prazos, certificações, penalidades, documentos, marca, metodologia ou requisitos técnicos sem suporte.
 
-## 7. VALOR ESTIMADO E DOTACAO ORCAMENTARIA
+## 5. OBRIGAÇÕES DA CONTRATANTE
 
-Informe o valor estimado apenas quando o contexto trouxer valor valido e diferente de zero.
+Liste obrigações da contratante em bullets operacionais, executáveis e proporcionais, derivadas prioritariamente do bloco de obrigações por tipo de contratação fornecido nas instruções.
 
-Quando o valor estiver ausente, vazio ou informado como zero, registre que a estimativa esta nao informada, nao consta no contexto ou sera apurada posteriormente por pesquisa de mercado ou etapa propria.
+As obrigações devem indicar apoio institucional, fornecimento de informações, acesso, interlocução, acompanhamento da execução, comunicação de falhas, recebimento, validação, ateste e processamento de pagamento quando compatível com o objeto.
 
-Descreva a dotacao orcamentaria apenas quando houver dados no contexto. Caso contrario, registre a necessidade de indicacao orcamentaria em etapa propria.
+Evite reduzir a seção a "efetuar pagamento". Não invente fiscais nomeados, estrutura administrativa, local, cronograma, dotação, aceite específico ou fluxo interno não informado.
 
-## 8. CONDICOES DE PAGAMENTO
+## 6. PRAZO DE EXECUÇÃO
 
-Descreva condicoes de pagamento apenas quando constarem no contexto.
+Descreva prazo, período, vigência ou janela de execução apenas quando constarem no contexto.
 
-Na ausencia de informacoes especificas, use redacao conservadora indicando que o pagamento ocorrera conforme condicoes contratuais, apos execucao regular, ateste e apresentacao da documentacao fiscal cabivel.
+Quando não houver prazo, data ou cronograma suficiente, estruture a lógica de definição posterior: indique que a execução dependerá da programação administrativa, do alinhamento entre as partes e das condições estabelecidas no instrumento subsequente. Não invente datas, durações, períodos, etapas ou marcos de execução.
 
-## 9. GESTAO E FISCALIZACAO DO CONTRATO
+## 7. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA
 
-Descreva regras gerais de gestao e fiscalizacao, incluindo:
+Informe o valor estimado apenas quando o contexto trouxer valor válido e diferente de zero.
 
-- acompanhamento da execucao
-- verificacao de conformidade com o objeto
-- comunicacao de falhas ou irregularidades
-- registro de ocorrencias
-- ateste para pagamento quando cabivel
+Quando o valor estiver ausente, vazio ou informado como zero, registre de forma institucional que a estimativa deverá ser apurada em etapa própria, sem afirmar que pesquisa de mercado já foi realizada e sem simular valor.
 
-## 10. SANCOES ADMINISTRATIVAS
+Descreva a dotação orçamentária apenas quando houver dados no contexto. Caso contrário, registre a necessidade de indicação orçamentária pela unidade competente antes da assunção da despesa.
 
-Descreva a aplicacao de sancoes administrativas de forma geral e conservadora, sem inventar percentuais, prazos ou penalidades especificas nao informadas.
+Não declare economicidade, vantajosidade, compatibilidade com mercado, memória de cálculo, disponibilidade financeira, dotação, fonte, saldo ou empenho sem suporte no contexto.
 
-Indique que eventual sancao devera observar o instrumento contratual, a legislacao aplicavel, o contraditorio e a ampla defesa.
+## 8. CONDIÇÕES DE PAGAMENTO
+
+Descreva condições de pagamento apenas quando constarem no contexto.
+
+Na ausência de informações específicas, estruture a lógica mínima de pagamento: o pagamento deverá estar condicionado à execução regular do objeto, à verificação ou ateste pela Administração, à conformidade documental e às condições definidas no instrumento contratual.
+
+Não invente parcelas, percentuais, prazos de pagamento, datas de vencimento, medições, eventos de pagamento, reajustes, retenções ou critérios específicos não informados.
+
+## 9. GESTÃO E FISCALIZAÇÃO DO CONTRATO
+
+Descreva gestão e fiscalização de forma robusta, operacional e verificável, incluindo:
+
+- acompanhamento da execução
+- verificação de conformidade com o objeto e com as condições pactuadas
+- comunicação de falhas, atrasos, impedimentos ou irregularidades
+- registro de ocorrências, orientações e evidências de execução
+- validação, recebimento, aceite, medição ou ateste quando compatível com o objeto
+- solicitação de correção de inconformidades
+- suporte ao processamento do pagamento após verificação regular
+
+A fiscalização deve parecer executável e proporcional ao objeto. Não invente nomes de fiscais, datas de inspeção, relatórios específicos, formulários, sistemas, periodicidade, critérios de medição ou aceites especiais sem suporte no contexto.
+
+## 10. SANÇÕES ADMINISTRATIVAS
+
+Descreva a aplicação de sanções administrativas de forma geral, institucional e conservadora, relacionada ao descumprimento das obrigações, à inexecução, ao atraso injustificado, à execução inadequada ou a inconformidades relevantes.
+
+Indique que eventual apuração deverá observar o instrumento contratual, a legislação aplicável, o contraditório e a ampla defesa.
+
+Não invente percentuais, valores de multa, prazos, gradações, penalidades específicas, rito sancionador detalhado ou hipóteses não suportadas pelo contexto.
 
 ## 11. FECHO
 
-`{{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.`
+{{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.
 
-`{{process.responsibleName}}`
+{{process.responsibleName}}
 
-`{{department.responsibleRole_or_sourceResponsibleRole_or_fallback}}`
+{{department.responsibleRole_or_sourceResponsibleRole_or_fallback}}

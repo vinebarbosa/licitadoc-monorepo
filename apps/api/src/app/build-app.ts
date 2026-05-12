@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-zod-openapi";
 import { registerAuthRoutes } from "../modules/auth/routes";
 import { registerDepartmentRoutes } from "../modules/departments/routes";
+import { registerDocumentGenerationEventsPlugin } from "../modules/documents/document-generation-events";
 import { registerDocumentGenerationQueuePlugin } from "../modules/documents/document-generation-worker";
 import { registerDocumentRoutes } from "../modules/documents/routes";
 import { registerInviteRoutes } from "../modules/invites/routes";
@@ -58,6 +59,7 @@ export async function buildApp() {
   await app.register(registerStoragePlugin);
   await app.register(registerTextGenerationPlugin);
   await app.register(registerMailerPlugin);
+  await app.register(registerDocumentGenerationEventsPlugin);
   await app.register(registerDocumentGenerationQueuePlugin);
   await app.register(registerOpenApiPlugin);
   await app.register(registerErrorPlugin);

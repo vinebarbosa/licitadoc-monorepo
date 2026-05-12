@@ -87,6 +87,8 @@ describe("DocumentCreatePage", () => {
       await waitFor(() => {
         const combobox = screen.getByRole("combobox");
         expect(combobox).toHaveTextContent(/PE-2024-045/);
+        expect(combobox).toHaveTextContent("Serviços de TI");
+        expect(combobox).not.toHaveTextContent("Contratação de Serviços de TI");
       });
     });
   });
@@ -111,7 +113,9 @@ describe("DocumentCreatePage", () => {
 
       // Open select and choose process
       fireEvent.click(screen.getByRole("combobox"));
-      const option = await screen.findByRole("option", { name: /PE-2024-045/ });
+      const option = await screen.findByRole("option", { name: /PE-2024-045 Serviços de TI/ });
+      expect(option).toHaveTextContent("Serviços de TI");
+      expect(option).not.toHaveTextContent("Contratação de Serviços de TI");
       fireEvent.click(option);
 
       // Name field should now have the suggested value
@@ -266,6 +270,33 @@ describe("DocumentCreatePage", () => {
       // The combobox should not display any known process data for an unknown ID
       const combobox = screen.getByRole("combobox");
       expect(combobox).not.toHaveTextContent("PE-2024-045");
+    });
+
+    it("falls back to an object-derived picker label when title is blank", async () => {
+      server.use(
+        http.get("http://localhost:3333/api/processes/", () =>
+          HttpResponse.json({
+            ...processesListResponse,
+            items: [
+              {
+                ...processesListResponse.items[0],
+                title: "",
+                object: "Aquisição de notebooks para escolas municipais",
+              },
+            ],
+          }),
+        ),
+      );
+
+      renderDocumentCreatePage();
+
+      await waitFor(() => {
+        expect(screen.queryByText(/Carregando processos/)).not.toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("combobox"));
+
+      expect(await screen.findByText("Notebooks para escolas municipais")).toBeInTheDocument();
     });
   });
 });

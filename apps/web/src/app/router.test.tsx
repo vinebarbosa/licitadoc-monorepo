@@ -177,9 +177,7 @@ describe("appRoutes", () => {
     renderWithProviders(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Contratação de Serviços de TI" }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Serviços de TI" })).toBeInTheDocument();
     });
 
     expect(screen.getAllByRole("link", { name: /Processos/ })[0]).toHaveAttribute(
@@ -203,7 +201,9 @@ describe("appRoutes", () => {
     renderWithProviders(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "DFD - PE-2024-045" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { level: 1, name: /DOCUMENTO DE FORMALIZACAO DE DEMANDA/ }),
+      ).toBeInTheDocument();
     });
 
     expect(screen.getAllByRole("link", { name: /Documentos/ })[0]).toHaveAttribute(

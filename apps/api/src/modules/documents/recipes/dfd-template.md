@@ -1,50 +1,60 @@
-# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)
+# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
 
-## 1. DADOS DA SOLICITACAO
+## 1. DADOS DA SOLICITAÇÃO
 
-- Unidade Orcamentaria: `{{department.budgetUnitCode}} - {{department.name}}`
-- Numero da Solicitacao: `{{process.externalId_or_sourceRequestNumber}}`
-- Data de Emissao: `{{process.issuedAt_br}}`
-- Processo: `{{process.type}}`
-- Objeto da Solicitacao: `{{process.object}}`
-- Solicitante: `{{department.name_or_organization.name}}`
-- Responsavel pela Solicitacao: `{{process.responsibleName}}`
+- Unidade Orçamentária: {{department.budgetUnitCode}} - {{department.name}}
+- Número da Solicitação: {{process.externalId_or_sourceRequestNumber}}
+- Data de Emissão: {{process.issuedAt_br}}
+- Processo: {{process.type}}
+- Objeto da Solicitação: {{process.object}}
+- Solicitante: {{department.name_or_organization.name}}
+- Responsável pela Solicitação: {{process.responsibleName}}
 
 ## 2. CONTEXTO E NECESSIDADE DA DEMANDA
 
-Texto corrido, em tom administrativo formal, explicando:
+Texto corrido, em tom administrativo formal, normalmente em 1 ou 2 parágrafos, explicando de forma objetiva:
 
-- o contexto institucional da contratacao
-- a relevancia publica da demanda
+- o contexto institucional da contratação
+- a necessidade administrativa inicial
 - o problema concreto que precisa ser resolvido
-- o impacto de nao atender a necessidade
+- o impacto de não atender à necessidade
 
-## 3. OBJETO DA CONTRATACAO
+Não desenvolva análise estratégica ampla, estudo de viabilidade, riscos detalhados ou conclusão técnica própria de ETP.
 
-Descreva com clareza:
+## 3. OBJETO DA CONTRATAÇÃO
 
-- o objeto especifico da contratacao
+Descreva com clareza, normalmente em 1 ou 2 parágrafos:
+
+- o objeto específico da contratação
 - o resultado esperado
-- o recorte temporal, operacional ou de execucao aplicavel
-- a aderencia entre o objeto e a finalidade publica do processo
+- o recorte temporal, operacional ou de execução quando estiver informado no contexto
+- a relação direta entre o objeto e a necessidade administrativa
 
-## 4. JUSTIFICATIVA E RELEVANCIA DA CONTRATACAO
+Não aprofunde requisitos técnicos, planejamento de execução, fiscalização ou cláusulas típicas de TR.
 
-Apresente justificativa substantiva e revisavel, cobrindo:
+## 4. JUSTIFICATIVA E RELEVÂNCIA DA CONTRATAÇÃO
 
-- interesse publico envolvido
-- relevancia tecnica, social, cultural, economica ou administrativa
-- beneficios esperados para a administracao e para a populacao
-- compatibilidade da contratacao com legalidade, eficiencia e economicidade
+Apresente justificativa inicial, suficiente e revisável, normalmente em 1 ou 2 parágrafos, cobrindo:
 
-## 5. REQUISITOS ESSENCIAIS PARA A CONTRATACAO
+- interesse público envolvido
+- relevância administrativa, social, cultural, técnica ou econômica compatível com o objeto
+- benefícios esperados para a administração e para a população
+- impacto de não contratação quando ainda não tratado na seção anterior
 
-Liste requisitos essenciais em bullets curtos e objetivos, adequados ao objeto do processo.
+Não declare economicidade comprovada, vantajosidade, compatibilidade com mercado, legalidade conclusiva ou fundamento jurídico específico não informado. Se o valor estiver ausente ou pendente, registre apenas que será apurado em etapa posterior.
+
+## 5. REQUISITOS ESSENCIAIS PARA A CONTRATAÇÃO
+
+Liste de 3 a 6 requisitos essenciais em bullets curtos e objetivos, adequados à natureza do objeto do processo.
+
+Os requisitos devem ser mínimos, diretamente ligados ao objeto e compatíveis com a demanda informada. Não copie requisitos de outras categorias de objeto.
+
+Não inclua cláusulas contratuais detalhadas, obrigações extensas, critérios de fiscalização, critérios de pagamento, critérios de medição, SLA, sanções, certificações sem suporte, padrões técnicos não informados ou exigências excessivamente específicas sem base no contexto.
 
 ## 6. FECHO
 
-`{{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.`
+{{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.
 
-`{{process.responsibleName}}`
+{{process.responsibleName}}
 
-`{{department.responsibleRole_or_sourceResponsibleRole_or_fallback}}`
+{{department.responsibleRole_or_sourceResponsibleRole_or_fallback}}

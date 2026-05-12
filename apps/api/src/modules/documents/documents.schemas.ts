@@ -75,6 +75,70 @@ export const createDocumentBodySchema = withOpenApiExample(
 
 export type CreateDocumentInput = z.output<typeof createDocumentBodySchema>;
 
+const documentAdjustmentSelectionContextSchema = z
+  .object({
+    prefix: withOpenApiExample(z.string().max(500).optional(), "## 2. CONTEXTO"),
+    suffix: withOpenApiExample(z.string().max(500).optional(), "Solicitante:"),
+  })
+  .strict()
+  .optional();
+
+export const documentAdjustmentSourceTargetSchema = z
+  .object({
+    start: withOpenApiExample(z.number().int().min(0), 42),
+    end: withOpenApiExample(z.number().int().min(0), 89),
+    sourceText: withOpenApiExample(z.string().min(1), OPENAPI_EXAMPLE_TEXT),
+  })
+  .strict();
+
+export const suggestDocumentTextAdjustmentBodySchema = withOpenApiExample(
+  z
+    .object({
+      selectedText: withOpenApiExample(z.string().min(1).max(4000), OPENAPI_EXAMPLE_TEXT),
+      instruction: withOpenApiExample(
+        z.string().min(1).max(1200),
+        "Deixe este trecho mais objetivo e formal.",
+      ),
+      selectionContext: documentAdjustmentSelectionContextSchema,
+    })
+    .strict(),
+  {
+    selectedText: "A contratação se faz necessária para atender à demanda apresentada.",
+    instruction: "Deixe mais objetivo, mantendo o tom formal.",
+    selectionContext: {
+      prefix: "## 2. CONTEXTO E NECESSIDADE DA DEMANDA",
+      suffix: "## 3. OBJETO DA CONTRATAÇÃO",
+    },
+  },
+);
+
+export const applyDocumentTextAdjustmentBodySchema = withOpenApiExample(
+  z
+    .object({
+      sourceTarget: documentAdjustmentSourceTargetSchema,
+      replacementText: withOpenApiExample(z.string().min(1).max(6000), OPENAPI_EXAMPLE_TEXT),
+      sourceContentHash: withOpenApiExample(z.string().min(1).max(128), "sha256:3b6f7d0b4c2e1a9f"),
+    })
+    .strict(),
+  {
+    sourceTarget: {
+      start: 42,
+      end: 89,
+      sourceText: "A contratação se faz necessária para atender à demanda apresentada.",
+    },
+    replacementText:
+      "A contratação é necessária para atender à demanda apresentada pela Administração.",
+    sourceContentHash: "sha256:3b6f7d0b4c2e1a9f",
+  },
+);
+
+export type SuggestDocumentTextAdjustmentInput = z.output<
+  typeof suggestDocumentTextAdjustmentBodySchema
+>;
+export type ApplyDocumentTextAdjustmentInput = z.output<
+  typeof applyDocumentTextAdjustmentBodySchema
+>;
+
 export const createDocumentSchema = {
   tags: ["Documents"],
   summary: "Generate document draft",
@@ -103,5 +167,32 @@ export const getDocumentSchema = {
   response: {
     200: documentDetailSchema,
     ...pickErrorResponses(401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const suggestDocumentTextAdjustmentSchema = {
+  tags: ["Documents"],
+  summary: "Suggest document text adjustment",
+  params: documentParamsSchema,
+  body: suggestDocumentTextAdjustmentBodySchema,
+  response: {
+    200: z.object({
+      selectedText: z.string(),
+      replacementText: z.string(),
+      sourceContentHash: z.string(),
+      sourceTarget: documentAdjustmentSourceTargetSchema,
+    }),
+    ...pickErrorResponses(400, 401, 403, 404, 409, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const applyDocumentTextAdjustmentSchema = {
+  tags: ["Documents"],
+  summary: "Apply document text adjustment",
+  params: documentParamsSchema,
+  body: applyDocumentTextAdjustmentBodySchema,
+  response: {
+    200: documentDetailSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 409, 500),
   },
 } satisfies AppRouteSchema;

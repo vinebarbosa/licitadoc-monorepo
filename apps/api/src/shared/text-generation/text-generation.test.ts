@@ -4,6 +4,7 @@ import { parseApiEnv } from "../../plugins/env";
 import { OllamaTextGenerationProvider } from "./ollama-provider";
 import { OpenAiTextGenerationProvider } from "./openai-provider";
 import { resolveTextGenerationProvider } from "./resolve-provider";
+import { StubTextGenerationProvider } from "./stub-provider";
 import { TextGenerationError } from "./types";
 
 const generationInput = {
@@ -18,7 +19,22 @@ const generationInput = {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
+
+function createOllamaStream(chunks: string[]) {
+  const encoder = new TextEncoder();
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk));
+      }
+
+      controller.close();
+    },
+  });
+}
 
 test("resolveTextGenerationProvider selects supported providers", () => {
   const stubProvider = resolveTextGenerationProvider({
@@ -131,6 +147,59 @@ test("OpenAiTextGenerationProvider normalizes timeout failures", async () => {
   });
 });
 
+test("OpenAiTextGenerationProvider remains compatible with incremental callbacks", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "response_123",
+            status: "completed",
+            output_text: "Documento gerado pela OpenAI.",
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+    ),
+  );
+
+  const chunks: string[] = [];
+  const provider = new OpenAiTextGenerationProvider({
+    apiKey: "test-key",
+    model: "gpt-test",
+  });
+
+  const result = await provider.generateText({
+    ...generationInput,
+    onChunk: (chunk) => {
+      chunks.push(chunk.textDelta);
+    },
+  });
+
+  assert.deepEqual(chunks, ["Documento gerado pela OpenAI."]);
+  assert.equal(result.text, "Documento gerado pela OpenAI.");
+});
+
+test("StubTextGenerationProvider remains compatible with incremental callbacks", async () => {
+  const chunks: string[] = [];
+  const provider = new StubTextGenerationProvider("stub-model");
+
+  const result = await provider.generateText({
+    ...generationInput,
+    onChunk: (chunk) => {
+      chunks.push(chunk.textDelta);
+    },
+  });
+
+  assert.deepEqual(chunks, [result.text]);
+  assert.match(result.text, /Documento DFD/);
+});
+
 // ─── Ollama provider tests ────────────────────────────────────────────────────
 
 test("resolveTextGenerationProvider selects ollama with model and base URL", () => {
@@ -194,23 +263,95 @@ test("parseApiEnv rejects invalid text generation timeouts", () => {
 });
 
 test("OllamaTextGenerationProvider normalizes successful response and metadata", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
+  const fetchMock = vi.fn<typeof fetch>(
+    async () =>
+      new Response(
+        createOllamaStream([
+          `${JSON.stringify({
             model: "qwen3.6:35b",
-            response: "Documento gerado pelo Ollama.",
+            response: "Documento ",
+            done: false,
+          })}\n`,
+          `${JSON.stringify({
+            model: "qwen3.6:35b",
+            response: "gerado pelo Ollama.",
             done: true,
             total_duration: 12345678,
             load_duration: 1000000,
             prompt_eval_count: 20,
             eval_count: 50,
-          }),
+          })}\n`,
+        ]),
+        {
+          status: 200,
+          headers: { "content-type": "application/x-ndjson" },
+        },
+      ),
+  );
+
+  vi.stubGlobal("fetch", fetchMock);
+
+  const provider = new OllamaTextGenerationProvider({
+    model: "qwen3.6:35b",
+    baseUrl: "http://127.0.0.1:11434",
+  });
+  const chunks: string[] = [];
+
+  const result = await provider.generateText({
+    ...generationInput,
+    onChunk: (chunk) => {
+      chunks.push(chunk.textDelta);
+    },
+  });
+  const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+  const requestBody = JSON.parse(String(requestInit?.body)) as {
+    model: string;
+    prompt: string;
+    stream: boolean;
+    think?: boolean;
+  };
+
+  assert.equal(requestBody.model, "qwen3.6:35b");
+  assert.equal(requestBody.prompt, generationInput.prompt);
+  assert.equal(requestBody.stream, true);
+  assert.notEqual(requestBody.think, false);
+  assert.deepEqual(chunks, ["Documento ", "gerado pelo Ollama."]);
+  assert.equal(result.providerKey, "ollama");
+  assert.equal(result.model, "qwen3.6:35b");
+  assert.equal(result.text, "Documento gerado pelo Ollama.");
+  assert.equal(result.responseMetadata.done, true);
+  assert.equal(result.responseMetadata.total_duration, 12345678);
+  assert.equal(result.responseMetadata.load_duration, 1000000);
+  assert.equal(result.responseMetadata.prompt_eval_count, 20);
+  assert.equal(result.responseMetadata.eval_count, 50);
+});
+
+test("OllamaTextGenerationProvider buffers streamed JSON split across reads", async () => {
+  const firstLine = `${JSON.stringify({
+    model: "qwen3.6:35b",
+    response: "Documento ",
+    done: false,
+  })}\n`;
+  const secondLine = `${JSON.stringify({
+    model: "qwen3.6:35b",
+    response: "com linha fracionada.",
+    done: true,
+  })}\n`;
+  const splitIndex = Math.floor(secondLine.length / 2);
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          createOllamaStream([
+            firstLine,
+            secondLine.slice(0, splitIndex),
+            secondLine.slice(splitIndex),
+          ]),
           {
             status: 200,
-            headers: { "content-type": "application/json" },
+            headers: { "content-type": "application/x-ndjson" },
           },
         ),
     ),
@@ -223,11 +364,118 @@ test("OllamaTextGenerationProvider normalizes successful response and metadata",
 
   const result = await provider.generateText(generationInput);
 
-  assert.equal(result.providerKey, "ollama");
-  assert.equal(result.model, "qwen3.6:35b");
-  assert.equal(result.text, "Documento gerado pelo Ollama.");
+  assert.equal(result.text, "Documento com linha fracionada.");
   assert.equal(result.responseMetadata.done, true);
-  assert.equal(result.responseMetadata.total_duration, 12345678);
+});
+
+test("OllamaTextGenerationProvider emits thinking-only chunks as planning progress", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          createOllamaStream([
+            `${JSON.stringify({
+              model: "qwen3.6:35b",
+              response: "",
+              thinking: "Raciocinio interno",
+              done: false,
+            })}\n`,
+            `${JSON.stringify({
+              model: "qwen3.6:35b",
+              response: "Documento final.",
+              done: true,
+            })}\n`,
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/x-ndjson" },
+          },
+        ),
+    ),
+  );
+
+  const provider = new OllamaTextGenerationProvider({
+    model: "qwen3.6:35b",
+    baseUrl: "http://127.0.0.1:11434",
+  });
+  const chunks: string[] = [];
+  const planningChunks: string[] = [];
+
+  const result = await provider.generateText({
+    ...generationInput,
+    onChunk: (chunk) => {
+      chunks.push(chunk.textDelta);
+    },
+    onPlanningChunk: (chunk) => {
+      planningChunks.push(chunk.planningDelta);
+    },
+  });
+
+  assert.deepEqual(chunks, ["Documento final."]);
+  assert.deepEqual(planningChunks, ["Raciocinio interno"]);
+  assert.equal(result.text, "Documento final.");
+});
+
+test("OllamaTextGenerationProvider does not abort active streams after configured timeout", async () => {
+  vi.useFakeTimers();
+
+  const encoder = new TextEncoder();
+  let releaseFinalChunk!: () => void;
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          `${JSON.stringify({
+            model: "qwen3.6:35b",
+            response: "Documento longo ",
+            done: false,
+          })}\n`,
+        ),
+      );
+
+      await new Promise<void>((resolve) => {
+        releaseFinalChunk = resolve;
+      });
+
+      controller.enqueue(
+        encoder.encode(
+          `${JSON.stringify({
+            model: "qwen3.6:35b",
+            response: "concluido.",
+            done: true,
+          })}\n`,
+        ),
+      );
+      controller.close();
+    },
+  });
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(stream, {
+          status: 200,
+          headers: { "content-type": "application/x-ndjson" },
+        }),
+    ),
+  );
+
+  const provider = new OllamaTextGenerationProvider({
+    model: "qwen3.6:35b",
+    baseUrl: "http://127.0.0.1:11434",
+    timeoutMs: 300_000,
+  });
+
+  const resultPromise = provider.generateText(generationInput);
+
+  await vi.advanceTimersByTimeAsync(301_000);
+  releaseFinalChunk();
+
+  const result = await resultPromise;
+
+  assert.equal(result.text, "Documento longo concluido.");
 });
 
 test("OllamaTextGenerationProvider normalizes timeout failures", async () => {
@@ -321,15 +569,76 @@ test("OllamaTextGenerationProvider normalizes server error (5xx)", async () => {
   });
 });
 
+test("OllamaTextGenerationProvider normalizes stream error chunks", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          createOllamaStream([
+            `${JSON.stringify({
+              model: "qwen3.6:35b",
+              error: "model failed during generation",
+              done: true,
+            })}\n`,
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/x-ndjson" },
+          },
+        ),
+    ),
+  );
+
+  const provider = new OllamaTextGenerationProvider({
+    model: "qwen3.6:35b",
+    baseUrl: "http://127.0.0.1:11434",
+  });
+
+  await assert.rejects(async () => provider.generateText(generationInput), {
+    code: "provider_unavailable",
+    providerKey: "ollama",
+    model: "qwen3.6:35b",
+  });
+});
+
+test("OllamaTextGenerationProvider normalizes missing streaming body", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(null, {
+          status: 200,
+        }),
+    ),
+  );
+
+  const provider = new OllamaTextGenerationProvider({
+    model: "qwen3.6:35b",
+    baseUrl: "http://127.0.0.1:11434",
+  });
+
+  await assert.rejects(async () => provider.generateText(generationInput), {
+    code: "provider_unavailable",
+    providerKey: "ollama",
+    model: "qwen3.6:35b",
+  });
+});
+
 test("OllamaTextGenerationProvider normalizes empty response", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(
       async () =>
-        new Response(JSON.stringify({ model: "qwen3.6:35b", response: "   ", done: true }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
+        new Response(
+          createOllamaStream([
+            `${JSON.stringify({ model: "qwen3.6:35b", response: "   ", done: true })}\n`,
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/x-ndjson" },
+          },
+        ),
     ),
   );
 

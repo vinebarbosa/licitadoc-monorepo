@@ -19,6 +19,7 @@ export type ProcessCreationFormValues = {
   processNumber: string;
   externalId: string;
   issuedAt: string;
+  title: string;
   object: string;
   justification: string;
   responsibleName: string;
@@ -28,6 +29,7 @@ export type ProcessCreationFormValues = {
   sourceKind: string | null;
   sourceReference: string | null;
   sourceMetadata: Record<string, unknown> | null;
+  expenseRequestItems: ExpenseRequestFormItem[];
 };
 
 export type ProcessCreationFormErrors = Partial<
@@ -58,6 +60,7 @@ export type ExpenseRequestExtractionWarning =
   | "budget_unit_name_missing"
   | "item_description_missing"
   | "item_value_missing"
+  | "item_rows_missing"
   | "responsible_name_missing"
   | "required_field_missing"
   | "organization_match_missing"
@@ -65,11 +68,56 @@ export type ExpenseRequestExtractionWarning =
 
 export type ExpenseRequestExtractionItem = {
   code: string | null;
+  title?: string | null;
   description: string | null;
   quantity: string | null;
   unit: string | null;
   unitValue: string | null;
   totalValue: string | null;
+};
+
+export type ExpenseRequestFormItemKind = "simple" | "kit";
+
+export type ExpenseRequestFormItemComponent = {
+  id: string;
+  title: string;
+  description: string;
+  quantity: string;
+  unit: string;
+};
+
+export type ExpenseRequestFormItem = {
+  id: string;
+  kind: ExpenseRequestFormItemKind;
+  code: string;
+  title: string;
+  description: string;
+  quantity: string;
+  unit: string;
+  unitValue: string;
+  totalValue: string;
+  components: ExpenseRequestFormItemComponent[];
+  source: "manual" | "pdf";
+};
+
+export type ProcessDetailSourceItemComponent = {
+  id: string;
+  title: string;
+  description: string | null;
+  quantity: string | null;
+  unit: string | null;
+};
+
+export type ProcessDetailSourceItem = {
+  id: string;
+  code: string | null;
+  title: string;
+  description: string | null;
+  quantity: string | null;
+  unit: string | null;
+  unitValue: string | null;
+  totalValue: string | null;
+  components: ProcessDetailSourceItemComponent[];
 };
 
 export type ExpenseRequestExtractionResult = {
@@ -82,6 +130,7 @@ export type ExpenseRequestExtractionResult = {
     issueDate: string | null;
     itemDescription: string | null;
     item: ExpenseRequestExtractionItem;
+    items?: ExpenseRequestExtractionItem[];
     object: string | null;
     organizationCnpj: string | null;
     organizationName: string | null;
@@ -249,12 +298,109 @@ export function formatProcessDetailDate(dateString: string | null) {
   return formatProcessListDate(dateString);
 }
 
-export function getProcessDisplayName(process: ProcessesListItem) {
-  return process.object;
+function cleanProcessTitleText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
 }
 
-export function getProcessDetailDisplayName(process: Pick<ProcessDetailResponse, "object">) {
-  return process.object;
+function capitalizeFirstLetter(value: string) {
+  const [first = "", ...rest] = Array.from(value);
+
+  return `${first.toLocaleUpperCase("pt-BR")}${rest.join("")}`;
+}
+
+function truncateAtWordBoundary(value: string, maxLength = 90) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const truncated = value.slice(0, maxLength + 1);
+  const lastSpace = truncated.lastIndexOf(" ");
+  const next = lastSpace >= 40 ? truncated.slice(0, lastSpace) : value.slice(0, maxLength);
+
+  return `${next.trimEnd()}...`;
+}
+
+function removeTitleBoilerplate(value: string) {
+  return value
+    .replace(
+      /^(?:contrata[cç][aã]o|aquisi[cç][aã]o)\s+(?:de\s+)?(?:empresa\s+especializada\s+para\s+)?/i,
+      "",
+    )
+    .replace(/^presta[cç][aã]o\s+de\s+servi[cç]os\s+para\s+/i, "Serviços para ")
+    .trim();
+}
+
+function cutAtNaturalTitleBoundary(value: string) {
+  const commaIndex = value.indexOf(",");
+
+  if (commaIndex >= 20) {
+    return value.slice(0, commaIndex).trim();
+  }
+
+  const patterns = [
+    /\s*,\s*para\s+/i,
+    /\s*,\s*junt[oa]s?\s+/i,
+    /\s*,\s*que\s+/i,
+    /\s*,\s*/i,
+    /\s+junto\s+aos?\s+/i,
+    /\s+junto\s+[àa]s?\s+/i,
+    /\s+que\s+ser[aá]\s+/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+
+    if (typeof match?.index === "number" && match.index >= 20) {
+      return value.slice(0, match.index).trim();
+    }
+  }
+
+  return value;
+}
+
+export function deriveProcessTitlePreview({
+  itemDescription,
+  object,
+  processNumber,
+  title,
+}: {
+  itemDescription?: string | null;
+  object?: string | null;
+  processNumber?: string | null;
+  title?: string | null;
+}) {
+  const explicitTitle = title?.trim();
+
+  if (explicitTitle) {
+    return truncateAtWordBoundary(explicitTitle);
+  }
+
+  const source = itemDescription?.trim() || object?.trim() || processNumber?.trim() || "Processo";
+  const normalized = cleanProcessTitleText(
+    cutAtNaturalTitleBoundary(removeTitleBoilerplate(source)),
+  );
+
+  return truncateAtWordBoundary(capitalizeFirstLetter(normalized || source));
+}
+
+export function getProcessDisplayName(
+  process: Pick<ProcessesListItem, "object"> & { title?: string | null; processNumber?: string },
+) {
+  return deriveProcessTitlePreview({
+    title: process.title,
+    object: process.object,
+    processNumber: process.processNumber,
+  });
+}
+
+export function getProcessDetailDisplayName(
+  process: Pick<ProcessDetailResponse, "object" | "processNumber"> & { title?: string | null },
+) {
+  return deriveProcessTitlePreview({
+    title: process.title,
+    object: process.object,
+    processNumber: process.processNumber,
+  });
 }
 
 export function getProcessDetailPath(process: ProcessesListItem) {
@@ -312,6 +458,129 @@ export function getProcessEstimatedValueLabel(estimatedValue: string | null) {
   return trimmedValue;
 }
 
+function normalizeTextValue(value: unknown) {
+  if (typeof value === "string") {
+    const trimmed = value.replace(/\s+/g, " ").trim();
+
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return null;
+}
+
+function firstTextValue(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = normalizeTextValue(record[key]);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function normalizeProcessDetailItemComponent(
+  value: unknown,
+  index: number,
+): ProcessDetailSourceItemComponent | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const title = firstTextValue(value, ["title", "name", "description", "itemDescription"]);
+  const description = firstTextValue(value, ["description", "itemDescription", "details"]);
+
+  if (!title && !description) {
+    return null;
+  }
+
+  const explicitId = firstTextValue(value, ["id", "code"]);
+
+  return {
+    id: explicitId ? `component-${index}-${explicitId}` : `component-${index}`,
+    title: title ?? description ?? `Componente ${index + 1}`,
+    description: description === title ? null : description,
+    quantity: firstTextValue(value, ["quantity", "amount", "qty"]),
+    unit: firstTextValue(value, ["unit", "measureUnit", "unitOfMeasure"]),
+  };
+}
+
+function getComponentCandidates(record: Record<string, unknown>) {
+  for (const key of ["components", "subitems", "subItems", "children"]) {
+    const value = record[key];
+
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return [];
+}
+
+function normalizeProcessDetailItem(value: unknown, index: number): ProcessDetailSourceItem | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const title = firstTextValue(value, ["title", "name", "description", "itemDescription"]);
+  const description = firstTextValue(value, ["description", "itemDescription", "details"]);
+
+  if (!title && !description) {
+    return null;
+  }
+
+  const explicitId = firstTextValue(value, ["id", "code"]);
+
+  return {
+    id: explicitId ? `item-${index}-${explicitId}` : `item-${index}`,
+    code: firstTextValue(value, ["code", "itemCode"]),
+    title: title ?? description ?? `Item ${index + 1}`,
+    description: description === title ? null : description,
+    quantity: firstTextValue(value, ["quantity", "amount", "qty"]),
+    unit: firstTextValue(value, ["unit", "measureUnit", "unitOfMeasure"]),
+    unitValue: firstTextValue(value, ["unitValue", "unitPrice", "price"]),
+    totalValue: firstTextValue(value, ["totalValue", "total", "estimatedValue"]),
+    components: getComponentCandidates(value)
+      .map((component, componentIndex) =>
+        normalizeProcessDetailItemComponent(component, componentIndex),
+      )
+      .filter((component): component is ProcessDetailSourceItemComponent => component !== null),
+  };
+}
+
+export function getProcessDetailItems(
+  process: Pick<ProcessDetailResponse, "sourceMetadata">,
+): ProcessDetailSourceItem[] {
+  if (!isRecord(process.sourceMetadata)) {
+    return [];
+  }
+
+  const extractedFields = process.sourceMetadata.extractedFields;
+
+  if (!isRecord(extractedFields)) {
+    return [];
+  }
+
+  const items = Array.isArray(extractedFields.items)
+    ? extractedFields.items
+        .map((item, index) => normalizeProcessDetailItem(item, index))
+        .filter((item): item is ProcessDetailSourceItem => item !== null)
+    : [];
+
+  if (items.length > 0) {
+    return items;
+  }
+
+  const fallbackItem = normalizeProcessDetailItem(extractedFields.item, 0);
+
+  return fallbackItem ? [fallbackItem] : [];
+}
+
 export function getProcessDetailDocumentStatusConfig(status: ProcessDetailDocumentStatus) {
   return processDetailDocumentStatusConfig[status];
 }
@@ -321,11 +590,11 @@ export function getProcessDetailDocumentActionLinks(
   document: Pick<ProcessDetailDocument, "type" | "documentId" | "availableActions">,
 ) {
   const encodedType = encodeURIComponent(document.type);
+  const generationHref = `/app/documento/novo?tipo=${encodedType}&processo=${processId}`;
 
   return {
-    createHref: document.availableActions.create
-      ? `/app/documento/novo?tipo=${encodedType}&processo=${processId}`
-      : null,
+    createHref: document.availableActions.create ? generationHref : null,
+    regenerateHref: document.documentId ? generationHref : null,
     editHref:
       document.availableActions.edit && document.documentId
         ? `/app/documento/${document.documentId}`
@@ -345,6 +614,7 @@ export function getDefaultProcessCreationFormValues(
     processNumber: "",
     externalId: "",
     issuedAt: "",
+    title: "",
     object: "",
     justification: "",
     responsibleName: "",
@@ -354,6 +624,7 @@ export function getDefaultProcessCreationFormValues(
     sourceKind: null,
     sourceReference: null,
     sourceMetadata: null,
+    expenseRequestItems: [],
   };
 }
 
@@ -423,6 +694,10 @@ export function validateProcessCreationForm(
     errors.issuedAt = "Informe uma data valida.";
   }
 
+  if (!values.title.trim()) {
+    errors.title = "Informe o titulo.";
+  }
+
   if (!values.object.trim()) {
     errors.object = "Informe o objeto.";
   }
@@ -446,15 +721,281 @@ export function hasProcessCreationErrors(errors: ProcessCreationFormErrors) {
   return Object.keys(errors).length > 0;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeNullableItemText(value: string) {
+  const trimmed = value.trim();
+
+  return trimmed ? trimmed : null;
+}
+
+export function createEmptyExpenseRequestFormItem({
+  kind = "simple",
+  source = "manual",
+}: {
+  kind?: ExpenseRequestFormItemKind;
+  source?: ExpenseRequestFormItem["source"];
+} = {}): ExpenseRequestFormItem {
+  return {
+    id: crypto.randomUUID(),
+    kind,
+    code: "",
+    title: "",
+    description: "",
+    quantity: "",
+    unit: "",
+    unitValue: "",
+    totalValue: "",
+    components: [],
+    source,
+  };
+}
+
+export function createEmptyExpenseRequestComponent(): ExpenseRequestFormItemComponent {
+  return {
+    id: crypto.randomUUID(),
+    title: "",
+    description: "",
+    quantity: "",
+    unit: "",
+  };
+}
+
+export function setExpenseRequestItemKind(
+  item: ExpenseRequestFormItem,
+  kind: ExpenseRequestFormItemKind,
+) {
+  return {
+    ...item,
+    kind,
+    components: kind === "kit" ? item.components : [],
+  };
+}
+
+export function updateExpenseRequestFormItemField<
+  Field extends keyof Omit<ExpenseRequestFormItem, "id" | "source" | "components">,
+>(item: ExpenseRequestFormItem, field: Field, value: ExpenseRequestFormItem[Field]) {
+  const nextItem = {
+    ...item,
+    [field]: value,
+  };
+
+  return field === "kind"
+    ? setExpenseRequestItemKind(nextItem, value as ExpenseRequestFormItemKind)
+    : nextItem;
+}
+
+export function addExpenseRequestComponentToItem(item: ExpenseRequestFormItem) {
+  return item.kind === "kit"
+    ? {
+        ...item,
+        components: [...item.components, createEmptyExpenseRequestComponent()],
+      }
+    : item;
+}
+
+export function updateExpenseRequestComponentField<
+  Field extends keyof Omit<ExpenseRequestFormItemComponent, "id">,
+>(
+  item: ExpenseRequestFormItem,
+  componentId: string,
+  field: Field,
+  value: ExpenseRequestFormItemComponent[Field],
+) {
+  return {
+    ...item,
+    components: item.components.map((component) =>
+      component.id === componentId ? { ...component, [field]: value } : component,
+    ),
+  };
+}
+
+export function removeExpenseRequestComponentFromItem(
+  item: ExpenseRequestFormItem,
+  componentId: string,
+) {
+  return {
+    ...item,
+    components: item.components.filter((component) => component.id !== componentId),
+  };
+}
+
+function parseLocalizedNumber(value: string) {
+  const normalized = value
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".")
+    .trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function calculateExpenseRequestItemTotalValue(
+  quantity: string,
+  unitValue: string,
+): string | null {
+  const parsedQuantity = parseLocalizedNumber(quantity);
+  const parsedUnitValue = parseLocalizedNumber(unitValue);
+
+  if (parsedQuantity === null || parsedUnitValue === null) {
+    return null;
+  }
+
+  return (parsedQuantity * parsedUnitValue).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+export function getExpenseRequestItemTotalPreview(item: ExpenseRequestFormItem) {
+  return (
+    item.totalValue.trim() || calculateExpenseRequestItemTotalValue(item.quantity, item.unitValue)
+  );
+}
+
+export function toExpenseRequestFormItems(
+  items: ExpenseRequestExtractionItem[] | undefined,
+  source: ExpenseRequestFormItem["source"] = "pdf",
+): ExpenseRequestFormItem[] {
+  return (items ?? [])
+    .filter((item) =>
+      Boolean(
+        item.code?.trim() ||
+          item.title?.trim() ||
+          item.description?.trim() ||
+          item.quantity?.trim() ||
+          item.unit?.trim() ||
+          item.unitValue?.trim() ||
+          item.totalValue?.trim(),
+      ),
+    )
+    .map((item) => ({
+      id: crypto.randomUUID(),
+      kind: "simple" as const,
+      code: item.code ?? "",
+      title: item.title ?? "",
+      description: item.description ?? "",
+      quantity: item.quantity ?? "",
+      unit: item.unit ?? "",
+      unitValue: item.unitValue ?? "",
+      totalValue: item.totalValue ?? "",
+      components: [],
+      source,
+    }));
+}
+
+function normalizeExpenseRequestComponentsForMetadata(
+  components: ExpenseRequestFormItemComponent[],
+) {
+  return components
+    .map((component) => ({
+      title: normalizeNullableItemText(component.title),
+      description: normalizeNullableItemText(component.description),
+      quantity: normalizeNullableItemText(component.quantity),
+      unit: normalizeNullableItemText(component.unit),
+    }))
+    .filter((component) =>
+      Boolean(component.title || component.description || component.quantity || component.unit),
+    );
+}
+
+export function normalizeExpenseRequestItemsForMetadata(items: ExpenseRequestFormItem[]) {
+  return items
+    .map((item) => {
+      const components =
+        item.kind === "kit" ? normalizeExpenseRequestComponentsForMetadata(item.components) : [];
+
+      return {
+        kind: item.kind,
+        code: normalizeNullableItemText(item.code),
+        title: normalizeNullableItemText(item.title),
+        description: normalizeNullableItemText(item.description),
+        quantity: normalizeNullableItemText(item.quantity),
+        unit: normalizeNullableItemText(item.unit),
+        unitValue: normalizeNullableItemText(item.unitValue),
+        totalValue:
+          normalizeNullableItemText(item.totalValue) ??
+          calculateExpenseRequestItemTotalValue(item.quantity, item.unitValue),
+        components,
+      };
+    })
+    .filter((item) =>
+      Boolean(
+        item.code ||
+          item.title ||
+          item.description ||
+          item.quantity ||
+          item.unit ||
+          item.unitValue ||
+          item.totalValue ||
+          item.components.length > 0,
+      ),
+    );
+}
+
+function mergeExpenseRequestItemsIntoSourceMetadata(
+  sourceMetadata: Record<string, unknown> | null,
+  items: ExpenseRequestFormItem[],
+) {
+  const normalizedItems = normalizeExpenseRequestItemsForMetadata(items);
+
+  if (normalizedItems.length === 0) {
+    return sourceMetadata;
+  }
+
+  const currentMetadata = sourceMetadata ?? {};
+  const extractedFields = isRecord(currentMetadata.extractedFields)
+    ? currentMetadata.extractedFields
+    : {};
+  const source = isRecord(currentMetadata.source) ? currentMetadata.source : {};
+
+  return {
+    ...currentMetadata,
+    extractedFields: {
+      ...extractedFields,
+      item: normalizedItems[0],
+      items: normalizedItems,
+    },
+    source:
+      sourceMetadata == null
+        ? {
+            ...source,
+            inputMode: "native_form",
+          }
+        : {
+            ...source,
+            inputMode:
+              typeof source.inputMode === "string" && source.inputMode.length > 0
+                ? source.inputMode
+                : "native_form",
+          },
+    warnings: Array.isArray(currentMetadata.warnings) ? currentMetadata.warnings : [],
+  };
+}
+
 export function buildProcessCreateRequest(
   values: ProcessCreationFormValues,
   actor: ProcessCreationActor,
 ): ProcessCreateRequest {
+  const sourceMetadata = mergeExpenseRequestItemsIntoSourceMetadata(
+    values.sourceMetadata,
+    values.expenseRequestItems,
+  );
+
   return {
     type: values.type.trim(),
     processNumber: values.processNumber.trim(),
     externalId: values.externalId.trim() || null,
     issuedAt: new Date(values.issuedAt).toISOString(),
+    title: values.title.trim(),
     object: values.object.trim(),
     justification: values.justification.trim(),
     responsibleName: values.responsibleName.trim(),
@@ -465,7 +1006,7 @@ export function buildProcessCreateRequest(
       : {}),
     sourceKind: values.sourceKind,
     sourceReference: values.sourceReference,
-    sourceMetadata: values.sourceMetadata,
+    sourceMetadata,
   };
 }
 
@@ -535,6 +1076,14 @@ export function applyExtractionToFormValues(
 
   for (const [key, value] of entries) {
     if (dirtyFields[key] || value == null) {
+      continue;
+    }
+
+    if (
+      key === "type" &&
+      typeof value === "string" &&
+      !processTypeOptions.some((option) => option.value === value)
+    ) {
       continue;
     }
 

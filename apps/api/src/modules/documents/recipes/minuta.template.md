@@ -4,147 +4,175 @@ PROCESSO ADMINISTRATIVO N. `{{process.processNumber_or_placeholder}}`
 
 PROCEDIMENTO N. `{{process.procedureNumber_or_placeholder}}`
 
-TERMO DE CONTRATO N. `{{contract.number_or_placeholder}}`, QUE ENTRE SI CELEBRAM O(A) `{{organization.officialName_or_placeholder}}`, NA QUALIDADE DE CONTRATANTE, E `{{contractor.name_or_placeholder}}`, NA QUALIDADE DE CONTRATADA, PARA A CONTRATACAO DO OBJETO DESCRITO NESTE INSTRUMENTO, NOS TERMOS DA LEI N. 14.133/2021.
+TERMO DE CONTRATO N. `{{contract.number_or_placeholder}}`, QUE ENTRE SI CELEBRAM O(A) `{{organization.officialName_or_placeholder}}`, NA QUALIDADE DE CONTRATANTE, E `{{contractor.name_or_placeholder}}`, NA QUALIDADE DE CONTRATADA, PARA A CONTRATAÇÃO DO OBJETO DESCRITO NESTE INSTRUMENTO, NOS TERMOS DA LEI N. 14.133/2021.
 
-Pelo presente instrumento, de um lado, como CONTRATANTE, `{{organization.officialName_or_placeholder}}`, pessoa juridica de direito publico, inscrita no CNPJ sob o n. `{{organization.cnpj_or_placeholder}}`, com sede em `{{organization.address_or_placeholder}}`, neste ato representada por `{{organization.authorityName_or_placeholder}}`, `{{organization.authorityRole_or_placeholder}}`; e, de outro lado, como CONTRATADA, `[CONTRATADA]`, inscrita no CPF/CNPJ sob o n. `[CNPJ DA CONTRATADA]`, com endereco em `[ENDERECO DA CONTRATADA]`, neste ato representada por `[REPRESENTANTE LEGAL]`, inscrito(a) no CPF sob o n. `[CPF DO REPRESENTANTE]`, resolvem celebrar a presente minuta de contrato, mediante as clausulas e condicoes seguintes.
+Pelo presente instrumento, de um lado, como CONTRATANTE, `{{organization.officialName_or_placeholder}}`, pessoa jurídica de direito público, inscrita no CNPJ sob o n. `{{organization.cnpj_or_placeholder}}`, com sede em `{{organization.address_or_placeholder}}`, neste ato representada por `{{organization.authorityName_or_placeholder}}`, `{{organization.authorityRole_or_placeholder}}`; e, de outro lado, como CONTRATADA, `[CONTRATADA]`, inscrita no CPF/CNPJ sob o n. `[CNPJ DA CONTRATADA]`, com endereço em `[ENDEREÇO DA CONTRATADA]`, neste ato representada por `[REPRESENTANTE LEGAL]`, inscrito(a) no CPF sob o n. `[CPF DO REPRESENTANTE]`, resolvem celebrar a presente minuta de contrato, mediante as cláusulas e condições seguintes.
 
-## CLAUSULA PRIMEIRA - DO OBJETO
+## CLÁUSULA PRIMEIRA - DO OBJETO
 
 1.1. O presente instrumento tem por objeto `{{process.object_or_placeholder}}`.
 
-1.2. O objeto devera ser executado conforme as condicoes estabelecidas neste instrumento e nos documentos que integram o processo administrativo, especialmente o instrumento tecnico correspondente, quando existente, a proposta da CONTRATADA e demais anexos pertinentes.
+1.2. O objeto contratual será executado em conformidade com este instrumento e com os documentos que integram o processo administrativo, especialmente o termo de referência ou instrumento técnico equivalente, quando existente, a proposta da CONTRATADA e os demais anexos pertinentes.
 
-1.3. Quando houver especificacoes, quantitativos, prazos, locais ou condicoes operacionais no contexto, deverao ser incorporados a esta clausula em linguagem contratual. Na ausencia desses dados, manter placeholder ou indicar que a definicao ocorrera conforme orientacao da Administracao.
+1.3. A redação do objeto deve contextualizar a contratação em linguagem contratual, indicando a natureza do serviço, fornecimento, obra, locação, evento ou solução e sua vinculação ao processo administrativo, sem repetir justificativa, estudo de viabilidade ou análise de alternativas.
 
-## CLAUSULA SEGUNDA - DO PRECO
+1.4. Especificações, quantitativos, prazos, locais, condições operacionais e demais elementos de execução somente devem constar quando estiverem presentes no contexto. Na ausência desses elementos, preserve placeholders ou use redação contratual de definição formal posterior pela Administração.
 
-2.1. O valor do presente contrato e de `{{contract.price_or_placeholder}}`.
+## CLÁUSULA SEGUNDA - DO PREÇO
 
-2.2. Nos precos estipulados estao inclusas todas as despesas necessarias ao fiel cumprimento do objeto, inclusive tributos, encargos sociais, trabalhistas, previdenciarios, fiscais, custos operacionais, deslocamentos, materiais, equipamentos e demais despesas aplicaveis.
+2.1. O valor do presente contrato é de `{{contract.price_or_placeholder}}`.
 
-2.3. Quando o valor nao constar no contexto ou estiver informado como zero, devera ser mantido o placeholder `R$ XX.XXX,XX`, sem simulacao de valores ou calculos.
+2.2. Nos preços estipulados estão inclusas todas as despesas necessárias ao fiel cumprimento do objeto, inclusive tributos, encargos sociais, trabalhistas, previdenciários, fiscais, custos operacionais, deslocamentos, materiais, equipamentos e demais despesas aplicáveis.
 
-## CLAUSULA TERCEIRA - DA EXECUCAO
+2.3. Quando o valor não constar no contexto ou estiver informado como zero, deverá ser mantido o placeholder `R$ XX.XXX,XX`, sem simulação de valores, cálculo estimativo ou declaração de pesquisa de mercado não comprovada no contexto.
 
-3.1. A CONTRATADA obriga-se a executar o objeto na forma, prazo, local e condicoes estabelecidas neste instrumento e nos documentos que integram o processo administrativo.
+## CLÁUSULA TERCEIRA - DA EXECUÇÃO
 
-3.2. Datas, locais, duracoes, quantitativos, equipes, materiais, equipamentos, infraestrutura e demais condicoes especificas somente deverao ser indicados quando constarem no contexto.
+3.1. A CONTRATADA obriga-se a executar o objeto conforme a natureza da contratação, as condições deste instrumento, os documentos técnicos do processo e os alinhamentos formais realizados com a CONTRATANTE.
 
-3.3. Na ausencia de informacoes especificas, a execucao ocorrera conforme definicao da Administracao, observadas as condicoes contratuais e a legislacao aplicavel.
+3.2. A execução deverá observar a dinâmica operacional compatível com o objeto contratado, incluindo, quando suportado pelo contexto, programação administrativa, entrega, prestação, disponibilização, implantação, suporte, comunicação entre as partes, validação de etapas, correção de inconformidades e demais condições necessárias ao cumprimento regular do contrato.
 
-## CLAUSULA QUARTA - DO PAGAMENTO
+3.3. Em aquisição composta, a execução deverá considerar o fornecimento, conferência, conformidade, correção ou substituição dos grupos de itens identificados como conjunto, preservando a concretude material da SD e sem detalhamento item a item incompatível com o contexto.
 
-4.1. O pagamento sera efetuado pela CONTRATANTE conforme as condicoes estabelecidas neste instrumento, apos a regular execucao do objeto, o ateste pela fiscalizacao competente e a apresentacao da documentacao fiscal cabivel.
+3.4. Datas, locais, durações, quantitativos, equipes, materiais, equipamentos, infraestrutura, cronogramas, rider técnico, níveis de serviço, medições e demais condições específicas somente deverão ser indicados quando constarem no contexto.
 
-4.2. A CONTRATADA devera apresentar nota fiscal ou documento equivalente, acompanhado da documentacao exigida pela Administracao para fins de liquidacao e pagamento.
+3.5. Na ausência de informações específicas, a execução deverá observar as condições contratuais, a programação administrativa, o instrumento técnico correspondente e os alinhamentos formais entre as partes, vedada a criação de detalhes operacionais não documentados no processo.
 
-4.3. Nenhum pagamento sera efetuado enquanto houver pendencia de liquidacao, irregularidade documental ou inadimplemento contratual imputavel a CONTRATADA, sem que isso gere direito a acrescimos ou atualizacao nao previstos.
+## CLÁUSULA QUARTA - DO PAGAMENTO
 
-## CLAUSULA QUINTA - DO PRAZO DE VIGENCIA
+4.1. O pagamento será efetuado pela CONTRATANTE conforme as condições estabelecidas neste instrumento, após a regular execução do objeto, a liquidação da despesa, o ateste pela fiscalização competente e a apresentação da documentação fiscal cabível.
 
-5.1. O prazo de vigencia do contrato sera de `{{contract.startDate_or_placeholder}}` ate `{{contract.endDate_or_placeholder}}`, contado na forma definida pela Administracao e observado o disposto na Lei n. 14.133/2021.
+4.2. A CONTRATADA deverá apresentar nota fiscal ou documento equivalente, acompanhado da documentação exigida pela Administração para fins de liquidação e pagamento.
 
-5.2. Quando as datas nao constarem no contexto, deverao ser mantidos os placeholders `XX de XXXXX de 2026`.
+4.3. Nenhum pagamento será efetuado enquanto houver pendência de liquidação, irregularidade documental ou inadimplemento contratual imputável à CONTRATADA, sem que isso gere direito a acréscimos, atualização, indenização ou compensação não previstos no instrumento contratual.
 
-5.3. A prorrogacao, quando cabivel, dependera de justificativa, interesse publico, disponibilidade orcamentaria e observancia da legislacao aplicavel.
+4.4. Na ausência de condições específicas de pagamento, não invente parcelas, vencimentos, percentuais, prazos, eventos de pagamento, medição, reajuste ou retenção. Use redação conservadora vinculando o pagamento à execução regular, ao ateste e às condições definidas pela Administração.
 
-## CLAUSULA SEXTA - DA DOTACAO ORCAMENTARIA
+## CLÁUSULA QUINTA - DO PRAZO DE VIGÊNCIA
 
-6.1. As despesas decorrentes da execucao deste contrato correrao por conta da seguinte dotacao orcamentaria: `{{budget.allocation_or_placeholder}}`.
+5.1. O prazo de vigência do contrato será de `{{contract.startDate_or_placeholder}}` até `{{contract.endDate_or_placeholder}}`, contado na forma definida pela Administração e observado o disposto na Lei n. 14.133/2021.
 
-6.2. Na ausencia de dados orcamentarios especificos no contexto, devera ser mantido placeholder ou indicado que a dotacao sera definida em etapa propria pela Administracao.
+5.2. Quando as datas não constarem no contexto, deverão ser mantidos os placeholders `XX de XXXXX de 2026`, sem criação de prazo, termo inicial, termo final, duração ou cronograma.
 
-## CLAUSULA SETIMA - DAS OBRIGACOES DA CONTRATANTE
+5.3. A prorrogação, quando cabível, dependerá de justificativa, interesse público, disponibilidade orçamentária, manutenção das condições exigidas e observância da legislação aplicável.
 
-7.1. Sao obrigacoes da CONTRATANTE:
+## CLÁUSULA SEXTA - DA DOTAÇÃO ORÇAMENTÁRIA
 
-- disponibilizar as informacoes necessarias a execucao do objeto;
-- acompanhar e fiscalizar a execucao contratual por meio de servidor ou setor designado;
-- prestar apoio institucional, logistico ou operacional quando tal responsabilidade constar do contexto ou decorrer da natureza do objeto;
-- atestar a execucao regular do objeto, quando cabivel;
-- efetuar o pagamento conforme as condicoes contratuais, apos a regular liquidacao da despesa.
+6.1. As despesas decorrentes da execução deste contrato correrão por conta da seguinte dotação orçamentária: `{{budget.allocation_or_placeholder}}`.
 
-## CLAUSULA OITAVA - DAS OBRIGACOES DA CONTRATADA
+6.2. Na ausência de dados orçamentários específicos no contexto, deverá ser mantido placeholder ou indicado que a dotação será definida em etapa própria pela Administração, sem inventar unidade, fonte, ação, saldo, empenho ou disponibilidade financeira.
 
-8.1. Sao obrigacoes da CONTRATADA:
+## CLÁUSULA SÉTIMA - DAS OBRIGAÇÕES DA CONTRATANTE
 
-- executar o objeto conforme as condicoes estabelecidas neste instrumento e nos documentos do processo;
-- disponibilizar equipe, materiais, equipamentos, insumos ou estrutura necessaria quando aplicavel ao objeto e quando constar no contexto;
-- prestar esclarecimentos solicitados pela CONTRATANTE e atender as orientacoes da fiscalizacao;
-- responsabilizar-se pelos encargos trabalhistas, previdenciarios, fiscais, comerciais, operacionais e demais despesas relacionadas a execucao do objeto, quando aplicavel;
-- manter, durante a execucao contratual, as condicoes de habilitacao e qualificacao exigidas para a contratacao.
+7.1. São obrigações da CONTRATANTE, sem prejuízo de outras previstas neste instrumento e nos documentos do processo:
 
-## CLAUSULA NONA - DA FISCALIZACAO
+- disponibilizar as informações, orientações, acessos e condições institucionais sob sua responsabilidade que sejam necessários à execução regular do objeto;
+- acompanhar e fiscalizar a execução contratual por meio de servidor, setor ou unidade competente, observada a organização administrativa da CONTRATANTE;
+- comunicar à CONTRATADA falhas, inconsistências, atrasos, impedimentos ou inconformidades identificadas durante a execução, solicitando as providências cabíveis;
+- registrar ocorrências, validações, orientações e evidências necessárias ao acompanhamento contratual e ao ateste da execução;
+- receber, conferir, validar ou recusar entregas, serviços, etapas ou bens conforme a natureza do objeto e as condições pactuadas;
+- processar o pagamento após a regular liquidação da despesa, o ateste cabível e a apresentação da documentação fiscal exigida.
 
-9.1. A execucao deste contrato sera acompanhada e fiscalizada por representante da CONTRATANTE especialmente designado, a quem competira registrar ocorrencias, solicitar providencias e atestar a execucao quando cabivel.
+7.2. As obrigações da CONTRATANTE devem ser adaptadas à natureza do objeto e ao contexto disponível, sem inventar fiscais nomeados, fluxos internos, locais, prazos, estruturas administrativas ou responsabilidades não suportadas pelo processo.
 
-9.2. A fiscalizacao exercida pela CONTRATANTE nao exclui nem reduz a responsabilidade da CONTRATADA pela fiel execucao do objeto.
+## CLÁUSULA OITAVA - DAS OBRIGAÇÕES DA CONTRATADA
 
-## CLAUSULA DECIMA - DO RECEBIMENTO E ACEITACAO
+8.1. São obrigações da CONTRATADA, sem prejuízo de outras previstas neste instrumento e nos documentos do processo:
 
-10.1. O objeto sera recebido pela CONTRATANTE conforme sua natureza, apos verificacao de conformidade com as condicoes estabelecidas neste instrumento e nos documentos do processo.
+- executar o objeto conforme as condições pactuadas, o instrumento técnico correspondente e os alinhamentos formais realizados com a CONTRATANTE;
+- manter comunicação operacional com a CONTRATANTE, prestando esclarecimentos, informando impedimentos e atendendo às solicitações da fiscalização;
+- disponibilizar equipe, materiais, equipamentos, insumos, suporte, documentação ou estrutura apenas quando esses elementos forem compatíveis com o objeto e estiverem previstos no contexto ou no instrumento próprio;
+- corrigir falhas, divergências, defeitos, atrasos ou inconformidades identificadas pela CONTRATANTE, nos limites das condições pactuadas;
+- responsabilizar-se pelos encargos trabalhistas, previdenciários, fiscais, comerciais, operacionais e demais despesas relacionadas à execução do objeto, quando aplicável;
+- manter, durante a execução contratual, as condições de habilitação e qualificação exigidas para a contratação.
 
-10.2. Quando constatada desconformidade, a CONTRATANTE podera recusar o recebimento, exigir correcao, substituicao ou refazimento, sem prejuizo da aplicacao das medidas cabiveis.
+8.2. As obrigações da CONTRATADA devem ser contratuais, executáveis, fiscalizáveis e proporcionais ao objeto. Não inclua obrigações incompatíveis, repetitivas, genéricas ou próprias de outro tipo de contratação sem suporte contextual.
 
-## CLAUSULA DECIMA PRIMEIRA - DAS PENALIDADES
+## CLÁUSULA NONA - DA FISCALIZAÇÃO
 
-11.1. O inadimplemento total ou parcial das obrigacoes assumidas sujeitara a CONTRATADA as sancoes administrativas cabiveis, observados a Lei n. 14.133/2021, o devido processo legal, o contraditorio e a ampla defesa.
+9.1. A execução deste contrato será acompanhada e fiscalizada por representante, setor ou unidade competente da CONTRATANTE, a quem competirá acompanhar a conformidade do objeto, registrar ocorrências, solicitar providências e atestar a execução quando cabível.
 
-11.2. As penalidades serao aplicadas conforme a gravidade da infracao, a extensao do dano, as circunstancias do caso concreto e as disposicoes do processo administrativo.
+9.2. A fiscalização poderá comunicar falhas, atrasos, impedimentos, divergências ou inconformidades à CONTRATADA, solicitando correção, esclarecimento, substituição, refazimento ou outra providência compatível com a natureza do objeto e com as condições pactuadas.
 
-## CLAUSULA DECIMA SEGUNDA - DA RESCISAO E EXTINCAO
+9.3. Os registros de acompanhamento, comunicações, validações, evidências de execução e manifestações da fiscalização poderão subsidiar o recebimento do objeto, a liquidação da despesa, o ateste para pagamento e a adoção das medidas administrativas cabíveis.
 
-12.1. O contrato podera ser extinto nas hipoteses previstas na Lei n. 14.133/2021, neste instrumento e nos demais documentos que integram o processo administrativo.
+9.4. A fiscalização exercida pela CONTRATANTE não exclui nem reduz a responsabilidade da CONTRATADA pela fiel execução do objeto.
 
-12.2. A extincao contratual devera observar o devido processo administrativo, assegurados o contraditorio e a ampla defesa quando cabiveis.
+9.5. Não invente nomes de fiscais, datas de inspeção, sistemas, formulários, periodicidades, critérios de medição, relatórios específicos ou ritos de fiscalização não suportados pelo contexto.
 
-<!-- FIXED_CLAUSE_START: CLAUSULA DECIMA TERCEIRA - DAS PRERROGATIVAS -->
-## CLAUSULA DECIMA TERCEIRA - DAS PRERROGATIVAS
+## CLÁUSULA DÉCIMA - DO RECEBIMENTO E ACEITAÇÃO
+
+10.1. O objeto será recebido pela CONTRATANTE conforme sua natureza, após verificação de conformidade com as condições estabelecidas neste instrumento, no termo de referência ou instrumento técnico equivalente, na proposta e nos demais documentos do processo.
+
+10.2. O recebimento poderá envolver conferência, validação, aceite, registro de ocorrência, solicitação de esclarecimento, correção, substituição ou refazimento, conforme a natureza do objeto e as condições pactuadas.
+
+10.3. Quando constatada desconformidade, a CONTRATANTE poderá recusar o recebimento total ou parcial, exigir correção, substituição ou refazimento e adotar as medidas administrativas cabíveis.
+
+10.4. Não invente prazos, recebimento provisório ou definitivo, regime de medição, documentos especiais, laudos, formulários ou ritos específicos se esses elementos não constarem do contexto.
+
+## CLÁUSULA DÉCIMA PRIMEIRA - DAS PENALIDADES
+
+11.1. O inadimplemento total ou parcial das obrigações assumidas, a execução inadequada, o atraso injustificado, a recusa de correção de inconformidades ou o descumprimento das condições contratuais sujeitarão a CONTRATADA às sanções administrativas cabíveis, observados a Lei n. 14.133/2021, o devido processo legal, o contraditório e a ampla defesa.
+
+11.2. A eventual responsabilização administrativa deverá considerar a gravidade da conduta, a extensão do dano, as circunstâncias do caso concreto, os registros da fiscalização e as disposições do processo administrativo.
+
+11.3. Não invente multa, percentual, valor, prazo, penalidade específica, gradação, rito sancionador detalhado ou hipótese de sanção não suportada pelo contexto.
+
+## CLÁUSULA DÉCIMA SEGUNDA - DA RESCISÃO E EXTINÇÃO
+
+12.1. O contrato poderá ser extinto nas hipóteses previstas na Lei n. 14.133/2021, neste instrumento e nos demais documentos que integram o processo administrativo.
+
+12.2. A extinção contratual deverá observar motivação, formalização no processo administrativo, contraditório e ampla defesa quando cabíveis, sem prejuízo da apuração de responsabilidades e da adoção das medidas administrativas pertinentes.
+
+12.3. Não invente hipóteses específicas de rescisão, prazos, indenizações, multas ou procedimentos especiais que não estejam previstos no contexto ou na legislação aplicável.
+
+<!-- FIXED_CLAUSE_START: CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS -->
+## CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS
 
 13.1. A CONTRATADA reconhece os direitos da CONTRATANTE relativos ao presente contrato, especialmente:
 
-- modifica-lo unilateralmente, para melhor adequacao as finalidades de interesse publico, nos termos da Lei n. 14.133/2021;
+- modificá-lo unilateralmente, para melhor adequação às finalidades de interesse público, nos termos da Lei n. 14.133/2021;
 - extingui-lo unilateralmente, nos casos previstos na Lei n. 14.133/2021;
-- aplicar sancoes motivadas pela inexecucao total ou parcial do contrato;
-- fiscalizar a execucao contratual.
+- aplicar sanções motivadas pela inexecução total ou parcial do contrato;
+- fiscalizar a execução contratual.
 <!-- FIXED_CLAUSE_END -->
 
-<!-- FIXED_CLAUSE_START: CLAUSULA DECIMA QUARTA - DA ALTERACAO E REAJUSTE -->
-## CLAUSULA DECIMA QUARTA - DA ALTERACAO E REAJUSTE
+<!-- FIXED_CLAUSE_START: CLÁUSULA DÉCIMA QUARTA - DA ALTERAÇÃO E REAJUSTE -->
+## CLÁUSULA DÉCIMA QUARTA - DA ALTERAÇÃO E REAJUSTE
 
-14.1. Este instrumento podera ser alterado nas hipoteses previstas na Lei n. 14.133/2021, mediante justificativa formal e observancia do interesse publico.
+14.1. Este instrumento poderá ser alterado nas hipóteses previstas na Lei n. 14.133/2021, mediante justificativa formal e observância do interesse público.
 
-14.2. O reajuste, a revisao ou a repactuacao de valores somente ocorrerao quando cabiveis, nos termos da legislacao aplicavel e das condicoes estabelecidas no processo administrativo.
+14.2. O reajuste, a revisão ou a repactuação de valores somente ocorrerão quando cabíveis, nos termos da legislação aplicável e das condições estabelecidas no processo administrativo.
 
-14.3. Qualquer alteracao devera ser formalizada por instrumento proprio, vedada modificacao verbal das condicoes contratuais.
+14.3. Qualquer alteração deverá ser formalizada por instrumento próprio, vedada modificação verbal das condições contratuais.
 <!-- FIXED_CLAUSE_END -->
 
-<!-- FIXED_CLAUSE_START: CLAUSULA DECIMA QUINTA - DAS CONDICOES DE HABILITACAO -->
-## CLAUSULA DECIMA QUINTA - DAS CONDICOES DE HABILITACAO
+<!-- FIXED_CLAUSE_START: CLÁUSULA DÉCIMA QUINTA - DAS CONDIÇÕES DE HABILITAÇÃO -->
+## CLÁUSULA DÉCIMA QUINTA - DAS CONDIÇÕES DE HABILITAÇÃO
 
-15.1. A CONTRATADA devera manter, durante toda a execucao do contrato, em compatibilidade com as obrigacoes assumidas, todas as condicoes de habilitacao e qualificacao exigidas para a contratacao.
+15.1. A CONTRATADA deverá manter, durante toda a execução do contrato, em compatibilidade com as obrigações assumidas, todas as condições de habilitação e qualificação exigidas para a contratação.
 
-15.2. A perda superveniente de condicao de habilitacao devera ser comunicada imediatamente a CONTRATANTE, sem prejuizo das medidas administrativas cabiveis.
+15.2. A perda superveniente de condição de habilitação deverá ser comunicada imediatamente à CONTRATANTE, sem prejuízo das medidas administrativas cabíveis.
 <!-- FIXED_CLAUSE_END -->
 
-<!-- FIXED_CLAUSE_START: CLAUSULA DECIMA SEXTA - DA PUBLICIDADE -->
-## CLAUSULA DECIMA SEXTA - DA PUBLICIDADE
+<!-- FIXED_CLAUSE_START: CLÁUSULA DÉCIMA SEXTA - DA PUBLICIDADE -->
+## CLÁUSULA DÉCIMA SEXTA - DA PUBLICIDADE
 
-16.1. Cabera a CONTRATANTE providenciar a publicidade do extrato deste contrato e de seus eventuais aditivos, na forma exigida pela legislacao aplicavel.
+16.1. Caberá à CONTRATANTE providenciar a publicidade do extrato deste contrato e de seus eventuais aditivos, na forma exigida pela legislação aplicável.
 
-16.2. A publicidade do instrumento contratual observara os principios da transparencia, publicidade e controle dos atos administrativos.
+16.2. A publicidade do instrumento contratual observará os princípios da transparência, publicidade e controle dos atos administrativos.
 <!-- FIXED_CLAUSE_END -->
 
-<!-- FIXED_CLAUSE_START: CLAUSULA DECIMA SETIMA - DOS CASOS OMISSOS -->
-## CLAUSULA DECIMA SETIMA - DOS CASOS OMISSOS
+<!-- FIXED_CLAUSE_START: CLÁUSULA DÉCIMA SÉTIMA - DOS CASOS OMISSOS -->
+## CLÁUSULA DÉCIMA SÉTIMA - DOS CASOS OMISSOS
 
-17.1. Os casos omissos serao resolvidos pela CONTRATANTE, segundo as disposicoes contidas na Lei n. 14.133/2021, nos regulamentos aplicaveis e nos principios que regem a Administracao Publica.
+17.1. Os casos omissos serão resolvidos pela CONTRATANTE, segundo as disposições contidas na Lei n. 14.133/2021, nos regulamentos aplicáveis e nos princípios que regem a Administração Pública.
 <!-- FIXED_CLAUSE_END -->
 
-<!-- FIXED_CLAUSE_START: CLAUSULA DECIMA OITAVA - DO FORO -->
-## CLAUSULA DECIMA OITAVA - DO FORO
+<!-- FIXED_CLAUSE_START: CLÁUSULA DÉCIMA OITAVA - DO FORO -->
+## CLÁUSULA DÉCIMA OITAVA - DO FORO
 
-18.1. Fica eleito o foro competente da comarca da CONTRATANTE para dirimir as questoes oriundas deste contrato, com renuncia de qualquer outro, por mais privilegiado que seja.
+18.1. Fica eleito o foro competente da comarca da CONTRATANTE para dirimir as questões oriundas deste contrato, com renúncia de qualquer outro, por mais privilegiado que seja.
 <!-- FIXED_CLAUSE_END -->
 
 E, por estarem de acordo, depois de lido e achado conforme, foi o presente instrumento lavrado para assinatura das partes e testemunhas.

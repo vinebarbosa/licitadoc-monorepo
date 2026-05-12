@@ -5,7 +5,11 @@ import type {
   ExpenseRequestExtractionWarning,
   ProcessCreationFormValues,
 } from "./processes";
-import { normalizeDateInput } from "./processes";
+import {
+  deriveProcessTitlePreview,
+  normalizeDateInput,
+  toExpenseRequestFormItems,
+} from "./processes";
 
 type PdfTextItem = {
   hasEOL?: boolean;
@@ -208,6 +212,67 @@ function parseItem(lines: string[]): ExpenseRequestExtractionItem {
   };
 }
 
+function isIgnorableItemSectionLine(line: string) {
+  const normalized = normalizeKey(line);
+
+  return (
+    normalized.includes("sistema orcamentario") ||
+    normalized.includes("financeiro e contabil") ||
+    normalized.startsWith("pag.:") ||
+    normalized.includes(" pag.:") ||
+    normalized.startsWith("item descricao")
+  );
+}
+
+function parseItemValueLine(line: string) {
+  return line.match(
+    /^(?:(.*?)\s+)?(\d{4,})\s+(\d+(?:[,.]\d+)?)\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\p{L}.]+)\s*$/u,
+  );
+}
+
+function parseItems(lines: string[]): ExpenseRequestExtractionItem[] {
+  const start = findLineIndex(lines, (line) => line.startsWith("item descricao"));
+  const end = findLineIndex(
+    lines,
+    (line) => line.includes("valor total") && !line.startsWith("item descricao"),
+  );
+
+  if (start < 0 || end <= start) {
+    return [];
+  }
+
+  const items: ExpenseRequestExtractionItem[] = [];
+  let descriptionLines: string[] = [];
+
+  for (const line of lines.slice(start + 1, end)) {
+    if (isIgnorableItemSectionLine(line)) {
+      continue;
+    }
+
+    const valueMatch = parseItemValueLine(line);
+
+    if (!valueMatch) {
+      descriptionLines.push(line);
+      continue;
+    }
+
+    const [, inlineDescription = "", code, quantity, unitValue, totalValue, unit] = valueMatch;
+    const description = cleanText([...descriptionLines, inlineDescription].join(" "));
+
+    items.push({
+      code,
+      description: description || null,
+      quantity,
+      unit,
+      unitValue,
+      totalValue,
+    });
+    descriptionLines = [];
+  }
+
+  return items;
+}
+
 export function configurePdfWorker(pdfjs: Pick<PdfJsModule, "GlobalWorkerOptions">) {
   if (pdfjs.GlobalWorkerOptions.workerSrc !== pdfWorkerUrl) {
     pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -346,7 +411,8 @@ export function parseTopDownExpenseRequestText(
       (line) => line.startsWith("item descricao"),
       (line) => line.includes("valor total"),
     ]);
-  const item = parseItem(lines);
+  const items = parseItems(lines);
+  const item = items[0] ?? parseItem(lines);
   const itemDescription = item.description;
   const totalValue =
     item.totalValue ??
@@ -368,6 +434,10 @@ export function parseTopDownExpenseRequestText(
 
   if (!itemDescription) {
     warnings.push("item_description_missing");
+  }
+
+  if (items.length === 0) {
+    warnings.push("item_rows_missing");
   }
 
   if (!totalValue) {
@@ -392,6 +462,7 @@ export function parseTopDownExpenseRequestText(
   const year = issueDate?.slice(0, 4) ?? new Date().getFullYear().toString();
   const sourceReference = requestNumber ? `SD-${requestNumber}-${year}` : null;
   const suggestions: Partial<ProcessCreationFormValues> = {
+    expenseRequestItems: toExpenseRequestFormItems(items, "pdf"),
     sourceKind: "expense_request",
     sourceReference,
     sourceMetadata: {
@@ -401,6 +472,7 @@ export function parseTopDownExpenseRequestText(
         issueDate,
         item,
         itemDescription,
+        items,
         object,
         organizationCnpj,
         organizationName,
@@ -425,6 +497,12 @@ export function parseTopDownExpenseRequestText(
   if (sourceReference) {
     suggestions.processNumber = sourceReference;
   }
+
+  suggestions.title = deriveProcessTitlePreview({
+    itemDescription,
+    object,
+    processNumber: sourceReference,
+  });
 
   if (requestNumber) {
     suggestions.externalId = requestNumber;
@@ -456,6 +534,7 @@ export function parseTopDownExpenseRequestText(
       issueDate,
       itemDescription,
       item,
+      items,
       object,
       organizationCnpj,
       organizationName,

@@ -1,7 +1,7 @@
 import { and, eq, inArray, type SQL } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { departments, documents, processDepartments, processes } from "../../db";
+import { departments, type documents, processDepartments, processes } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
 
@@ -118,6 +118,11 @@ export function serializeProcess(process: StoredProcess, departmentIds: string[]
     processNumber: process.processNumber,
     externalId: process.externalId ?? null,
     issuedAt: process.issuedAt.toISOString(),
+    title: deriveConciseProcessTitle({
+      title: process.title,
+      object: process.object,
+      processNumber: process.processNumber,
+    }),
     object: process.object,
     justification: process.justification,
     responsibleName: process.responsibleName,
@@ -143,6 +148,89 @@ function getNullableText(value: unknown) {
   const next = value.trim();
 
   return next.length > 0 ? next : null;
+}
+
+function cleanText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function capitalizeFirstLetter(value: string) {
+  const [first = "", ...rest] = Array.from(value);
+
+  return `${first.toLocaleUpperCase("pt-BR")}${rest.join("")}`;
+}
+
+function truncateAtWordBoundary(value: string, maxLength = 90) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const truncated = value.slice(0, maxLength + 1);
+  const lastSpace = truncated.lastIndexOf(" ");
+  const next = lastSpace >= 40 ? truncated.slice(0, lastSpace) : value.slice(0, maxLength);
+
+  return `${next.trimEnd()}...`;
+}
+
+function removeTitleBoilerplate(value: string) {
+  return value
+    .replace(
+      /^(?:contrata[cç][aã]o|aquisi[cç][aã]o)\s+(?:de\s+)?(?:empresa\s+especializada\s+para\s+)?/i,
+      "",
+    )
+    .replace(/^presta[cç][aã]o\s+de\s+servi[cç]os\s+para\s+/i, "Serviços para ")
+    .trim();
+}
+
+function cutAtNaturalTitleBoundary(value: string) {
+  const commaIndex = value.indexOf(",");
+
+  if (commaIndex >= 20) {
+    return value.slice(0, commaIndex).trim();
+  }
+
+  const patterns = [
+    /\s*,\s*para\s+/i,
+    /\s*,\s*junt[oa]s?\s+/i,
+    /\s*,\s*que\s+/i,
+    /\s*,\s*/i,
+    /\s+junto\s+aos?\s+/i,
+    /\s+junto\s+[àa]s?\s+/i,
+    /\s+que\s+ser[aá]\s+/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+
+    if (typeof match?.index === "number" && match.index >= 20) {
+      return value.slice(0, match.index).trim();
+    }
+  }
+
+  return value;
+}
+
+export function deriveConciseProcessTitle({
+  itemDescription,
+  object,
+  processNumber,
+  title,
+}: {
+  itemDescription?: string | null;
+  object?: string | null;
+  processNumber?: string | null;
+  title?: string | null;
+}) {
+  const explicitTitle = getNullableText(title);
+
+  if (explicitTitle) {
+    return truncateAtWordBoundary(explicitTitle);
+  }
+
+  const source = firstText(itemDescription, object, processNumber) ?? "Processo";
+  const normalized = cleanText(cutAtNaturalTitleBoundary(removeTitleBoilerplate(source)));
+
+  return truncateAtWordBoundary(capitalizeFirstLetter(normalized || source));
 }
 
 function firstText(...values: Array<string | null | undefined>) {

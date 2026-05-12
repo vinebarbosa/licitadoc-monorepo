@@ -1,104 +1,131 @@
-# ESTUDO TECNICO PRELIMINAR (ETP)
+# ESTUDO TÉCNICO PRELIMINAR (ETP)
 
-## 1. INTRODUCAO
+## 1. INTRODUÇÃO
 
-Texto corrido, em tom tecnico-administrativo, explicando:
+Redija parágrafos institucionais, contínuos e bem conectados, apresentando o ETP como instrumento da fase preparatória da contratação. A introdução deve contextualizar o planejamento administrativo, o objeto analisado, a finalidade do estudo e o papel da análise técnica para subsidiar decisão posterior da Administração.
 
-- a finalidade do ETP
-- o vinculo com o processo de contratacao
-- o objeto analisado
-- a funcao do estudo como etapa de planejamento
+Mencione a aderência geral às boas práticas de planejamento das contratações públicas, inclusive à lógica da Lei nº 14.133/2021 e às orientações de governança e planejamento difundidas pelos órgãos de controle, sem inventar artigo, acórdão, fundamento específico ou conclusão jurídica não informada.
 
-## 2. NECESSIDADE DA CONTRATACAO
+Evite transformar esta seção em uma lista. O texto deve abrir o documento com clareza institucional, demonstrando que a análise será conduzida a partir das informações disponíveis no processo.
 
-Descreva a necessidade publica que justifica a contratacao, abordando:
+## 2. NECESSIDADE DA CONTRATAÇÃO
 
-- o contexto institucional da demanda
-- o problema ou necessidade concreta
-- a relevancia publica do atendimento
-- os impactos de nao realizar a contratacao
+Desenvolva a necessidade pública com raciocínio administrativo consistente. Explique o contexto institucional da demanda, o problema concreto a ser enfrentado, a relação entre a contratação pretendida e o interesse público, e os efeitos esperados para a política pública envolvida.
 
-## 3. DESCRICAO DA SOLUCAO E SEUS REQUISITOS
+Quando o objeto estiver relacionado a eventos, cultura, serviços públicos, bens, obras, tecnologia, saúde, educação ou outra área específica, adapte a análise ao perfil inferido. Para apresentação artística ou evento cultural, por exemplo, trate de acesso à cultura, calendário público, participação social, economia local e continuidade de ações institucionais somente quando compatível com o contexto fornecido.
 
-Descreva a solucao preliminarmente adequada ao atendimento da necessidade, incluindo:
+Apresente as consequências de não contratar, adiar a contratação ou reduzir o escopo. A análise deve indicar impactos administrativos, sociais, culturais, econômicos, operacionais ou de continuidade do serviço, conforme o objeto. Evite justificativas genéricas ou afirmações absolutas.
 
-- o objeto ou servico pretendido
-- requisitos tecnicos, operacionais, artisticos, administrativos ou logisticos aplicaveis
-- condicoes relevantes de execucao
-- cuidados minimos de qualidade, seguranca e adequacao ao interesse publico
+## 3. DESCRIÇÃO DA SOLUÇÃO E SEUS REQUISITOS
 
-## 4. LEVANTAMENTO DE MERCADO E ANALISE DE ALTERNATIVAS
+Descreva a solução preliminarmente adequada de modo operacional e tecnicamente plausível, explicando como ela pode atender à necessidade identificada. A seção deve conectar objeto, modo de execução, requisitos mínimos, controles de qualidade e cuidados administrativos.
+
+Aborde, quando aplicável e sempre com base no contexto, aspectos como forma de execução, requisitos técnicos, logística, estrutura necessária, equipe, integração com a programação ou rotina administrativa, segurança, comunicação, conformidade, recebimento e controle da execução. Para serviços artísticos ou eventos, trate de sonorização, iluminação, montagem, apoio técnico, segurança e compatibilidade operacional apenas como requisitos a detalhar ou verificar quando esses dados não tiverem sido disponibilizados.
+
+Quando informações específicas ainda dependerem de definição posterior, use linguagem institucional, como "a definição deverá ocorrer em etapa própria", "o detalhamento dependerá de levantamento específico" ou "os requisitos deverão ser consolidados no instrumento subsequente". Não invente duração, local, quantitativo, estrutura técnica, fornecedor, marca, equipe ou condição de execução.
+
+## 4. LEVANTAMENTO DE MERCADO E ANÁLISE DE ALTERNATIVAS
 
 ### 4.1. Levantamento de Mercado
 
-Apresente somente informacoes de mercado que constem no contexto.
+Apresente fatos de mercado apenas quando constarem no contexto. Se a pesquisa ainda não tiver sido disponibilizada, desenvolva a seção como planejamento da metodologia de apuração, explicando as fontes, critérios e cuidados que deverão orientar a etapa posterior.
 
-Se nao houver pesquisa de mercado informada, registre que nao consta no contexto e que o levantamento sera objeto de apuracao posterior, sem simular consultas, propostas, contratos anteriores ou valores.
+A metodologia pode mencionar, conforme a natureza do objeto, consulta a contratações similares, bancos ou painéis oficiais de preços, contratações anteriores da Administração ou de entes comparáveis, propostas ou cotações de fornecedores do setor, parâmetros regionais, catálogos, referências técnicas, pesquisa pública e análise de condições de execução. Deixe claro quando esses elementos são providências a realizar, e não pesquisas já concluídas.
 
-### 4.2. Analise de Alternativas
+Explique os critérios comparativos relevantes, como compatibilidade do objeto, porte da contratação, condições de execução, qualidade esperada, logística, prazo, disponibilidade, riscos, custos acessórios e aderência à necessidade pública. Não simule valores, não afirme vantajosidade econômica sem base e não declare consultas já realizadas sem fonte no contexto.
 
-Analise alternativas plausiveis conforme o objeto e o contexto disponivel, sem inventar dados externos.
+### 4.2. Análise de Alternativas
 
-#### 4.2.1. Alternativa 1: Solucao Proposta
+Analise alternativas de forma comparativa, técnica e equilibrada. A seção não deve parecer uma justificativa automática da solução proposta; deve demonstrar que a Administração considerou cenários possíveis, suas vantagens, limitações, riscos e consequências.
 
-Descreva a solucao proposta e sua aderencia a necessidade identificada.
+#### 4.2.1. Alternativa 1: Solução Proposta
 
-#### 4.2.2. Alternativa 2: Solucoes Similares ou de Porte Diferente
+Explique a solução proposta, sua aderência à necessidade, seus benefícios operacionais e institucionais esperados, seus requisitos de execução e os riscos que deverão ser controlados. Relacione a alternativa ao contexto do processo e ao perfil de contratação inferido.
 
-Descreva alternativa comparavel quando aplicavel, indicando beneficios, limitacoes e riscos de forma conservadora.
+#### 4.2.2. Alternativa 2: Soluções Similares ou de Porte Diferente
 
-#### 4.2.3. Alternativa 3: Nao Realizar a Contratacao ou Reduzir o Escopo
+Examine alternativa comparável, de maior ou menor porte, modelo de execução diverso, contratação similar, solução substituta ou ajuste de escopo, conforme fizer sentido para o objeto. Aponte possíveis vantagens, limitações, impactos administrativos, consequências operacionais, riscos de qualidade e efeitos sobre o atendimento da necessidade.
 
-Descreva os impactos de nao contratar ou de reduzir o escopo, conforme o contexto do processo.
+#### 4.2.3. Alternativa 3: Não Realizar a Contratação, Adiar ou Reduzir o Escopo
 
-### 4.3. Justificativa da Solucao Escolhida
+Analise as consequências da não contratação, do adiamento ou da redução de escopo. Considere riscos de descontinuidade, perda de oportunidade administrativa, comprometimento da política pública, redução de qualidade, impacto social ou cultural, prejuízo operacional e eventual pressão sobre futuras contratações, conforme o objeto e o contexto.
 
-Justifique a solucao mais adequada com base na necessidade, no objeto e nos beneficios esperados, sem criar fatos nao informados.
+### 4.3. Justificativa da Solução Escolhida
 
-## 5. ESTIMATIVA DO VALOR DA CONTRATACAO
+Justifique a solução escolhida com base na coerência entre necessidade, objeto, viabilidade preliminar, requisitos de execução, riscos administráveis e benefícios esperados. A justificativa deve demonstrar racionalidade técnica e aderência ao interesse público.
 
-Informe a estimativa apenas quando o contexto trouxer valor valido e diferente de zero.
+Não use expressões exageradas como "inquestionável", "insubstituível" ou "melhor possível". Não declare relação custo-benefício, economicidade comprovada ou compatibilidade de preços quando a estimativa ou a pesquisa de mercado ainda depender de apuração complementar.
 
-Quando o valor estiver ausente, vazio ou informado como zero, registre que a estimativa esta nao informada, nao consta no contexto ou sera objeto de apuracao posterior. Nao simule pesquisa de mercado e nao invente valores.
+## 5. ESTIMATIVA DO VALOR DA CONTRATAÇÃO
 
-## 6. ADEQUACAO ORCAMENTARIA
+Informe a estimativa somente quando o contexto trouxer valor válido e diferente de zero. Quando o valor estiver ausente, vazio ou informado como zero, registre de modo institucional que a definição do montante dependerá de pesquisa de preços e apuração complementar em etapa própria.
 
-Descreva a necessidade de compatibilidade com dotacao orcamentaria e disponibilidade financeira, usando dados concretos de unidade orcamentaria quando constarem no contexto.
+Mesmo sem valor disponível, desenvolva a metodologia a ser observada: delimitação do objeto, comparação com contratações similares, consulta a fontes oficiais ou públicas quando cabível, análise de propostas ou cotações, compatibilização com condições de execução, avaliação de custos acessórios e registro da memória de cálculo. Essa explicação deve demonstrar cuidado técnico sem criar números fictícios.
 
-Se dados orcamentarios especificos nao constarem no contexto, registre a ausencia de forma conservadora.
+A seção deve permanecer substancial e revisável. Evite encerrá-la com uma frase curta de ausência. Não simule pesquisa, não estime por aproximação, não arredonde, não projete e não invente valores.
+
+## 6. ADEQUAÇÃO ORÇAMENTÁRIA
+
+Analise a necessidade de compatibilidade entre a contratação pretendida, a disponibilidade financeira e a programação orçamentária da Administração. Use unidade orçamentária, dotação, fonte, ação ou saldo apenas quando esses dados constarem no contexto.
+
+Quando os dados orçamentários específicos ainda não tiverem sido disponibilizados, explique que a continuidade da contratação dependerá de verificação pela unidade competente, observância da responsabilidade fiscal, reserva orçamentária quando cabível e confirmação da disponibilidade antes da assunção da despesa.
+
+O texto deve demonstrar prudência administrativa, sem afirmar existência de dotação, saldo, empenho ou disponibilidade financeira sem suporte no contexto.
 
 ## 7. SUSTENTABILIDADE E IMPACTOS
 
-### 7.1. Impacto Economico
+### 7.1. Impacto Econômico
 
-Analise impactos economicos esperados conforme o objeto e o contexto disponivel.
+Analise impactos econômicos compatíveis com o objeto, como estímulo à atividade local, eficiência administrativa, redução de custos indiretos, continuidade operacional, turismo, comércio, serviços ou economia informal, quando esses efeitos forem coerentes com o contexto. Não quantifique resultados sem dados.
 
-### 7.2. Impacto Social e Cultural
+### 7.2. Impacto Social
 
-Analise impactos sociais, culturais, institucionais ou comunitarios pertinentes ao objeto.
+Analise impactos sociais relacionados a acesso da população, integração comunitária, continuidade de atendimento, inclusão, qualidade do serviço público, atendimento de demanda coletiva ou fortalecimento de políticas públicas, conforme o objeto.
 
-### 7.3. Impacto Ambiental
+### 7.3. Impacto Cultural e Institucional
 
-Analise impactos ambientais ou medidas de mitigacao quando aplicaveis. Se nao houver informacao especifica, registre a necessidade de observancia das normas e boas praticas pertinentes.
+Quando aplicável, desenvolva os reflexos culturais e institucionais da contratação, como valorização de calendário oficial, preservação de tradições, fortalecimento da identidade local, ampliação do acesso à cultura, qualificação da programação pública ou melhoria da capacidade de atendimento da Administração.
 
-## 8. GESTAO E FISCALIZACAO DA CONTRATACAO
+### 7.4. Impacto Ambiental
 
-Descreva diretrizes para gestao e fiscalizacao da contratacao, incluindo:
+Avalie impactos ambientais e medidas de mitigação compatíveis com o objeto. Quando não houver dado específico, registre a necessidade de observar boas práticas pertinentes, como gestão de resíduos, uso racional de recursos, segurança de estruturas, redução de impactos locais, limpeza, logística e conformidade ambiental quando aplicável.
 
-- acompanhamento da execucao
-- verificacao de conformidade com o objeto
-- registros e relatorios
-- comunicacao de ocorrencias
-- ateste para pagamento quando cabivel
+## 8. GESTÃO E FISCALIZAÇÃO DA CONTRATAÇÃO
 
-## 9. CONCLUSAO E RECOMENDACAO
+Desenvolva diretrizes robustas de gestão e fiscalização, em texto institucional e tecnicamente verificável. A seção deve demonstrar como a Administração acompanhará a execução para garantir aderência ao objeto, qualidade do resultado, cumprimento das condições pactuadas e registro adequado dos atos.
 
-Apresente conclusao tecnica sobre a viabilidade preliminar da contratacao e recomende, quando cabivel, a continuidade do processo para elaboracao dos instrumentos subsequentes.
+Aborde, conforme o objeto, responsabilidades do gestor e fiscal, acompanhamento de cronograma ou marcos de execução, verificação técnica, controle de qualidade, comunicação de falhas, registros de ocorrência, relatórios, evidências de execução, recebimento, aceite, medição ou ateste, tratamento de inconformidades e mitigação de riscos. Penalidades ou sanções devem ser mencionadas apenas de forma genérica, como consequência a ser disciplinada no instrumento próprio, salvo se houver dado específico no contexto.
 
-## 10. FECHO
+Para eventos, apresentações ou serviços com execução concentrada, trate de verificação prévia das condições operacionais, acompanhamento durante a execução, registro de eventuais falhas e confirmação do cumprimento do objeto para fins de aceite. Não invente nomes de fiscais, datas, horários, locais ou estrutura técnica.
 
-`{{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.`
+## 9. RISCOS DA CONTRATAÇÃO E MEDIDAS MITIGATÓRIAS
 
-`{{process.responsibleName}}`
+Analise riscos compatíveis com a natureza do objeto, de forma técnica e preventiva. Considere, quando aplicável, riscos operacionais, logísticos, técnicos, climáticos, de atraso, indisponibilidade, execução inadequada, segurança, qualidade, comunicação, orçamento, pesquisa de preços, conformidade documental e fiscalização.
 
-`{{department.responsibleRole_or_sourceResponsibleRole_or_fallback}}`
+Para cada risco relevante, explique a consequência administrativa e a medida mitigatória possível, como planejamento prévio, definição clara do escopo, verificação de requisitos, acompanhamento da execução, comunicação tempestiva, registro formal, plano de contingência, checagem orçamentária, pesquisa de preços adequada ou detalhamento em instrumento posterior.
+
+Use linguagem prudente e condicional quando o contexto não trouxer dados específicos. Não invente incidentes, probabilidades, datas, responsáveis ou eventos concretos.
+
+## 10. BENEFÍCIOS ESPERADOS
+
+Consolide os benefícios públicos esperados de forma específica ao objeto e ao contexto. A seção deve demonstrar o valor administrativo da contratação, conectando a solução à necessidade, ao público atendido, à política pública envolvida e aos resultados pretendidos.
+
+Quando aplicável, trate de benefícios culturais, sociais, econômicos, institucionais, operacionais, de continuidade do serviço, melhoria da qualidade, fortalecimento da programação pública, ampliação do acesso da população, estímulo ao comércio local ou aprimoramento da capacidade administrativa.
+
+Não quantifique benefícios, público, receita, economia ou impacto financeiro sem dados no contexto. Evite linguagem promocional; o objetivo é sintetizar o ganho público esperado com sobriedade técnica.
+
+## 11. CONCLUSÃO E RECOMENDAÇÃO
+
+Apresente conclusão técnica consistente, retomando a necessidade identificada, a solução analisada, as alternativas consideradas, os riscos administráveis, os benefícios esperados e as condições para continuidade do processo.
+
+Quando houver pendências relevantes, como estimativa de valor, pesquisa de mercado, confirmação orçamentária, definição operacional ou detalhamento técnico, condicione a continuidade à regular apuração dessas informações em etapa própria. A recomendação deve ser institucional, clara e proporcional às informações disponíveis.
+
+Evite encerramento superficial. A conclusão deve demonstrar coerência da contratação, interesse público e viabilidade preliminar, sem transformar a análise em aprovação absoluta ou dispensar verificações posteriores.
+
+## 12. FECHO
+
+{{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.
+
+{{process.responsibleName}}
+
+{{department.responsibleRole_or_sourceResponsibleRole_or_fallback}}

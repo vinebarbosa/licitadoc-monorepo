@@ -1,5 +1,5 @@
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { FastifyInstance } from "fastify";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Actor } from "../../authorization/actor";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import type { FileStorageProvider } from "../../shared/storage/types";
@@ -63,6 +63,18 @@ function cleanExtractedText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function formatPdfPageText(items: PdfTextItem[]) {
+  return items
+    .map((item) => {
+      const text = typeof item.str === "string" ? item.str : "";
+      return item.hasEOL ? `${text}\n` : `${text} `;
+    })
+    .join("")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function isMultipartFileValue(value: unknown): value is MultipartFileValue {
   return (
     typeof value === "object" &&
@@ -108,9 +120,9 @@ function normalizeDepartmentIds(value: unknown) {
 }
 
 function countMultipartFiles(body: MultipartRequestBody) {
-  return Object.values(body).flatMap((value) => (Array.isArray(value) ? value : [value])).filter(
-    isMultipartFileValue,
-  ).length;
+  return Object.values(body)
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .filter(isMultipartFileValue).length;
 }
 
 function isPdfUpload(fileName: string, contentType: string) {
@@ -148,12 +160,7 @@ export async function extractTextFromPdf(
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item) => {
-          const text = typeof item.str === "string" ? item.str : "";
-          return item.hasEOL ? `${text}\n` : text;
-        })
-        .join(" ");
+      const pageText = formatPdfPageText(textContent.items);
 
       pages.push(pageText);
     }
@@ -161,9 +168,7 @@ export async function extractTextFromPdf(
     const text = pages.join("\n").trim();
 
     if (!cleanExtractedText(text)) {
-      throw new BadRequestError(
-        "Expense request PDF does not contain machine-readable text.",
-      );
+      throw new BadRequestError("Expense request PDF does not contain machine-readable text.");
     }
 
     return text;

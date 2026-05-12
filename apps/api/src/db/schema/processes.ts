@@ -22,6 +22,7 @@ export const processes = pgTable(
     processNumber: text("process_number").notNull(),
     externalId: text("external_id"),
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+    title: text("title"),
     object: text("object").notNull(),
     justification: text("justification").notNull(),
     responsibleName: text("responsible_name").notNull(),

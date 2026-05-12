@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { getProcessDisplayName } from "@/modules/processes";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -92,6 +93,7 @@ export function DocumentCreatePageUI() {
 
   const processes = processesPicker.data?.items ?? [];
   const isLoadingProcesses = processesPicker.isLoading;
+  const selectedProcess = processes.find((process) => process.id === selectedProcessId);
 
   function handleTypeSelect(typeId: DocumentType) {
     setSelectedType(typeId);
@@ -237,11 +239,18 @@ export function DocumentCreatePageUI() {
                   onValueChange={handleProcessSelect}
                   disabled={isLoadingProcesses}
                 >
-                  <SelectTrigger id="processo">
+                  <SelectTrigger id="processo" className="min-w-0">
                     {isLoadingProcesses ? (
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Carregando processos…
+                      </span>
+                    ) : selectedProcess ? (
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 font-mono text-xs">
+                          {selectedProcess.processNumber}
+                        </span>
+                        <span className="truncate">{getProcessDisplayName(selectedProcess)}</span>
                       </span>
                     ) : (
                       <SelectValue placeholder="Selecione o processo" />
@@ -254,9 +263,17 @@ export function DocumentCreatePageUI() {
                       </div>
                     ) : (
                       processes.map((process) => (
-                        <SelectItem key={process.id} value={process.id}>
-                          <span className="mr-2 font-mono text-xs">{process.processNumber}</span>
-                          <span>{process.object}</span>
+                        <SelectItem
+                          key={process.id}
+                          value={process.id}
+                          textValue={`${process.processNumber} ${getProcessDisplayName(process)}`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="shrink-0 font-mono text-xs">
+                              {process.processNumber}
+                            </span>
+                            <span className="truncate">{getProcessDisplayName(process)}</span>
+                          </span>
                         </SelectItem>
                       ))
                     )}

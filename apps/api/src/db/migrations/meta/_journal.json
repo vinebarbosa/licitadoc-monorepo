@@ -78,6 +78,13 @@
       "when": 1777748400000,
       "tag": "0010_blocking_member_onboarding_modal",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778112000000,
+      "tag": "0011_add_process_title",
+      "breakpoints": true
     }
   ]
 }

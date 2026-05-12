@@ -228,6 +228,7 @@ export const processesListResponse = {
       processNumber: "PE-2024-045",
       externalId: null,
       issuedAt: "2024-03-01T00:00:00.000Z",
+      title: "Serviços de TI",
       object: "Contratação de Serviços de TI",
       justification: "Necessidade de suporte técnico especializado.",
       responsibleName: "Maria Costa",
@@ -260,6 +261,7 @@ export const processCreateResponse = {
   processNumber: "PROC-2026-001",
   externalId: null,
   issuedAt: "2026-01-08T00:00:00.000Z",
+  title: "Objeto do processo",
   object: "Objeto do processo",
   justification: "Justificativa do processo",
   responsibleName: "Maria Costa",
@@ -279,6 +281,7 @@ export const processDetailResponse = {
   processNumber: "PE-2024-045",
   externalId: null,
   issuedAt: "2024-03-01T00:00:00.000Z",
+  title: "Serviços de TI",
   object: "Contratação de Serviços de TI",
   justification: "Necessidade de suporte técnico especializado.",
   responsibleName: "Maria Costa",
@@ -362,6 +365,58 @@ export const processDetailResponse = {
     },
   ],
   detailUpdatedAt: "2024-03-28T00:00:00.000Z",
+};
+
+export const processDetailItemsSourceMetadata = {
+  extractedFields: {
+    items: [
+      {
+        code: "1",
+        title: "Pote plástico com tampa",
+        description: "Pote plástico de no mínimo 1L com tampa e trava lateral.",
+        quantity: "500",
+        unit: "unidade",
+        unitValue: "R$ 8,50",
+        totalValue: "R$ 4.250,00",
+      },
+      {
+        code: "2",
+        description:
+          "Kit presenteável composto por embalagem personalizada e cartão comemorativo com descrição longa para validar quebra de linha sem sobrepor o restante da página.",
+        quantity: "500",
+        unit: "kit",
+        unitValue: "R$ 12,00",
+        totalValue: "R$ 6.000,00",
+        components: [
+          {
+            title: "Embalagem personalizada",
+            quantity: "1",
+            unit: "unidade",
+          },
+          {
+            title: "Cartão comemorativo",
+            description: "Cartão impresso colorido.",
+            quantity: "1",
+            unit: "unidade",
+          },
+        ],
+      },
+      {
+        description: "Item parcial sem valores numéricos informados",
+      },
+    ],
+  },
+};
+
+export const processDetailLegacyItemSourceMetadata = {
+  extractedFields: {
+    item: {
+      code: "LEG-1",
+      description: "Item legado extraído em formato singular",
+      quantity: "10",
+      unit: "caixa",
+    },
+  },
 };
 
 export const documentCreateResponse = {

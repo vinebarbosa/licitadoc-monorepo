@@ -7,6 +7,7 @@ import { canUpdateStoredProcess } from "./processes.policies";
 import type { UpdateProcessInput } from "./processes.schemas";
 import {
   assertDepartmentIdsBelongToOrganization,
+  deriveConciseProcessTitle,
   getProcessDepartmentIds,
   serializeProcess,
   throwIfProcessConflict,
@@ -49,6 +50,14 @@ export async function updateProcess({ actor, db, processId, changes }: Input) {
           processNumber: changes.processNumber,
           externalId: changes.externalId,
           issuedAt: changes.issuedAt ? new Date(changes.issuedAt) : undefined,
+          title:
+            changes.title === undefined
+              ? undefined
+              : deriveConciseProcessTitle({
+                  title: changes.title,
+                  object: changes.object ?? process.object,
+                  processNumber: changes.processNumber ?? process.processNumber,
+                }),
           object: changes.object,
           justification: changes.justification,
           responsibleName: changes.responsibleName,

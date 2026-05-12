@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, test } from "vitest";
+import { documents } from "../../src/db";
+import {
+  getDocumentContentHash,
+  resolveDocumentTextAdjustmentTarget,
+} from "../../src/modules/documents/document-text-adjustment";
 import { createOrganizationOwnerActor } from "../e2e/helpers/actors";
 import {
   cleanupApiE2EState,
@@ -222,5 +227,332 @@ describe("document generation E2E coverage", () => {
     } finally {
       server.app.textGeneration = previousProvider;
     }
+  });
+});
+
+describe("document text adjustment E2E coverage", () => {
+  const PARA_DRAFT_CONTENT = `# DOCUMENTO DE FORMALIZACAO DE DEMANDA
+
+## 1. Objeto
+
+Contratacao de servicos de TI para suporte tecnico especializado.
+
+## 2. Justificativa
+
+A contratacao se faz necessaria para atender a demanda apresentada.`;
+
+  const LIST_DRAFT_CONTENT = `# DOCUMENTO DE FORMALIZACAO DE DEMANDA
+
+## 1. DADOS
+
+- Unidade: Secretaria Municipal de Administracao
+- Objeto: Contratacao de servicos de consultoria especializada
+- Responsavel: Maria Costa`;
+  let previousTextGenerationProvider: typeof server.app.textGeneration;
+
+  beforeEach(() => {
+    previousTextGenerationProvider = server.app.textGeneration;
+    server.app.textGeneration = {
+      providerKey: "stub",
+      model: "adjustment-e2e-stub",
+      async generateText(input) {
+        return {
+          providerKey: "stub",
+          model: "adjustment-e2e-stub",
+          text: `Texto ajustado para ${input.documentType.toUpperCase()}.`,
+          responseMetadata: {
+            finishReason: "stop",
+          },
+        };
+      },
+    };
+  });
+
+  afterEach(() => {
+    server.app.textGeneration = previousTextGenerationProvider;
+  });
+
+  async function createScopedProcessFixture() {
+    const owner = await createOrganizationOwnerActor(server, {
+      email: OWNER_EMAIL,
+      name: "Adjustment Owner",
+      organization: {
+        cnpj: "95100000000001",
+        name: "Adjustment Owner Org",
+        slug: OWNER_ORG_SLUG,
+      },
+    });
+    const department = await createDepartmentFixture(server.app.db, {
+      name: "Adjustment Owner Dept",
+      organizationId: owner.organization.id,
+      slug: OWNER_DEPARTMENT_SLUG,
+    });
+    const process = await createProcessFixture(server.app.db, {
+      departmentIds: [department.id],
+      organizationId: owner.organization.id,
+      processNumber: "ADJ-2026-001",
+    });
+
+    return { owner, process };
+  }
+
+  async function insertCompletedDocument(
+    organizationId: string,
+    processId: string,
+    draftContent: string,
+  ) {
+    const [doc] = await server.app.db
+      .insert(documents)
+      .values({
+        organizationId,
+        processId,
+        name: "DFD - ADJ-2026-001",
+        type: "dfd",
+        status: "completed",
+        storageKey: null,
+        draftContent,
+        responsibles: ["Maria Costa"],
+      })
+      .returning();
+
+    assert.ok(doc, "Expected inserted document to be returned.");
+    return doc;
+  }
+
+  test("4.1 successful paragraph selection apply uses the resolved source target", async () => {
+    const { owner, process } = await createScopedProcessFixture();
+    const doc = await insertCompletedDocument(
+      owner.organization.id,
+      process.id,
+      PARA_DRAFT_CONTENT,
+    );
+
+    const selectedText = "Contratacao de servicos de TI para suporte tecnico especializado.";
+    const expectedStart = PARA_DRAFT_CONTENT.indexOf(selectedText);
+    assert.ok(expectedStart >= 0, "selectedText should exist in draft");
+
+    const suggestResponse = await request(
+      server,
+      `/api/documents/${doc.id}/adjustments/suggestions`,
+      {
+        method: "POST",
+        cookieJar: owner.cookieJar,
+        body: {
+          selectedText,
+          instruction: "Deixe mais objetivo.",
+        },
+      },
+    );
+    const suggestion = await readJson<{
+      selectedText: string;
+      replacementText: string;
+      sourceContentHash: string;
+      sourceTarget: { start: number; end: number; sourceText: string };
+    }>(suggestResponse);
+
+    assert.equal(suggestResponse.status, 200);
+    assert.ok(suggestion);
+    assert.equal(suggestion.sourceTarget.start, expectedStart);
+    assert.equal(suggestion.sourceTarget.end, expectedStart + selectedText.length);
+    assert.equal(suggestion.sourceTarget.sourceText, selectedText);
+    assert.equal(suggestion.sourceContentHash, getDocumentContentHash(PARA_DRAFT_CONTENT));
+
+    const applyResponse = await request(server, `/api/documents/${doc.id}/adjustments/apply`, {
+      method: "POST",
+      cookieJar: owner.cookieJar,
+      body: {
+        sourceTarget: suggestion.sourceTarget,
+        replacementText: suggestion.replacementText,
+        sourceContentHash: suggestion.sourceContentHash,
+      },
+    });
+    const applied = await readJson<DocumentResponse>(applyResponse);
+
+    assert.equal(applyResponse.status, 200);
+    assert.ok(applied);
+    assert.ok(applied.draftContent?.includes(suggestion.replacementText));
+
+    const persisted = await getDocumentById(server.app.db, doc.id);
+    assert.ok(persisted?.draftContent?.includes(suggestion.replacementText));
+  });
+
+  test("4.2 rendered list-field selection without markdown markers maps to correct source range", async () => {
+    const { owner, process } = await createScopedProcessFixture();
+    const doc = await insertCompletedDocument(
+      owner.organization.id,
+      process.id,
+      LIST_DRAFT_CONTENT,
+    );
+
+    // User selects the rendered text of a list item (without "- " marker)
+    const renderedSelection = "Objeto: Contratacao de servicos de consultoria especializada";
+    const sourceListItem = "- Objeto: Contratacao de servicos de consultoria especializada";
+    const sourceStart = LIST_DRAFT_CONTENT.indexOf(sourceListItem) + 2; // skip "- "
+    const sourceText = renderedSelection;
+
+    // Verify our expected offsets via the resolver directly
+    const resolved = resolveDocumentTextAdjustmentTarget({
+      content: LIST_DRAFT_CONTENT,
+      selectedText: renderedSelection,
+    });
+    assert.equal(resolved.start, sourceStart);
+    assert.equal(LIST_DRAFT_CONTENT.slice(resolved.start, resolved.end), sourceText);
+
+    const suggestResponse = await request(
+      server,
+      `/api/documents/${doc.id}/adjustments/suggestions`,
+      {
+        method: "POST",
+        cookieJar: owner.cookieJar,
+        body: { selectedText: renderedSelection, instruction: "Reformule." },
+      },
+    );
+    const suggestion = await readJson<{
+      sourceTarget: { start: number; end: number; sourceText: string };
+      replacementText: string;
+      sourceContentHash: string;
+    }>(suggestResponse);
+
+    assert.equal(suggestResponse.status, 200);
+    assert.ok(suggestion);
+    assert.equal(suggestion.sourceTarget.start, sourceStart);
+    assert.equal(suggestion.sourceTarget.sourceText, sourceText);
+
+    const applyResponse = await request(server, `/api/documents/${doc.id}/adjustments/apply`, {
+      method: "POST",
+      cookieJar: owner.cookieJar,
+      body: {
+        sourceTarget: suggestion.sourceTarget,
+        replacementText: suggestion.replacementText,
+        sourceContentHash: suggestion.sourceContentHash,
+      },
+    });
+
+    assert.equal(applyResponse.status, 200);
+
+    const persisted = await getDocumentById(server.app.db, doc.id);
+    assert.ok(persisted?.draftContent);
+    assert.ok(!persisted.draftContent.includes(renderedSelection));
+    assert.ok(persisted.draftContent.includes(suggestion.replacementText));
+  });
+
+  test("4.2b wrapped rendered paragraph selection maps to correct source range", async () => {
+    const { owner, process } = await createScopedProcessFixture();
+    const sourceText = [
+      "O objeto da contratação consiste na prestação de serviço de",
+      "apresentação artística musical da banda FORRÓ TSUNAMI, em uma única execução.",
+    ].join("\n");
+    const draftContent = ["# DOCUMENTO DE FORMALIZACAO DE DEMANDA", "", sourceText].join("\n");
+    const doc = await insertCompletedDocument(owner.organization.id, process.id, draftContent);
+
+    const renderedSelection =
+      "O objeto da contratação consiste na prestação de serviço de apresentação artística musi-\ncal da banda FORRÓ TSUNAMI, em uma única execução.";
+    const sourceStart = draftContent.indexOf(sourceText);
+    const resolved = resolveDocumentTextAdjustmentTarget({
+      content: draftContent,
+      selectedText: renderedSelection,
+    });
+    assert.equal(resolved.start, sourceStart);
+    assert.equal(draftContent.slice(resolved.start, resolved.end), sourceText);
+
+    const suggestResponse = await request(
+      server,
+      `/api/documents/${doc.id}/adjustments/suggestions`,
+      {
+        method: "POST",
+        cookieJar: owner.cookieJar,
+        body: { selectedText: renderedSelection, instruction: "Reformule." },
+      },
+    );
+    const suggestion = await readJson<{
+      sourceTarget: { start: number; end: number; sourceText: string };
+      replacementText: string;
+      sourceContentHash: string;
+    }>(suggestResponse);
+
+    assert.equal(suggestResponse.status, 200);
+    assert.ok(suggestion);
+    assert.equal(suggestion.sourceTarget.start, sourceStart);
+    assert.equal(suggestion.sourceTarget.sourceText, sourceText);
+
+    const applyResponse = await request(server, `/api/documents/${doc.id}/adjustments/apply`, {
+      method: "POST",
+      cookieJar: owner.cookieJar,
+      body: {
+        sourceTarget: suggestion.sourceTarget,
+        replacementText: suggestion.replacementText,
+        sourceContentHash: suggestion.sourceContentHash,
+      },
+    });
+
+    assert.equal(applyResponse.status, 200);
+
+    const persisted = await getDocumentById(server.app.db, doc.id);
+    assert.ok(persisted?.draftContent);
+    assert.ok(!persisted.draftContent.includes(sourceText));
+    assert.ok(persisted.draftContent.includes(suggestion.replacementText));
+  });
+
+  test("4.3 stale, mismatched, ambiguous, and unresolvable targets leave draftContent unchanged", async () => {
+    const { owner, process } = await createScopedProcessFixture();
+    const doc = await insertCompletedDocument(
+      owner.organization.id,
+      process.id,
+      PARA_DRAFT_CONTENT,
+    );
+    const originalContent = PARA_DRAFT_CONTENT;
+    const selectedText = "Contratacao de servicos de TI para suporte tecnico especializado.";
+    const validHash = getDocumentContentHash(originalContent);
+    const resolvedTarget = resolveDocumentTextAdjustmentTarget({
+      content: originalContent,
+      selectedText,
+    });
+
+    // Stale hash
+    const staleResponse = await request(server, `/api/documents/${doc.id}/adjustments/apply`, {
+      method: "POST",
+      cookieJar: owner.cookieJar,
+      body: {
+        sourceTarget: { ...resolvedTarget, sourceText: selectedText },
+        replacementText: "Substituicao.",
+        sourceContentHash: "sha256:stale",
+      },
+    });
+    assert.equal(staleResponse.status, 409);
+
+    // Mismatched sourceText (hash matches but sourceText doesn't)
+    const mismatchedResponse = await request(server, `/api/documents/${doc.id}/adjustments/apply`, {
+      method: "POST",
+      cookieJar: owner.cookieJar,
+      body: {
+        sourceTarget: {
+          start: resolvedTarget.start,
+          end: resolvedTarget.end,
+          sourceText: "texto que nao existe aqui",
+        },
+        replacementText: "Substituicao.",
+        sourceContentHash: validHash,
+      },
+    });
+    assert.equal(mismatchedResponse.status, 409);
+
+    // Unresolvable selection (suggestion endpoint)
+    const unresolvableResponse = await request(
+      server,
+      `/api/documents/${doc.id}/adjustments/suggestions`,
+      {
+        method: "POST",
+        cookieJar: owner.cookieJar,
+        body: {
+          selectedText: "texto que definitivamente nao existe neste documento",
+          instruction: "Reformule.",
+        },
+      },
+    );
+    assert.equal(unresolvableResponse.status, 409);
+
+    // Document should be unchanged
+    const persisted = await getDocumentById(server.app.db, doc.id);
+    assert.equal(persisted?.draftContent, originalContent);
   });
 });

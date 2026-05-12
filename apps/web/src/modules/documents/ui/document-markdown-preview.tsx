@@ -1,9 +1,26 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/shared/lib/utils";
+import { institutionalDocumentSelectors, institutionalDocumentTheme } from "./institutional-document-theme";
 
 const SAFE_PROTOCOLS = ["http:", "https:", "mailto:"];
+const ADMINISTRATIVE_FIELD_LABELS = [
+  "Unidade Orcamentaria",
+  "Unidade Orçamentária",
+  "Numero da Solicitacao",
+  "Número da Solicitação",
+  "Data de Emissao",
+  "Data de Emissão",
+  "Processo",
+  "Objeto",
+  "Objeto da Solicitacao",
+  "Objeto da Solicitação",
+  "Solicitante",
+  "Responsavel pela Solicitacao",
+  "Responsável pela Solicitação",
+];
 
 function isSafeHref(href: string | undefined): boolean {
   if (!href) return false;
@@ -16,27 +33,125 @@ function isSafeHref(href: string | undefined): boolean {
   }
 }
 
+function getPlainText(children: ReactNode): string {
+  if (typeof children === "string" || typeof children === "number") {
+    return String(children);
+  }
+
+  if (Array.isArray(children)) {
+    return children.map(getPlainText).join("");
+  }
+
+  if (isValidElement<{ children?: ReactNode }>(children)) {
+    return getPlainText(children.props.children);
+  }
+
+  return "";
+}
+
+function getAdministrativeFieldParts(text: string) {
+  const normalizedText = text.trim();
+
+  for (const label of ADMINISTRATIVE_FIELD_LABELS) {
+    const prefix = `${label}:`;
+
+    if (normalizedText.toLocaleLowerCase("pt-BR").startsWith(prefix.toLocaleLowerCase("pt-BR"))) {
+      return {
+        label: normalizedText.slice(0, prefix.length),
+        value: normalizedText.slice(prefix.length).trimStart(),
+      };
+    }
+  }
+
+  return null;
+}
+
+function isSignatureHeading(children: ReactNode) {
+  return /\b(fecho|assinatura)\b/i.test(getPlainText(children));
+}
+
 const components: ComponentProps<typeof ReactMarkdown>["components"] = {
   h1: ({ children }) => (
-    <h1 className="mb-4 mt-8 text-2xl font-bold tracking-tight first:mt-0">{children}</h1>
+    <h1 className={institutionalDocumentTheme.mainTitleClassName}>
+      {children}
+    </h1>
   ),
-  h2: ({ children }) => (
-    <h2 className="mb-3 mt-7 text-xl font-semibold tracking-tight first:mt-0">{children}</h2>
-  ),
-  h3: ({ children }) => <h3 className="mb-2 mt-6 text-lg font-semibold first:mt-0">{children}</h3>,
+  h2: ({ children }) => {
+    const signatureHeading = isSignatureHeading(children);
+
+    return (
+      <h2
+        className={cn(
+          institutionalDocumentTheme.sectionTitleClassName,
+          signatureHeading && institutionalDocumentTheme.signatureHeadingClassName,
+        )}
+        {...(signatureHeading ? { [institutionalDocumentSelectors.signatureHeading]: true } : {})}
+      >
+        {children}
+      </h2>
+    );
+  },
+  h3: ({ children }) => {
+    const signatureHeading = isSignatureHeading(children);
+
+    return (
+      <h3
+        className={cn(
+          institutionalDocumentTheme.subtitleClassName,
+          signatureHeading && institutionalDocumentTheme.signatureHeadingClassName,
+        )}
+        {...(signatureHeading ? { [institutionalDocumentSelectors.signatureHeading]: true } : {})}
+      >
+        {children}
+      </h3>
+    );
+  },
   h4: ({ children }) => (
-    <h4 className="mb-2 mt-5 text-base font-semibold first:mt-0">{children}</h4>
+    <h4 className={institutionalDocumentTheme.subtitleClassName}>{children}</h4>
   ),
-  h5: ({ children }) => <h5 className="mb-1 mt-4 text-sm font-semibold first:mt-0">{children}</h5>,
+  h5: ({ children }) => (
+    <h5 className={institutionalDocumentTheme.subtitleClassName}>{children}</h5>
+  ),
   h6: ({ children }) => (
-    <h6 className="mb-1 mt-4 text-sm font-medium text-muted-foreground first:mt-0">{children}</h6>
+    <h6 className={institutionalDocumentTheme.subtitleClassName}>{children}</h6>
   ),
-  p: ({ children }) => <p className="mb-4 indent-8 text-justify leading-7 last:mb-0">{children}</p>,
-  ul: ({ children }) => <ul className="mb-4 ml-6 list-disc space-y-1 last:mb-0">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-4 ml-6 list-decimal space-y-1 last:mb-0">{children}</ol>,
-  li: ({ children }) => <li className="leading-7">{children}</li>,
+  p: ({ children }) => (
+    <p className={institutionalDocumentTheme.paragraphClassName}>
+      {children}
+    </p>
+  ),
+  ul: ({ children }) => (
+    <ul className={institutionalDocumentTheme.listClassName}>{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className={institutionalDocumentTheme.listClassName}>
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => {
+    const administrativeField = getAdministrativeFieldParts(getPlainText(children));
+
+    if (administrativeField) {
+      return (
+        <li
+          className={cn(
+            institutionalDocumentTheme.listItemClassName,
+            institutionalDocumentTheme.administrativeFieldClassName,
+          )}
+          data-institutional-administrative-field
+        >
+          <span className={institutionalDocumentTheme.administrativeFieldLabelClassName}>
+            {administrativeField.label}
+          </span>{" "}
+          <span>{administrativeField.value}</span>
+        </li>
+      );
+    }
+
+    return <li className={institutionalDocumentTheme.listItemClassName}>{children}</li>;
+  },
   blockquote: ({ children }) => (
-    <blockquote className="mb-4 border-l-4 border-border pl-4 italic text-muted-foreground last:mb-0">
+    <blockquote className={institutionalDocumentTheme.blockquoteClassName}>
       {children}
     </blockquote>
   ),
@@ -44,17 +159,21 @@ const components: ComponentProps<typeof ReactMarkdown>["components"] = {
     const isBlock = className?.includes("language-");
     if (isBlock) {
       return (
-        <code className="block whitespace-pre-wrap break-words font-mono text-sm">{children}</code>
+        <code className={institutionalDocumentTheme.blockCodeClassName}>
+          {children}
+        </code>
       );
     }
     return (
-      <code className="rounded bg-muted px-1 py-0.5 font-mono text-sm text-foreground">
+      <code className={institutionalDocumentTheme.inlineCodeClassName}>
         {children}
       </code>
     );
   },
   pre: ({ children }) => (
-    <pre className="mb-4 overflow-x-auto rounded-md border bg-muted p-4 last:mb-0">{children}</pre>
+    <pre className={institutionalDocumentTheme.preClassName}>
+      {children}
+    </pre>
   ),
   a: ({ href, children }) => {
     const safe = isSafeHref(href);
@@ -65,7 +184,7 @@ const components: ComponentProps<typeof ReactMarkdown>["components"] = {
     return (
       <a
         href={href}
-        className="font-medium text-primary underline underline-offset-4 hover:opacity-80"
+        className={institutionalDocumentTheme.linkClassName}
         {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       >
         {children}
@@ -74,19 +193,23 @@ const components: ComponentProps<typeof ReactMarkdown>["components"] = {
   },
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
-  hr: () => <hr className="my-6 border-border" />,
+  hr: () => <hr className={institutionalDocumentTheme.horizontalRuleClassName} />,
   table: ({ children }) => (
-    <div className="mb-4 w-full overflow-x-auto last:mb-0">
-      <table className="w-full border-collapse text-sm">{children}</table>
+    <div className={institutionalDocumentTheme.tableWrapperClassName}>
+      <table className={institutionalDocumentTheme.tableClassName}>
+        {children}
+      </table>
     </div>
   ),
-  thead: ({ children }) => <thead className="bg-muted">{children}</thead>,
+  thead: ({ children }) => <thead>{children}</thead>,
   tbody: ({ children }) => <tbody>{children}</tbody>,
-  tr: ({ children }) => <tr className="border-b border-border last:border-0">{children}</tr>,
+  tr: ({ children }) => <tr>{children}</tr>,
   th: ({ children }) => (
-    <th className="border border-border px-4 py-2 text-left font-medium">{children}</th>
+    <th>
+      {children}
+    </th>
   ),
-  td: ({ children }) => <td className="border border-border px-4 py-2">{children}</td>,
+  td: ({ children }) => <td>{children}</td>,
 };
 
 export function DocumentMarkdownPreview({
@@ -99,10 +222,11 @@ export function DocumentMarkdownPreview({
   return (
     <div
       className={cn(
-        "text-sm leading-7 text-foreground",
+        institutionalDocumentTheme.markdownClassName,
         "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className,
       )}
+      data-institutional-document-markdown
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}

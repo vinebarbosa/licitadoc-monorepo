@@ -70,7 +70,7 @@ describe("AppHomePage", () => {
     expect(screen.getByLabelText("Progresso: 75%")).toBeInTheDocument();
 
     expect(await screen.findByText("PE-2024-045")).toBeInTheDocument();
-    expect(screen.getByText("Contratação de Serviços de TI")).toBeInTheDocument();
+    expect(screen.getByText("Serviços de TI")).toBeInTheDocument();
     expect(screen.getByLabelText("Documentos completos: 2 de 4")).toBeInTheDocument();
     expect(screen.getByText("2/4")).toBeInTheDocument();
 

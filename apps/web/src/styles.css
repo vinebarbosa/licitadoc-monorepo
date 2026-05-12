@@ -159,3 +159,336 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .institutional-document-output {
+    color: var(--institutional-text-color);
+    font-family: var(--institutional-font-family);
+    hyphens: auto;
+    orphans: 3;
+    widows: 3;
+    text-rendering: optimizeLegibility;
+  }
+
+  .institutional-document-sheet {
+    width: min(100%, var(--institutional-page-width));
+    max-width: var(--institutional-page-width);
+    min-height: min(var(--institutional-page-min-height), calc(100vh - 12rem));
+    margin-inline: auto;
+    padding: var(--institutional-margin-top) var(--institutional-margin-inline)
+      var(--institutional-margin-bottom);
+    color: var(--institutional-text-color);
+    background: #ffffff;
+    border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+    box-shadow: 0 24px 50px rgb(15 23 42 / 12%);
+  }
+
+  .institutional-document-body {
+    display: block;
+  }
+
+  .institutional-document-live-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 24px;
+    padding: 8px 12px;
+    color: #475569;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 0.375rem;
+  }
+
+  .institutional-document-markdown {
+    color: var(--institutional-text-color);
+    font-family: var(--institutional-font-family);
+    font-size: var(--institutional-body-size);
+    line-height: var(--institutional-line-height);
+    hyphens: auto;
+    overflow-wrap: anywhere;
+  }
+
+  .institutional-document-title,
+  .institutional-document-section-title,
+  .institutional-document-subtitle {
+    color: var(--institutional-text-color);
+    font-family: var(--institutional-font-family);
+    font-weight: 700;
+    break-after: avoid;
+    page-break-after: avoid;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .institutional-document-title {
+    margin: 0 0 var(--institutional-title-spacing);
+    text-align: center;
+    text-transform: uppercase;
+    font-size: var(--institutional-title-size);
+    line-height: 1.35;
+  }
+
+  .institutional-document-section-title {
+    margin-top: var(--institutional-section-margin-top);
+    margin-bottom: var(--institutional-section-margin-bottom);
+    text-transform: uppercase;
+    font-size: var(--institutional-title-size);
+    line-height: 1.35;
+  }
+
+  .institutional-document-subtitle {
+    margin-top: var(--institutional-section-margin-top);
+    margin-bottom: var(--institutional-section-margin-bottom);
+    font-size: var(--institutional-subtitle-size);
+    line-height: 1.35;
+  }
+
+  .institutional-document-paragraph {
+    margin: 0 0 var(--institutional-paragraph-spacing);
+    color: var(--institutional-text-color);
+    font-size: var(--institutional-body-size);
+    line-height: var(--institutional-line-height);
+    text-align: justify;
+    text-indent: var(--institutional-paragraph-indent);
+    break-inside: auto;
+    page-break-inside: auto;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .institutional-document-list {
+    margin: 0 0 var(--institutional-paragraph-spacing);
+    padding-left: var(--institutional-list-indent);
+    color: var(--institutional-text-color);
+    font-size: var(--institutional-body-size);
+    line-height: var(--institutional-line-height);
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .institutional-document-list-item {
+    margin-bottom: var(--institutional-list-item-spacing);
+    padding-left: 0;
+    text-align: justify;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .institutional-document-list-item::marker {
+    color: #000000;
+  }
+
+  .institutional-document-field {
+    text-align: left;
+  }
+
+  .institutional-document-field-label {
+    font-weight: 700;
+  }
+
+  .institutional-document-blockquote {
+    margin: 0 0 var(--institutional-paragraph-spacing);
+    padding: 8px 14px;
+    color: #1f2937;
+    font-size: var(--institutional-body-size);
+    line-height: var(--institutional-line-height);
+    text-align: justify;
+    background: #f8fafc;
+    border-left: 2px solid #94a3b8;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .institutional-document-inline-code,
+  .institutional-document-block-code {
+    font-family: "Liberation Mono", "Courier New", monospace;
+    font-size: 10pt;
+  }
+
+  .institutional-document-inline-code {
+    padding: 1px 3px;
+    background: #f1f5f9;
+    border-radius: 2px;
+  }
+
+  .institutional-document-pre {
+    margin: 0 0 var(--institutional-paragraph-spacing);
+    padding: 12px;
+    overflow-x: auto;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .institutional-document-link {
+    color: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .institutional-document-rule {
+    margin: 24px 0;
+    border: 0;
+    border-top: 1px solid #94a3b8;
+  }
+
+  .institutional-document-table-wrapper {
+    width: 100%;
+    margin: 0 0 var(--institutional-paragraph-spacing);
+    overflow-x: auto;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .institutional-document-table {
+    width: 100%;
+    min-width: 34rem;
+    border-collapse: collapse;
+    color: var(--institutional-text-color);
+    font-size: 10pt;
+    line-height: 1.35;
+  }
+
+  .institutional-document-table th,
+  .institutional-document-table td {
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+    border: 1px solid #000000;
+  }
+
+  .institutional-document-table th {
+    font-weight: 700;
+    background: #f8fafc;
+  }
+
+  .institutional-document-signature-heading {
+    margin-top: var(--institutional-signature-spacing);
+  }
+
+  .institutional-document-signature-heading + .institutional-document-paragraph {
+    text-align: left;
+    text-indent: 0;
+  }
+
+  .institutional-document-signature-heading + .institutional-document-paragraph
+    + .institutional-document-paragraph {
+    margin-top: var(--institutional-signature-spacing);
+    text-align: center;
+    text-indent: 0;
+    font-weight: 700;
+  }
+
+  .institutional-document-signature-heading + .institutional-document-paragraph
+    + .institutional-document-paragraph
+    + .institutional-document-paragraph {
+    text-align: center;
+    text-indent: 0;
+  }
+
+  @media (max-width: 720px) {
+    .institutional-document-sheet {
+      padding: 56px 28px 48px;
+    }
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 100px 90px 80px;
+  }
+
+  html,
+  body,
+  #root {
+    background: #ffffff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  [data-document-preview-print-root],
+  [data-document-preview-print-root] * {
+    visibility: visible;
+  }
+
+  [data-document-preview-print-root] {
+    position: absolute;
+    inset: 0;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  [data-document-preview-workspace],
+  [data-document-preview-content] {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  [data-document-preview-actions],
+  [data-document-live-status],
+  [data-institutional-document-live-status],
+  [data-testid="planning-stepper-viewport"],
+  [data-testid="live-writing-endpoint"] {
+    display: none !important;
+  }
+
+  [data-institutional-document-sheet],
+  [data-document-sheet] {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-institutional-document-body],
+  [data-document-body] {
+    display: block !important;
+  }
+
+  .institutional-document-markdown h1,
+  .institutional-document-markdown h2,
+  .institutional-document-markdown h3,
+  .institutional-document-markdown h4,
+  .institutional-document-markdown h5,
+  .institutional-document-markdown h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .institutional-document-markdown p,
+  .institutional-document-markdown blockquote,
+  .institutional-document-markdown ul,
+  .institutional-document-markdown ol,
+  .institutional-document-markdown table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .institutional-document-markdown table {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .institutional-document-markdown a {
+    color: inherit !important;
+    text-decoration: underline;
+  }
+}

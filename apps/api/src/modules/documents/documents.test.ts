@@ -9,16 +9,30 @@ import {
   processDepartments,
   type processes,
 } from "../../db";
+import { BadRequestError } from "../../shared/errors/bad-request-error";
+import { ConflictError } from "../../shared/errors/conflict-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
 import {
   TextGenerationError,
   type TextGenerationProvider,
 } from "../../shared/text-generation/types";
 import { createDocument as createPendingDocument } from "./create-document";
+import { createDocumentGenerationEvents } from "./document-generation-events";
 import { executeDocumentGeneration } from "./document-generation-worker";
+import {
+  applyDocumentTextAdjustment,
+  getDocumentContentHash,
+  suggestDocumentTextAdjustment,
+} from "./document-text-adjustment";
 import { createDocumentBodySchema } from "./documents.schemas";
 import { serializeDocumentDetail } from "./documents.shared";
 import { getDocuments } from "./get-documents";
+import {
+  configureDocumentGenerationEventsStream,
+  createDocumentGenerationEventsHeaders,
+  writeSseComment,
+  writeSseEvent,
+} from "./routes";
 
 const ORGANIZATION_ID = "4fd5b7df-e2e5-4876-b4c3-b35306c6e733";
 const OTHER_ORGANIZATION_ID = "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228";
@@ -69,6 +83,7 @@ function createProcessRow(
     processNumber: "PROC-2026-001",
     externalId: null,
     issuedAt: new Date("2026-01-08T00:00:00.000Z"),
+    title: "Materiais",
     object: "Aquisicao de materiais",
     justification: "Reposicao de estoque",
     responsibleName: "Ana Souza",
@@ -136,6 +151,7 @@ function createDb({
   onDocumentInsert,
   onDocumentUpdate,
   onGenerationRunUpdate,
+  initialDocument = null,
 }: {
   departments?: Array<typeof departmentsTable.$inferSelect>;
   organization?: typeof organizations.$inferSelect | null;
@@ -144,8 +160,9 @@ function createDb({
   onDocumentInsert?: (values: Record<string, unknown>) => void;
   onDocumentUpdate?: (values: Record<string, unknown>) => void;
   onGenerationRunUpdate?: (values: Record<string, unknown>) => void;
+  initialDocument?: typeof documents.$inferSelect | null;
 } = {}) {
-  let currentDocument: typeof documents.$inferSelect | null = null;
+  let currentDocument: typeof documents.$inferSelect | null = initialDocument;
   let currentGenerationRun: typeof documentGenerationRuns.$inferSelect | null = null;
 
   const tx = {
@@ -254,6 +271,7 @@ function createDb({
       },
     }),
     transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx),
+    update: tx.update,
     getCurrentDocument: () => {
       assert.ok(currentDocument);
       return currentDocument;
@@ -327,7 +345,7 @@ test("createDocument returns a generating draft before provider completion", asy
   assert.equal(scheduledGenerationRunId, GENERATION_RUN_ID);
   assert.equal(generationRun?.status, "generating");
   assert.equal(generationRun?.requestMetadata.documentType, "dfd");
-  assert.match(String(generationRun?.requestMetadata.prompt), /## Modelo Markdown canonico/);
+  assert.match(String(generationRun?.requestMetadata.prompt), /## Modelo Markdown canônico/);
 });
 
 test("createDocument generates and persists a completed draft", async () => {
@@ -379,8 +397,8 @@ test("createDocument generates and persists a completed draft", async () => {
   assert.equal(updatedRun?.status, "completed");
   assert.equal(response.status, "completed");
   assert.equal(response.draftContent, "Conteudo gerado do DFD");
-  assert.match(receivedPrompt ?? "", /## Modelo Markdown canonico/);
-  assert.match(receivedPrompt ?? "", /# DOCUMENTO DE FORMALIZACAO DE DEMANDA \(DFD\)/);
+  assert.match(receivedPrompt ?? "", /## Modelo Markdown canônico/);
+  assert.match(receivedPrompt ?? "", /# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA \(DFD\)/);
   assert.match(receivedPrompt ?? "", /Usar linguagem objetiva\./);
 });
 
@@ -427,13 +445,13 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
         providerKey: "stub",
         model: "stub-model",
         text: [
-          "# ESTUDO TECNICO PRELIMINAR (ETP)",
+          "# ESTUDO TÉCNICO PRELIMINAR (ETP)",
           "",
-          "## 1. INTRODUCAO",
+          "## 1. INTRODUÇÃO",
           "Conteudo gerado do ETP.",
           "",
-          "## 5. ESTIMATIVA DO VALOR DA CONTRATACAO",
-          "Valor nao informado no contexto; sera objeto de apuracao posterior.",
+          "## 5. ESTIMATIVA DO VALOR DA CONTRATAÇÃO",
+          "O valor estimado dependerá de apuração complementar em etapa própria.",
         ].join("\n"),
         responseMetadata: {
           finishReason: "stop",
@@ -442,15 +460,26 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
     }),
   });
 
-  assert.match(receivedPrompt ?? "", /# ESTUDO TECNICO PRELIMINAR \(ETP\)/);
-  assert.match(receivedPrompt ?? "", /- Estimativa disponivel: nao/);
-  assert.match(receivedPrompt ?? "", /- Valor bruto extraido da origem: R\$ 0,00/);
-  assert.match(receivedPrompt ?? "", /nao simule pesquisa de mercado/i);
+  assert.match(receivedPrompt ?? "", /# ESTUDO TÉCNICO PRELIMINAR \(ETP\)/);
+  assert.match(
+    receivedPrompt ?? "",
+    /- Perfil de análise inferido para o ETP: apresentacao_artistica/,
+  );
+  assert.match(receivedPrompt ?? "", /- Estimativa disponível: não/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /não simule pesquisa de mercado/i);
+  assert.match(
+    receivedPrompt ?? "",
+    /perfil de análise inferido apenas para ajustar a ênfase técnica/i,
+  );
+  assert.match(receivedPrompt ?? "", /Preserve a consistência entre objeto, município, organização/);
+  assert.match(receivedPrompt ?? "", /Não misture informações de DFD, TR, minuta/);
+  assert.match(receivedPrompt ?? "", /Lei nº 14\.133\/2021 e a boas práticas do TCU/);
   assert.match(receivedPrompt ?? "", /Manter consistencia com o DFD\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
-  assert.match(response.draftContent ?? "", /ESTIMATIVA DO VALOR DA CONTRATACAO/);
-  assert.match(response.draftContent ?? "", /Valor nao informado no contexto/);
+  assert.match(response.draftContent ?? "", /ESTIMATIVA DO VALOR DA CONTRATAÇÃO/);
+  assert.match(response.draftContent ?? "", /apuração complementar/);
 });
 
 test("createDocument uses the canonical TR recipe and zero-value safety", async () => {
@@ -497,13 +526,13 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
         providerKey: "stub",
         model: "stub-model",
         text: [
-          "# TERMO DE REFERENCIA",
+          "# TERMO DE REFERÊNCIA",
           "",
           "## 1. OBJETO",
           "Conteudo gerado do TR.",
           "",
-          "## 7. VALOR ESTIMADO E DOTACAO ORCAMENTARIA",
-          "Valor nao informado no contexto; sera apurado posteriormente por pesquisa de mercado.",
+          "## 7. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA",
+          "Valor não informado no contexto; será apurado posteriormente por pesquisa de mercado.",
         ].join("\n"),
         responseMetadata: {
           finishReason: "stop",
@@ -512,21 +541,21 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
     }),
   });
 
-  assert.match(receivedPrompt ?? "", /# TERMO DE REFERENCIA/);
+  assert.match(receivedPrompt ?? "", /# TERMO DE REFERÊNCIA/);
   assert.match(receivedPrompt ?? "", /- Tipo de documento: TR/);
   assert.match(
     receivedPrompt ?? "",
-    /- Tipo de contratacao inferido para obrigacoes: apresentacao_artistica/,
+    /- Tipo de contratação inferido para obrigações: apresentacao_artistica/,
   );
-  assert.match(receivedPrompt ?? "", /- Estimativa disponivel: nao/);
-  assert.match(receivedPrompt ?? "", /- Valor bruto extraido da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /- Estimativa disponível: não/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto extraído da origem: R\$ 0,00/);
   assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
-  assert.match(receivedPrompt ?? "", /nao invente valores/i);
+  assert.match(receivedPrompt ?? "", /não invente valores/i);
   assert.match(receivedPrompt ?? "", /Manter consistencia operacional com o ETP\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
-  assert.match(response.draftContent ?? "", /VALOR ESTIMADO E DOTACAO ORCAMENTARIA/);
-  assert.match(response.draftContent ?? "", /Valor nao informado no contexto/);
+  assert.match(response.draftContent ?? "", /VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
+  assert.match(response.draftContent ?? "", /Valor não informado no contexto/);
 });
 
 test("createDocumentBodySchema rejects unsupported document types", () => {
@@ -641,6 +670,426 @@ test("createDocument rejects actors outside the process organization", async () 
   );
 });
 
+test("suggestDocumentTextAdjustment sends selection context to provider without persisting", async () => {
+  let receivedPrompt = "";
+  let updatedDocument: Record<string, unknown> | undefined;
+  const draftContent = [
+    "# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)",
+    "",
+    "A contratação se faz necessária para atender à demanda apresentada.",
+    "",
+    "O documento mantém tom formal.",
+  ].join("\n");
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+    onDocumentUpdate: (values) => {
+      updatedDocument = values;
+    },
+  });
+
+  const response = await suggestDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      selectedText: "A contratação se faz necessária para atender à demanda apresentada.",
+      instruction: "Deixe mais objetivo.",
+      selectionContext: {
+        prefix: "# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)\n\n",
+        suffix: "\n\nO documento mantém tom formal.",
+      },
+    },
+    textGeneration: createTextGenerationProvider(async (input) => {
+      receivedPrompt = input.prompt;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: "A contratação é necessária para atender à demanda apresentada.",
+        responseMetadata: {},
+      };
+    }),
+  });
+
+  assert.match(receivedPrompt, /Tipo de documento: DFD/);
+  assert.match(receivedPrompt, /Deixe mais objetivo\./);
+  assert.match(receivedPrompt, /A contratação se faz necessária/);
+  assert.match(receivedPrompt, /Preserve o tom formal/);
+  assert.equal(
+    response.replacementText,
+    "A contratação é necessária para atender à demanda apresentada.",
+  );
+  assert.equal(response.sourceContentHash, getDocumentContentHash(draftContent));
+  const expectedSelectedText =
+    "A contratação se faz necessária para atender à demanda apresentada.";
+  const expectedStart = draftContent.indexOf(expectedSelectedText);
+  assert.deepEqual(response.sourceTarget, {
+    start: expectedStart,
+    end: expectedStart + expectedSelectedText.length,
+    sourceText: expectedSelectedText,
+  });
+  assert.equal(updatedDocument, undefined);
+  assert.equal(db.getCurrentDocument().draftContent, draftContent);
+});
+
+test("suggestDocumentTextAdjustment rejects unauthorized and empty requests", async () => {
+  let providerWasCalled = false;
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent: "Conteudo atual.",
+    }),
+  });
+  const textGeneration = createTextGenerationProvider(async () => {
+    providerWasCalled = true;
+
+    return {
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Conteudo ajustado.",
+      responseMetadata: {},
+    };
+  });
+
+  await assert.rejects(
+    () =>
+      suggestDocumentTextAdjustment({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: OTHER_ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          selectedText: "Conteudo atual.",
+          instruction: "Ajuste.",
+        },
+        textGeneration,
+      }),
+    ForbiddenError,
+  );
+
+  await assert.rejects(
+    () =>
+      suggestDocumentTextAdjustment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          selectedText: "   ",
+          instruction: "Ajuste.",
+        },
+        textGeneration,
+      }),
+    BadRequestError,
+  );
+  assert.equal(providerWasCalled, false);
+});
+
+test("applyDocumentTextAdjustment persists accepted replacement using resolved source target", async () => {
+  let updatedDocument: Record<string, unknown> | undefined;
+  const draftContent = "Texto inicial.\n\nTrecho para ajustar.\n\nTexto final.";
+  const selectedText = "Trecho para ajustar.";
+  const start = draftContent.indexOf(selectedText);
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+    onDocumentUpdate: (values) => {
+      updatedDocument = values;
+    },
+  });
+
+  const response = await applyDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      sourceTarget: { start, end: start + selectedText.length, sourceText: selectedText },
+      replacementText: "Trecho ajustado com linguagem formal.",
+      sourceContentHash: getDocumentContentHash(draftContent),
+    },
+  });
+
+  assert.equal(
+    updatedDocument?.draftContent,
+    "Texto inicial.\n\nTrecho ajustado com linguagem formal.\n\nTexto final.",
+  );
+  assert.ok(updatedDocument?.updatedAt instanceof Date);
+  assert.equal(response.draftContent, updatedDocument?.draftContent);
+});
+
+test("applyDocumentTextAdjustment rejects stale hash or mismatched sourceText without changing content", async () => {
+  const draftContent = "Trecho correto.\n\nOutro texto.\n\nFim do documento.";
+  const selectedText = "Trecho correto.";
+  const start = draftContent.indexOf(selectedText);
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  // Stale hash: sourceTarget is valid but hash is outdated
+  await assert.rejects(
+    () =>
+      applyDocumentTextAdjustment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          sourceTarget: { start, end: start + selectedText.length, sourceText: selectedText },
+          replacementText: "Trecho ajustado.",
+          sourceContentHash: "sha256:stale",
+        },
+      }),
+    ConflictError,
+  );
+  assert.equal(db.getCurrentDocument().draftContent, draftContent);
+
+  // Mismatched sourceText: hash is current but sourceText does not match content at those offsets
+  await assert.rejects(
+    () =>
+      applyDocumentTextAdjustment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          sourceTarget: { start, end: start + selectedText.length, sourceText: "Texto diferente." },
+          replacementText: "Trecho ajustado.",
+          sourceContentHash: getDocumentContentHash(draftContent),
+        },
+      }),
+    ConflictError,
+  );
+  assert.equal(db.getCurrentDocument().draftContent, draftContent);
+});
+
+test("suggestDocumentTextAdjustment resolves rendered list-field selection via markdown-aware fallback", async () => {
+  let updateCallCount = 0;
+  let lastUpdatedDocument: Record<string, unknown> | undefined;
+  const draftContent = [
+    "## 1. DADOS DA SOLICITACAO",
+    "",
+    "- Campo: Valor do campo administrativo",
+    "",
+    "Texto de encerramento.",
+  ].join("\n");
+  const renderedSelection = "Valor do campo administrativo";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+    onDocumentUpdate: (values) => {
+      updateCallCount += 1;
+      lastUpdatedDocument = values;
+    },
+  });
+
+  const suggestion = await suggestDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      selectedText: renderedSelection,
+      instruction: "Deixe mais formal.",
+    },
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Valor do campo administrativo formal",
+      responseMetadata: {},
+    })),
+  });
+
+  const expectedSourceStart = draftContent.indexOf(renderedSelection);
+  assert.equal(suggestion.sourceTarget.sourceText, renderedSelection);
+  assert.equal(suggestion.sourceTarget.start, expectedSourceStart);
+  assert.equal(suggestion.sourceTarget.end, expectedSourceStart + renderedSelection.length);
+  assert.equal(updateCallCount, 0, "suggestion must not persist any update");
+
+  const applyResponse = await applyDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      sourceTarget: suggestion.sourceTarget,
+      replacementText: suggestion.replacementText,
+      sourceContentHash: suggestion.sourceContentHash,
+    },
+  });
+
+  if (!lastUpdatedDocument) {
+    throw new Error("Expected document to be updated by applyDocumentTextAdjustment");
+  }
+  assert.ok(
+    String(lastUpdatedDocument.draftContent).includes("Valor do campo administrativo formal"),
+  );
+  assert.equal(applyResponse.draftContent, lastUpdatedDocument.draftContent);
+});
+
+test("suggestDocumentTextAdjustment resolves wrapped rendered paragraph selections", async () => {
+  let updateCallCount = 0;
+  let lastUpdatedDocument: Record<string, unknown> | undefined;
+  const sourceText = [
+    "O objeto da contratação consiste na prestação de serviço de",
+    "apresentação artística musical da banda FORRÓ TSUNAMI, em uma única execução.",
+  ].join("\n");
+  const draftContent = ["## 3. OBJETO DA CONTRATAÇÃO", "", sourceText, "", "Texto final."].join(
+    "\n",
+  );
+  const renderedSelection =
+    "O objeto da contratação consiste na prestação de serviço de apresentação artística musi-\ncal da banda FORRÓ TSUNAMI, em uma única execução.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+    onDocumentUpdate: (values) => {
+      updateCallCount += 1;
+      lastUpdatedDocument = values;
+    },
+  });
+
+  const suggestion = await suggestDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      selectedText: renderedSelection,
+      instruction: "Deixe mais direto.",
+    },
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: "O objeto consiste na apresentação artística musical da banda FORRÓ TSUNAMI.",
+      responseMetadata: {},
+    })),
+  });
+
+  const expectedSourceStart = draftContent.indexOf(sourceText);
+  assert.equal(suggestion.sourceTarget.sourceText, sourceText);
+  assert.equal(suggestion.sourceTarget.start, expectedSourceStart);
+  assert.equal(suggestion.sourceTarget.end, expectedSourceStart + sourceText.length);
+  assert.equal(updateCallCount, 0, "suggestion must not persist any update");
+
+  const applyResponse = await applyDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      sourceTarget: suggestion.sourceTarget,
+      replacementText: suggestion.replacementText,
+      sourceContentHash: suggestion.sourceContentHash,
+    },
+  });
+
+  if (!lastUpdatedDocument) {
+    throw new Error("Expected document to be updated by applyDocumentTextAdjustment");
+  }
+  assert.ok(String(lastUpdatedDocument.draftContent).includes(suggestion.replacementText));
+  assert.equal(applyResponse.draftContent, lastUpdatedDocument.draftContent);
+});
+
+test("suggestDocumentTextAdjustment rejects ambiguous and unresolvable selections without calling provider", async () => {
+  let providerCallCount = 0;
+  const draftContent = "Trecho repetido aqui.\n\nOutro conteudo.\n\nTrecho repetido aqui.\n\nFim.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+  const textGeneration = createTextGenerationProvider(async () => {
+    providerCallCount += 1;
+    return {
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Sugestao.",
+      responseMetadata: {},
+    };
+  });
+
+  // Ambiguous: selectedText appears more than once in the source
+  await assert.rejects(
+    () =>
+      suggestDocumentTextAdjustment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: { selectedText: "Trecho repetido aqui.", instruction: "Ajuste." },
+        textGeneration,
+      }),
+    ConflictError,
+  );
+  assert.equal(providerCallCount, 0, "provider must not be called for ambiguous selection");
+
+  // Unresolvable: selectedText is not present in source or markdown-rendered view
+  await assert.rejects(
+    () =>
+      suggestDocumentTextAdjustment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: { selectedText: "Trecho inexistente no documento.", instruction: "Ajuste." },
+        textGeneration,
+      }),
+    ConflictError,
+  );
+  assert.equal(providerCallCount, 0, "provider must not be called for unresolvable selection");
+  assert.equal(db.getCurrentDocument().draftContent, draftContent);
+});
+
 test("createDocument persists failed state when the provider fails", async () => {
   let failedDocument: Record<string, unknown> | undefined;
   let failedRun: Record<string, unknown> | undefined;
@@ -678,6 +1127,341 @@ test("createDocument persists failed state when the provider fails", async () =>
   assert.equal(failedRun?.errorCode, "rate_limited");
   assert.equal(response.status, "failed");
   assert.equal(response.draftContent, null);
+});
+
+test("document generation events publish snapshots and clean up subscribers", () => {
+  const events = createDocumentGenerationEvents();
+  const received: unknown[] = [];
+  const unsubscribe = events.subscribe(DOCUMENT_ID, (event) => {
+    received.push(event);
+  });
+
+  events.publishChunk({ documentId: DOCUMENT_ID, textDelta: "Parte 1" });
+  events.publishPlanning({ documentId: DOCUMENT_ID, planningDelta: "Analisando processo" });
+  events.publishChunk({ documentId: DOCUMENT_ID, textDelta: " e parte 2" });
+  unsubscribe();
+  events.publishCompleted({ documentId: DOCUMENT_ID, content: "Conteudo final" });
+
+  assert.equal(received.length, 3);
+  assert.deepEqual(
+    received.map((event) =>
+      event && typeof event === "object" && "sequence" in event ? event.sequence : null,
+    ),
+    [1, 2, 3],
+  );
+  assert.match(
+    typeof received[0] === "object" &&
+      received[0] !== null &&
+      "publishedAt" in received[0] &&
+      typeof received[0].publishedAt === "string"
+      ? received[0].publishedAt
+      : "",
+    /^\d{4}-\d{2}-\d{2}T/,
+  );
+  assert.deepEqual(events.getSnapshot(DOCUMENT_ID), {
+    type: "completed",
+    documentId: DOCUMENT_ID,
+    content: "Conteudo final",
+    status: "completed",
+    sequence: 4,
+    publishedAt: events.getSnapshot(DOCUMENT_ID)?.publishedAt,
+  });
+});
+
+test("document generation events keep planning snapshots separate from document content", () => {
+  const events = createDocumentGenerationEvents();
+
+  events.publishPlanning({ documentId: DOCUMENT_ID, planningDelta: "Analisando " });
+  events.publishPlanning({ documentId: DOCUMENT_ID, planningDelta: "processo" });
+  events.publishChunk({ documentId: DOCUMENT_ID, textDelta: "Documento " });
+  events.publishChunk({ documentId: DOCUMENT_ID, textDelta: "final" });
+
+  assert.deepEqual(events.getSnapshots(DOCUMENT_ID), [
+    {
+      type: "planning",
+      documentId: DOCUMENT_ID,
+      planningDelta: "processo",
+      planningContent: "Analisando processo",
+      status: "generating",
+      sequence: 2,
+      publishedAt: events.getSnapshots(DOCUMENT_ID)[0]?.publishedAt,
+    },
+    {
+      type: "chunk",
+      documentId: DOCUMENT_ID,
+      textDelta: "final",
+      content: "Documento final",
+      status: "generating",
+      sequence: 4,
+      publishedAt: events.getSnapshots(DOCUMENT_ID)[1]?.publishedAt,
+    },
+  ]);
+});
+
+test("document generation events SSE headers allow configured browser origin with credentials", () => {
+  const headers = createDocumentGenerationEventsHeaders({
+    corsOrigin: "http://localhost:5173, https://app.licitadoc.test",
+    requestOrigin: "http://localhost:5173",
+  });
+
+  assert.equal(headers["access-control-allow-origin"], "http://localhost:5173");
+  assert.equal(headers["access-control-allow-credentials"], "true");
+  assert.equal(headers.vary, "Origin");
+  assert.equal(headers["content-type"], "text/event-stream; charset=utf-8");
+  assert.equal(headers["cache-control"], "no-cache, no-transform");
+  assert.equal(headers["x-accel-buffering"], "no");
+});
+
+test("document generation events SSE headers do not allow unconfigured browser origin", () => {
+  const headers = createDocumentGenerationEventsHeaders({
+    corsOrigin: "http://localhost:5173",
+    requestOrigin: "https://untrusted.licitadoc.test",
+  });
+
+  assert.equal(headers["access-control-allow-origin"], undefined);
+  assert.equal(headers["access-control-allow-credentials"], undefined);
+  assert.equal(headers.vary, undefined);
+  assert.equal(headers["content-type"], "text/event-stream; charset=utf-8");
+  assert.equal(headers["cache-control"], "no-cache, no-transform");
+  assert.equal(headers["x-accel-buffering"], "no");
+});
+
+test("document generation SSE stream config flushes headers and disables socket delay", () => {
+  let flushedHeaders = false;
+  let socketNoDelay: boolean | undefined;
+
+  configureDocumentGenerationEventsStream({
+    write() {
+      return true;
+    },
+    flushHeaders() {
+      flushedHeaders = true;
+    },
+    socket: {
+      setNoDelay(noDelay) {
+        socketNoDelay = noDelay;
+      },
+    },
+  });
+
+  assert.equal(flushedHeaders, true);
+  assert.equal(socketNoDelay, true);
+});
+
+test("document generation SSE events are written as complete flushed frames", () => {
+  const writes: string[] = [];
+  let flushCount = 0;
+
+  writeSseEvent(
+    {
+      write(chunk) {
+        writes.push(String(chunk));
+        return true;
+      },
+      flush() {
+        flushCount += 1;
+      },
+    },
+    {
+      type: "chunk",
+      documentId: DOCUMENT_ID,
+      textDelta: "Conteudo ",
+      content: "Conteudo ",
+      status: "generating",
+      sequence: 1,
+      publishedAt: "2026-05-06T14:00:00.000Z",
+    },
+    {
+      now: () => new Date("2026-05-06T14:00:01.000Z"),
+    },
+  );
+
+  assert.equal(writes.length, 1);
+  assert.equal(flushCount, 1);
+  assert.equal(
+    writes[0],
+    'event: chunk\ndata: {"type":"chunk","documentId":"7a7a7a7a-e2e5-4876-b4c3-b35306c6e733","textDelta":"Conteudo ","content":"Conteudo ","status":"generating","sequence":1,"publishedAt":"2026-05-06T14:00:00.000Z","serverSentAt":"2026-05-06T14:00:01.000Z"}\n\n',
+  );
+});
+
+test("document generation SSE comments are flushed", () => {
+  const writes: string[] = [];
+  let flushCount = 0;
+
+  writeSseComment(
+    {
+      write(chunk) {
+        writes.push(String(chunk));
+        return true;
+      },
+      flush() {
+        flushCount += 1;
+      },
+    },
+    "keep-alive",
+  );
+
+  assert.deepEqual(writes, [": keep-alive\n\n"]);
+  assert.equal(flushCount, 1);
+});
+
+test("executeDocumentGeneration publishes chunk and completion events", async () => {
+  const db = createDb();
+  const events = createDocumentGenerationEvents();
+  const received: unknown[] = [];
+
+  await createPendingDocument({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+    }),
+  });
+
+  events.subscribe(DOCUMENT_ID, (event) => {
+    received.push(event);
+  });
+
+  const generationRun = db.getCurrentGenerationRun();
+  assert.ok(generationRun);
+
+  await executeDocumentGeneration({
+    db,
+    generationEvents: events,
+    generationRunId: generationRun.id,
+    textGeneration: createTextGenerationProvider(async (input) => {
+      await input.onPlanningChunk?.({
+        planningDelta: "Analisando dados",
+        metadata: { index: 0 },
+      });
+      await input.onChunk?.({ textDelta: "Conteudo ", metadata: { index: 1 } });
+      await input.onChunk?.({ textDelta: "gerado", metadata: { index: 2 } });
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: "Conteudo gerado",
+        responseMetadata: {},
+      };
+    }),
+  });
+
+  assert.equal(received.length, 4);
+  assert.deepEqual(
+    received.map((event) =>
+      event && typeof event === "object" && "sequence" in event ? event.sequence : null,
+    ),
+    [1, 2, 3, 4],
+  );
+  assert.deepEqual(received, [
+    {
+      type: "planning",
+      documentId: DOCUMENT_ID,
+      planningDelta: "Analisando dados",
+      planningContent: "Analisando dados",
+      status: "generating",
+      sequence: 1,
+      publishedAt:
+        typeof received[0] === "object" && received[0] !== null && "publishedAt" in received[0]
+          ? received[0].publishedAt
+          : "",
+    },
+    {
+      type: "chunk",
+      documentId: DOCUMENT_ID,
+      textDelta: "Conteudo ",
+      content: "Conteudo ",
+      status: "generating",
+      sequence: 2,
+      publishedAt:
+        typeof received[1] === "object" && received[1] !== null && "publishedAt" in received[1]
+          ? received[1].publishedAt
+          : "",
+    },
+    {
+      type: "chunk",
+      documentId: DOCUMENT_ID,
+      textDelta: "gerado",
+      content: "Conteudo gerado",
+      status: "generating",
+      sequence: 3,
+      publishedAt:
+        typeof received[2] === "object" && received[2] !== null && "publishedAt" in received[2]
+          ? received[2].publishedAt
+          : "",
+    },
+    {
+      type: "completed",
+      documentId: DOCUMENT_ID,
+      content: "Conteudo gerado",
+      status: "completed",
+      sequence: 4,
+      publishedAt:
+        typeof received[3] === "object" && received[3] !== null && "publishedAt" in received[3]
+          ? received[3].publishedAt
+          : "",
+    },
+  ]);
+});
+
+test("executeDocumentGeneration publishes failure events", async () => {
+  const db = createDb();
+  const events = createDocumentGenerationEvents();
+  const received: unknown[] = [];
+
+  await createPendingDocument({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+    }),
+  });
+
+  events.subscribe(DOCUMENT_ID, (event) => {
+    received.push(event);
+  });
+
+  const generationRun = db.getCurrentGenerationRun();
+  assert.ok(generationRun);
+
+  await executeDocumentGeneration({
+    db,
+    generationEvents: events,
+    generationRunId: generationRun.id,
+    textGeneration: createTextGenerationProvider(async () => {
+      throw new TextGenerationError({
+        code: "provider_unavailable",
+        message: "Provider unavailable.",
+        providerKey: "stub",
+        model: "stub-model",
+      });
+    }),
+  });
+
+  assert.deepEqual(received, [
+    {
+      type: "failed",
+      documentId: DOCUMENT_ID,
+      errorCode: "provider_unavailable",
+      errorMessage: "Provider unavailable.",
+      status: "failed",
+      sequence: 1,
+      publishedAt:
+        typeof received[0] === "object" && received[0] !== null && "publishedAt" in received[0]
+          ? received[0].publishedAt
+          : "",
+    },
+  ]);
 });
 
 test("executeDocumentGeneration skips runs that are no longer pending", async () => {
@@ -790,8 +1574,8 @@ test("createDocument strips ETP and TR sections from generated DFD content", asy
       "Ana Souza",
     ].join("\n"),
   );
-  assert.equal(/ESTUDO TECNICO PRELIMINAR/i.test(response.draftContent ?? ""), false);
-  assert.equal(/TERMO DE REFERENCIA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/ESTUDO TÉCNICO PRELIMINAR/i.test(response.draftContent ?? ""), false);
+  assert.equal(/TERMO DE REFERÊNCIA/i.test(response.draftContent ?? ""), false);
 });
 
 test("createDocument strips DFD and TR sections from generated ETP content", async () => {
@@ -856,11 +1640,11 @@ test("createDocument strips DFD and TR sections from generated ETP content", asy
       "Conteudo ETP valido.",
       "",
       "## 5. ESTIMATIVA DO VALOR DA CONTRATACAO",
-      "Valor nao informado.",
+      "Valor não informado.",
     ].join("\n"),
   );
-  assert.equal(/DOCUMENTO DE FORMALIZACAO DE DEMANDA/i.test(response.draftContent ?? ""), false);
-  assert.equal(/TERMO DE REFERENCIA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/TERMO DE REFERÊNCIA/i.test(response.draftContent ?? ""), false);
   assert.equal(/R\$ 0,00/i.test(response.draftContent ?? ""), false);
 });
 
@@ -880,17 +1664,17 @@ test("createDocument keeps an ETP estimate section when generated content omits 
       providerKey: "stub",
       model: "stub-model",
       text: [
-        "# ESTUDO TECNICO PRELIMINAR (ETP)",
+        "# ESTUDO TÉCNICO PRELIMINAR (ETP)",
         "",
-        "## 1. INTRODUCAO",
+        "## 1. INTRODUÇÃO",
         "Conteudo ETP valido.",
       ].join("\n"),
       responseMetadata: {},
     })),
   });
 
-  assert.match(response.draftContent ?? "", /## 5\. ESTIMATIVA DO VALOR DA CONTRATACAO/);
-  assert.match(response.draftContent ?? "", /sera objeto de apuracao posterior/);
+  assert.match(response.draftContent ?? "", /## 5\. ESTIMATIVA DO VALOR DA CONTRATAÇÃO/);
+  assert.match(response.draftContent ?? "", /apuração complementar em etapa própria/);
 });
 
 test("createDocument strips DFD and ETP sections from generated TR content", async () => {
@@ -958,11 +1742,11 @@ test("createDocument strips DFD and ETP sections from generated TR content", asy
       "Conteudo TR valido.",
       "",
       "## 7. VALOR ESTIMADO E DOTACAO ORCAMENTARIA",
-      "Valor nao informado.",
+      "Valor não informado.",
     ].join("\n"),
   );
-  assert.equal(/DOCUMENTO DE FORMALIZACAO DE DEMANDA/i.test(response.draftContent ?? ""), false);
-  assert.equal(/ESTUDO TECNICO PRELIMINAR/i.test(response.draftContent ?? ""), false);
+  assert.equal(/DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/ESTUDO TÉCNICO PRELIMINAR/i.test(response.draftContent ?? ""), false);
   assert.equal(/LEVANTAMENTO DE MERCADO/i.test(response.draftContent ?? ""), false);
   assert.equal(/R\$ 0,00/i.test(response.draftContent ?? ""), false);
 });
@@ -982,13 +1766,13 @@ test("createDocument keeps a TR value-estimate section when generated content om
     textGeneration: createTextGenerationProvider(async () => ({
       providerKey: "stub",
       model: "stub-model",
-      text: ["# TERMO DE REFERENCIA", "", "## 1. OBJETO", "Conteudo TR valido."].join("\n"),
+      text: ["# TERMO DE REFERÊNCIA", "", "## 1. OBJETO", "Conteudo TR valido."].join("\n"),
       responseMetadata: {},
     })),
   });
 
-  assert.match(response.draftContent ?? "", /## 7\. VALOR ESTIMADO E DOTACAO ORCAMENTARIA/);
-  assert.match(response.draftContent ?? "", /pesquisa de mercado ou etapa propria/);
+  assert.match(response.draftContent ?? "", /## 7\. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
+  assert.match(response.draftContent ?? "", /pesquisa de mercado ou etapa própria/);
 });
 
 test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED clause rules", async () => {
@@ -1063,18 +1847,18 @@ test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED c
   assert.match(receivedPrompt ?? "", /- Tipo de documento: MINUTA/);
   assert.match(
     receivedPrompt ?? "",
-    /- Tipo de contratacao inferido para obrigacoes: apresentacao_artistica/,
+    /- Tipo de contratação inferido para obrigações: apresentacao_artistica/,
   );
-  assert.match(receivedPrompt ?? "", /- Preco disponivel: nao/);
-  assert.match(receivedPrompt ?? "", /- Valor bruto extraido da origem: R\$ 0,00/);
-  assert.match(receivedPrompt ?? "", /- Valor a usar na clausula DO PRECO: R\$ XX\.XXX,XX/);
+  assert.match(receivedPrompt ?? "", /- Preço disponível: não/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /- Valor a usar na cláusula DO PREÇO: R\$ XX\.XXX,XX/);
   assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
-  assert.match(receivedPrompt ?? "", /Clausulas FIXED do template:/);
+  assert.match(receivedPrompt ?? "", /Cláusulas FIXED do template:/);
   assert.match(receivedPrompt ?? "", /Manter consistencia contratual com o TR\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
-  assert.equal(/DOCUMENTO DE FORMALIZACAO DE DEMANDA/i.test(response.draftContent ?? ""), false);
-  assert.equal(/TERMO DE REFERENCIA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA/i.test(response.draftContent ?? ""), false);
+  assert.equal(/TERMO DE REFERÊNCIA/i.test(response.draftContent ?? ""), false);
   assert.equal(/R\$ 0,00/i.test(response.draftContent ?? ""), false);
   assert.equal(/Texto reescrito indevidamente/i.test(response.draftContent ?? ""), false);
   assert.match(response.draftContent ?? "", /R\$ XX\.XXX,XX/);
@@ -1082,7 +1866,7 @@ test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED c
     response.draftContent ?? "",
     /13\.1\. A CONTRATADA reconhece os direitos da CONTRATANTE relativos ao presente contrato/,
   );
-  assert.match(response.draftContent ?? "", /## CLAUSULA DECIMA OITAVA - DO FORO/);
+  assert.match(response.draftContent ?? "", /## CLÁUSULA DÉCIMA OITAVA - DO FORO/);
 });
 
 test("createDocument keeps Minuta price and FIXED clauses when generated content omits them", async () => {
@@ -1110,10 +1894,10 @@ test("createDocument keeps Minuta price and FIXED clauses when generated content
     })),
   });
 
-  assert.match(response.draftContent ?? "", /## CLAUSULA SEGUNDA - DO PRECO/);
+  assert.match(response.draftContent ?? "", /## CLÁUSULA SEGUNDA - DO PREÇO/);
   assert.match(response.draftContent ?? "", /R\$ XX\.XXX,XX/);
-  assert.match(response.draftContent ?? "", /## CLAUSULA DECIMA TERCEIRA - DAS PRERROGATIVAS/);
-  assert.match(response.draftContent ?? "", /## CLAUSULA DECIMA OITAVA - DO FORO/);
+  assert.match(response.draftContent ?? "", /## CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS/);
+  assert.match(response.draftContent ?? "", /## CLÁUSULA DÉCIMA OITAVA - DO FORO/);
   assert.equal(/FIXED_CLAUSE/i.test(response.draftContent ?? ""), false);
 });
 

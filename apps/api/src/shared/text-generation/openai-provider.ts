@@ -166,6 +166,14 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
         });
       }
 
+      await input.onChunk?.({
+        textDelta: text,
+        metadata: {
+          responseId: body.id ?? null,
+          status: body.status ?? null,
+        },
+      });
+
       return {
         providerKey: this.providerKey,
         model: this.model,

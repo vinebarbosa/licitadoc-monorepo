@@ -24,6 +24,7 @@ import {
 import { getProcess } from "./get-process";
 import { getProcesses } from "./get-processes";
 import { createProcessBodySchema, updateProcessBodySchema } from "./processes.schemas";
+import { deriveConciseProcessTitle } from "./processes.shared";
 import { updateProcess } from "./update-process";
 
 const ORGANIZATION_ID = "4fd5b7df-e2e5-4876-b4c3-b35306c6e733";
@@ -59,6 +60,93 @@ SECRETARIO DE EDUCACAO, CULTURA, ESPORTE E LAZER
 MARIA MARILDA SILVA DA ROCHA
 878.541.554-53
 SECRETARIO DE EDUCACAO, CULTURA, ESPORTE E LAZER
+`;
+
+const KIT_ESCOLAR_EXPENSE_REQUEST_TEXT = `
+PREFEITURA MUNICIPAL
+CNPJ: 12.345.678/0001-90
+Solicitacao de
+Despesa
+MUNICIPIO TESTE
+Unidade Orcamentaria: 06.001 - Secretaria Municipal de Educacao
+N Solicitacao:
+42
+Data Emissao:
+15/02/2026
+Processo:
+Dispensa
+Classificacao:
+Aquisicao de kit escolar para estudantes da rede municipal de ensino.
+Objeto:
+Distribuicao de kits escolares aos estudantes matriculados na rede municipal.
+Justificativa:
+Item Descricao Qtd. Und Vlr. Unitario Vlr. TotalLote FatorQtd.Ini
+KIT ESCOLAR: EDUCACAO INFANTIL 01 CADERNO BROCHURA - DESCRICAO: capa flexivel com 96 folhas. 02 LAPIS GRAFITE No 02 - DESCRICAO: produto atoxico. 03 BORRACHA PONTEIRA - DESCRICAO: embalagem deve conter identificacao do fabricante. 0005113 550 0,00 0,00KIT
+KIT ESCOLAR: ENSINO FUNDAMENTAL I 01 CADERNO ESPIRAL - DESCRICAO: formato universitario. 02 APONTADOR COM DEPOSITO - DESCRICAO: certificacao INMETRO quando aplicavel. 03 LAPIS DE COR 12 CORES - DESCRICAO: composicao em madeira reflorestada. 0005114 300 0,00 0,00KIT
+KIT ESCOLAR: ENSINO FUNDAMENTAL II 01 CANETA ESFEROGRAFICA AZUL - DESCRICAO: validade minima de 12 meses. 02 COLA BRANCA 90G - DESCRICAO: embalagem individual. 03 TESOURA ESCOLAR - DESCRICAO: ponta arredondada. 0005115 470 0,00 0,00KIT
+0,00Valor Total:
+SECRETARIO MUNICIPAL
+MARIA DA SILVA
+111.222.333-44
+SECRETARIO MUNICIPAL
+`;
+
+const KIT_ESCOLAR_WITH_PAGE_HEADERS_EXPENSE_REQUEST_TEXT = `
+PREFEITURA MUNICIPAL
+CNPJ: 12.345.678/0001-90
+Solicitacao de
+Despesa
+MUNICIPIO TESTE
+Unidade Orcamentaria: 06.001 - Secretaria Municipal de Educacao
+N Solicitacao:
+44
+Data Emissao:
+17/02/2026
+Processo:
+Dispensa
+Classificacao:
+Aquisicao de kit escolar para estudantes da rede municipal de ensino.
+Objeto:
+Distribuicao de kits escolares aos estudantes matriculados na rede municipal.
+Justificativa:
+Item Descricao Qtd. Und Vlr. Unitario Vlr. TotalLote FatorQtd.Ini
+KIT ESCOLAR: EDUCACAO INFANTIL - 01 CADERNO COM BROCHURA - DESCRICAO: capa flexivel. 02 LAPIS GRAFITE No 02: formato cilindrico. 03 BORRACHA PONTEIRA BRANCA - DESCRICAO: borracha macia. 0005113 550 0,00 0,00KIT . PRACA 05 DE ABRIL, 180, CENTRO, PUREZA/RN CEP: 59582000 CNPJ: 08.290.223/0001-42 Solicitacao de Despesa MUNICIPIO DE PUREZA Sistema Orcamentario, Financeiro e Contabil Pag.: 2/4 04 TINTA GUACHE CAIXA COM 06 CORES (15 ML) - DESCRICAO: produto atoxico. 05 TOALHA DE MAO - DESCRICAO: tecido atoalhado. 06 SQUEZZE PLASTICA 500ML - DESCRICAO: cor branca.
+KIT ESCOLAR: ENSINO FUNDAMENTAL I (ALFABETIZACAO 1o AO 2o ANO) 01 UNIDADE CADERNO COM BROCHURA - DESCRICAO: capa flexivel. 02 APONTADOR DE LAPIS - DESCRICAO: com deposito. 03 BORRACHA ESCOLAR BRANCA 20G - DESCRICAO: macia. 0005114 300 0,00 0,00KIT . PRACA 05 DE ABRIL, 180, CENTRO, PUREZA/RN CEP: 59582000 CNPJ: 08.290.223/0001-42 Solicitacao de Despesa MUNICIPIO DE PUREZA Sistema Orcamentario, Financeiro e Contabil Pag.: 3/4 04 TESOURA ESCOLAR INFANTIL SEM PONTAS - DESCRICAO: ponta arredondada. 05 SQUEZZE PLASTICA 500ML - DESCRICAO: cor branca.
+KIT ESCOLAR: ENSINO FUDAMENTAL I - (SISTEMATIZACAO 3o,4o E 5o ANO) 01 CADERNO ESPIRAL COM CAPA DURA 10 MATERIAS - DESCRICAO: capa dura. 02 LAPIS GRAFITE No 02: madeira reflorestada. 03 APONTADOR DE LAPIS - DESCRICAO: com deposito. 04 BORRACHA ESCOLAR BRANCA 20G - DESCRICAO: macia. 05 COLA BRANCA 90G PARA USO ESCOLAR: produto atoxico. 0005115 470 0,00 0,00KIT
+0,00Valor Total:
+SECRETARIO MUNICIPAL
+MARIA DA SILVA
+111.222.333-44
+SECRETARIO MUNICIPAL
+`;
+
+const MULTI_ITEM_EXPENSE_REQUEST_TEXT = `
+PREFEITURA MUNICIPAL
+CNPJ: 12.345.678/0001-90
+Solicitacao de
+Despesa
+MUNICIPIO TESTE
+Unidade Orcamentaria: 04.001 - Secretaria Municipal de Administracao
+N Solicitacao:
+43
+Data Emissao:
+16/02/2026
+Processo:
+Dispensa
+Classificacao:
+Aquisicao de materiais de expediente para manutencao das atividades administrativas.
+Objeto:
+Reposicao de materiais de expediente utilizados nas unidades administrativas.
+Justificativa:
+Item Descricao Qtd. Und Vlr. Unitario Vlr. TotalLote FatorQtd.Ini
+PAPEL A4 branco alcalino, embalagem com 500 folhas, certificacao ambiental quando aplicavel. 0006001 120 0,00 0,00RESMA
+CANETA ESFEROGRAFICA azul, corpo transparente e ponta media. 0006002 80 0,00 0,00CX
+PASTA SUSPENSA marmorizada com visor plastico. 0006003 200 0,00 0,00UN
+0,00Valor Total:
+DIRETOR
+JOAO TESTE
+111.222.333-44
+DIRETOR
 `;
 
 function escapePdfText(value: string) {
@@ -175,6 +263,7 @@ function createProcessRow(
     processNumber: "2026-001",
     externalId: null,
     issuedAt: new Date("2026-01-08T00:00:00.000Z"),
+    title: "Apresentacao artistica",
     object: "Contratacao de apresentacao artistica",
     justification: "Atender evento cultural do municipio",
     responsibleName: "Ana Souza",
@@ -249,6 +338,7 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
     processNumber: "2026/001",
     externalId: null,
     issuedAt: "2026-01-08T00:00:00.000Z",
+    title: null,
     object: "Contratacao de apresentacao artistica",
     justification: "Atender evento cultural",
     responsibleName: "Ana Souza",
@@ -257,6 +347,20 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
     status: "draft",
     departmentIds: [DEPARTMENT_ID, SECOND_DEPARTMENT_ID],
   });
+
+  assert.equal(
+    parseCreateProcessInput({
+      type: "inexigibilidade",
+      processNumber: "2026/002",
+      issuedAt: "2026-01-08",
+      title: "  Titulo enxuto  ",
+      object: "Contratacao de apresentacao artistica",
+      justification: "Atender evento cultural",
+      responsibleName: "Ana Souza",
+      departmentIds: [DEPARTMENT_ID],
+    }).title,
+    "Titulo enxuto",
+  );
 
   assert.equal(
     updateProcessBodySchema.safeParse({
@@ -270,6 +374,32 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
       organizationId: OTHER_ORGANIZATION_ID,
     }).success,
     false,
+  );
+});
+
+test("deriveConciseProcessTitle prefers explicit and source-aware concise values", () => {
+  assert.equal(
+    deriveConciseProcessTitle({
+      title: "  Titulo revisado  ",
+      object: "Contratacao de empresa especializada para prestacao de servicos tecnicos",
+    }),
+    "Titulo revisado",
+  );
+  assert.equal(
+    deriveConciseProcessTitle({
+      itemDescription:
+        "apresentacao artistica musical da banda FORRO TSUNAMI, para abrilhantar as festividades do Carnaval de Pureza 2026",
+      object:
+        "Contratacao de apresentacao artistica musical da banda FORRO TSUNAMI, para abrilhantar as festividades do Carnaval de Pureza 2026",
+    }),
+    "Apresentacao artistica musical da banda FORRO TSUNAMI",
+  );
+  assert.equal(
+    deriveConciseProcessTitle({
+      object:
+        "Contratacao de empresa especializada para prestacao de servicos tecnicos de assessoria e suporte em Recursos Humanos, de execucao indireta, junto aos Orgaos Federais",
+    }),
+    "Prestacao de servicos tecnicos de assessoria e suporte em Recursos Humanos",
   );
 });
 
@@ -288,6 +418,36 @@ test("parseExpenseRequestText extracts process context from Top Down SD text", (
   assert.equal(parsed.item.code, "0005091");
   assert.equal(parsed.responsibleName, "MARIA MARILDA SILVA DA ROCHA");
   assert.equal(parsed.sourceReference, "SD-6-2026");
+});
+
+test("parseExpenseRequestText keeps kit SDs on the legacy representative item path", () => {
+  const parsed = parseExpenseRequestText(KIT_ESCOLAR_EXPENSE_REQUEST_TEXT);
+
+  assert.equal("items" in parsed, false);
+  assert.equal("itemStructureDiagnostics" in parsed, false);
+  assert.equal(parsed.item.code, "0005113");
+  assert.equal(parsed.item.quantity, "550");
+  assert.equal(parsed.item.unit, "KIT");
+});
+
+test("parseExpenseRequestText keeps multi-page kit SDs on the legacy representative item path", () => {
+  const parsed = parseExpenseRequestText(KIT_ESCOLAR_WITH_PAGE_HEADERS_EXPENSE_REQUEST_TEXT);
+
+  assert.equal("items" in parsed, false);
+  assert.equal("itemStructureDiagnostics" in parsed, false);
+  assert.equal(parsed.item.code, "0005113");
+  assert.equal(parsed.item.quantity, "550");
+  assert.equal(parsed.item.unit, "KIT");
+});
+
+test("parseExpenseRequestText keeps non-kit multi-item rows on the legacy representative item path", () => {
+  const parsed = parseExpenseRequestText(MULTI_ITEM_EXPENSE_REQUEST_TEXT);
+
+  assert.equal("items" in parsed, false);
+  assert.equal("itemStructureDiagnostics" in parsed, false);
+  assert.equal(parsed.item.code, "0006001");
+  assert.equal(parsed.item.quantity, "120");
+  assert.equal(parsed.item.unit, "RESMA");
 });
 
 test("parseExpenseRequestText rejects missing required fields and warns on optional fields", () => {
@@ -415,6 +575,7 @@ test("createProcess lets admins create for any organization and links department
                 processNumber: String(nextValues.processNumber),
                 externalId: nextValues.externalId as string | null,
                 issuedAt: nextValues.issuedAt as Date,
+                title: String(nextValues.title),
                 object: String(nextValues.object),
                 justification: String(nextValues.justification),
                 responsibleName: String(nextValues.responsibleName),
@@ -461,13 +622,136 @@ test("createProcess lets admins create for any organization and links department
   assert.equal(insertedProcessValues?.organizationId, ORGANIZATION_ID);
   assert.equal(insertedProcessValues?.processNumber, "2026/001");
   assert.equal(insertedProcessValues?.externalId, "externo-123");
+  assert.equal(insertedProcessValues?.title, "Apresentacao artistica");
   assert.ok(insertedProcessValues?.issuedAt instanceof Date);
   assert.deepEqual(insertedDepartmentLinks, [
     { processId: PROCESS_ID, departmentId: DEPARTMENT_ID },
     { processId: PROCESS_ID, departmentId: SECOND_DEPARTMENT_ID },
   ]);
   assert.equal(response.organizationId, ORGANIZATION_ID);
+  assert.equal(response.title, "Apresentacao artistica");
   assert.deepEqual(response.departmentIds, [DEPARTMENT_ID, SECOND_DEPARTMENT_ID]);
+});
+
+test("createProcess preserves native expense request item and kit metadata", async () => {
+  let insertedProcessValues: Record<string, unknown> | undefined;
+  const nativeSourceMetadata = {
+    extractedFields: {
+      item: {
+        kind: "simple",
+        title: "Pote plastico",
+        quantity: "10",
+        unit: "unidade",
+        unitValue: "R$ 8,00",
+        totalValue: "R$ 80,00",
+      },
+      items: [
+        {
+          kind: "simple",
+          title: "Pote plastico",
+          quantity: "10",
+          unit: "unidade",
+          unitValue: "R$ 8,00",
+          totalValue: "R$ 80,00",
+        },
+        {
+          kind: "kit",
+          title: "Kit escolar",
+          quantity: "100",
+          unit: "kit",
+          components: [
+            {
+              title: "Caderno",
+              description: "Caderno brochura capa dura",
+              quantity: "2",
+              unit: "unidade",
+            },
+          ],
+        },
+      ],
+    },
+    source: {
+      inputMode: "native_form",
+    },
+    warnings: [],
+  };
+
+  const tx = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow(),
+      },
+    },
+    select: () => ({
+      from: (table: unknown) => ({
+        where: async () => {
+          if (table === departments) {
+            return [{ id: DEPARTMENT_ID }];
+          }
+
+          return [];
+        },
+      }),
+    }),
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown> | Array<Record<string, unknown>>) => {
+        if (table === processes) {
+          const nextValues = values as Record<string, unknown>;
+          insertedProcessValues = nextValues;
+
+          return {
+            returning: async () => [
+              createProcessRow({
+                organizationId: String(nextValues.organizationId),
+                sourceKind: nextValues.sourceKind as string | null,
+                sourceMetadata: nextValues.sourceMetadata as Record<string, unknown>,
+              }),
+            ],
+          };
+        }
+
+        return {
+          returning: async () => [],
+        };
+      },
+    }),
+  };
+
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await createProcess({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    process: parseCreateProcessInput({
+      type: "pregao",
+      processNumber: "PROC-NATIVE-ITEMS",
+      issuedAt: "2026-01-08",
+      object: "Aquisicao de itens nativos",
+      justification: "Atendimento da demanda.",
+      responsibleName: "Ana Souza",
+      departmentIds: [DEPARTMENT_ID],
+      sourceKind: "expense_request",
+      sourceReference: "PROC-NATIVE-ITEMS",
+      sourceMetadata: nativeSourceMetadata,
+    }),
+  });
+
+  assert.deepEqual(insertedProcessValues?.sourceMetadata, nativeSourceMetadata);
+  assert.equal(
+    (response.sourceMetadata as Record<string, unknown> | null)?.source &&
+      ((response.sourceMetadata as Record<string, unknown>).source as Record<string, unknown>)
+        .inputMode,
+    "native_form",
+  );
+  assert.ok(JSON.stringify(response.sourceMetadata).includes("Kit escolar"));
+  assert.ok(JSON.stringify(response.sourceMetadata).includes("Caderno brochura"));
 });
 
 test("createProcess scopes members to their own organization and rejects foreign departments", async () => {
@@ -592,6 +876,7 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
                 processNumber: String(nextValues.processNumber),
                 externalId: nextValues.externalId as string | null,
                 issuedAt: nextValues.issuedAt as Date,
+                title: String(nextValues.title),
                 object: String(nextValues.object),
                 justification: String(nextValues.justification),
                 responsibleName: String(nextValues.responsibleName),
@@ -641,12 +926,17 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
 
   assert.equal(insertedProcessValues?.processNumber, "SD-6-2026");
   assert.equal(insertedProcessValues?.externalId, "6");
+  assert.equal(
+    insertedProcessValues?.title,
+    "Apresentacao artistica musical da banda FORRO TSUNAMI",
+  );
   assert.equal(insertedProcessValues?.sourceKind, "expense_request");
   assert.equal(insertedProcessValues?.sourceReference, "SD-6-2026");
   assert.deepEqual(insertedDepartmentLinks, [
     { processId: PROCESS_ID, departmentId: DEPARTMENT_ID },
   ]);
   assert.equal(response.processNumber, "SD-6-2026");
+  assert.equal(response.title, "Apresentacao artistica musical da banda FORRO TSUNAMI");
   assert.equal(response.sourceKind, "expense_request");
   assert.ok(JSON.stringify(response.sourceMetadata).includes("requestNumber"));
   assert.equal(JSON.stringify(response.sourceMetadata).includes("expenseRequestText"), false);
@@ -677,6 +967,7 @@ test("createProcessFromExpenseRequestText persists source file traceability when
                 externalId: (values as Record<string, unknown>).externalId as string | null,
                 issuedAt: (values as Record<string, unknown>).issuedAt as Date,
                 justification: String((values as Record<string, unknown>).justification),
+                title: String((values as Record<string, unknown>).title),
                 object: String((values as Record<string, unknown>).object),
                 processNumber: String((values as Record<string, unknown>).processNumber),
                 responsibleName: String((values as Record<string, unknown>).responsibleName),
@@ -783,6 +1074,7 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
                 externalId: (values as Record<string, unknown>).externalId as string | null,
                 issuedAt: (values as Record<string, unknown>).issuedAt as Date,
                 justification: String((values as Record<string, unknown>).justification),
+                title: String((values as Record<string, unknown>).title),
                 object: String((values as Record<string, unknown>).object),
                 processNumber: String((values as Record<string, unknown>).processNumber),
                 responsibleName: String((values as Record<string, unknown>).responsibleName),
@@ -1357,7 +1649,13 @@ test("getProcess allows admins and rejects members outside organization", async 
   const db = {
     query: {
       processes: {
-        findFirst: async () => createProcessRow({ organizationId: OTHER_ORGANIZATION_ID }),
+        findFirst: async () =>
+          createProcessRow({
+            organizationId: OTHER_ORGANIZATION_ID,
+            title: null,
+            object:
+              "Contratacao de empresa especializada para prestacao de servicos tecnicos de assessoria e suporte em Recursos Humanos, de execucao indireta",
+          }),
       },
       departments: {
         findMany: async () => [],
@@ -1384,6 +1682,10 @@ test("getProcess allows admins and rejects members outside organization", async 
   });
 
   assert.equal(response.organizationId, OTHER_ORGANIZATION_ID);
+  assert.equal(
+    response.title,
+    "Prestacao de servicos tecnicos de assessoria e suporte em Recursos Humanos",
+  );
   assert.deepEqual(response.departments, []);
   assert.equal(response.estimatedValue, null);
   assert.deepEqual(response.documents, [
@@ -1661,6 +1963,7 @@ test("updateProcess lets admins and members update fields and department links",
                 externalId: (values.externalId as string | null | undefined) ?? null,
                 issuedAt:
                   (values.issuedAt as Date | undefined) ?? new Date("2026-01-08T00:00:00.000Z"),
+                title: String(values.title ?? "Apresentacao artistica"),
                 object: String(values.object ?? "Contratacao de apresentacao artistica"),
                 justification: String(
                   values.justification ?? "Atender evento cultural do municipio",
@@ -1732,6 +2035,7 @@ test("updateProcess lets admins and members update fields and department links",
     changes: parseUpdateProcessInput({
       processNumber: "2026/099",
       externalId: "externo-999",
+      title: "Titulo revisado",
       status: "published",
       departmentIds: [SECOND_DEPARTMENT_ID],
     }),
@@ -1739,6 +2043,7 @@ test("updateProcess lets admins and members update fields and department links",
 
   assert.equal(capturedUpdateValues?.processNumber, "2026/099");
   assert.equal(capturedUpdateValues?.externalId, "externo-999");
+  assert.equal(capturedUpdateValues?.title, "Titulo revisado");
   assert.equal(capturedUpdateValues?.status, "published");
   assert.ok(capturedUpdateValues?.updatedAt instanceof Date);
   assert.equal(deletedProcessId, PROCESS_ID);
@@ -1746,6 +2051,7 @@ test("updateProcess lets admins and members update fields and department links",
     { processId: PROCESS_ID, departmentId: SECOND_DEPARTMENT_ID },
   ]);
   assert.equal(adminResponse.processNumber, "2026/099");
+  assert.equal(adminResponse.title, "Titulo revisado");
   assert.equal(linkedDocument.processId, PROCESS_ID);
 
   const memberResponse = await updateProcess({

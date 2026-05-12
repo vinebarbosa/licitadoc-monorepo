@@ -68,6 +68,90 @@ MARIA MARILDA SILVA DA ROCHA
 SECRETÁRIO DE EDUCAÇÃO, CULTURA, ESPORTE E LAZER
 `;
 
+const multiItemKitSchoolText = `
+PRACA 05 DE ABRIL, 180, CENTRO
+CNPJ: 08.290.223/0001-42
+Solicitacao de Despesa
+MUNICIPIO DE PUREZA
+Unidade Orcamentaria: 06.001 - Sec.Mun.de Educ,Cultura, Esporte e Lazer
+N Solicitacao:
+22
+Data Emissao:
+10/05/2026
+Processo:
+Pregao
+Classificacao:
+Aquisicao de kits escolares
+Objeto:
+Distribuicao de materiais escolares aos alunos da rede municipal.
+Justificativa:
+Necessidade de fornecimento de materiais escolares para o ano letivo.
+Item Descricao Qtd. Und Vlr. Unitario Vlr. Total
+KIT ESCOLAR: EDUCACAO INFANTIL 1 CADERNO BROCHURA: DESCRICAO caderno brochura capa dura
+2 LAPIS GRAFITE: DESCRICAO lapis preto escolar
+0005113 550 0,00 0,00 KIT
+Sistema Orcamentario, Financeiro e Contabil Pag.: 2/3
+KIT ESCOLAR: ENSINO FUNDAMENTAL I 1 CADERNO UNIVERSITARIO: DESCRICAO caderno universitario 96 folhas
+1 BORRACHA BRANCA: DESCRICAO borracha escolar
+0005114 300 0,00 0,00 KIT
+KIT ESCOLAR: ENSINO FUNDAMENTAL II 1 CANETA AZUL: DESCRICAO caneta esferografica azul
+1 TESOURA ESCOLAR: DESCRICAO tesoura sem ponta
+0005115 470 0,00 0,00 KIT
+Valor Total
+0,00
+SECRETARIO DE EDUCACAO
+MARIA RESPONSAVEL
+123.456.789-00
+`;
+
+const mothersDayMultiItemText = `
+PRACA 05 DE ABRIL, 180, CENTRO, PUREZA/RN CEP: 59582000
+CNPJ: 08.290.223/0001-42
+Solicitação de
+Despesa
+MUNICIPIO DE PUREZA
+Unidade Orcamentária:   06.001 - Sec.Mun.de Educ,Cultura, Esporte e Lazer
+Nº Solicitação:
+53
+Data Emissão:
+30/04/2026   825/2026
+Processo:
+Compra
+Classificação:
+Contratação de empresa para aquisição de materiais para distribuição gratuita em comemoração ao dia das mães na
+cidade de Pureza/RN.
+Objeto:
+A contratação direta por dispensa de licitação mostra-se tecnicamente adequada.
+Justificativa:
+Item   Descrição   Qtd.   Und   Vlr. Unitário   Vlr. Total Lote   Fator Qtd.Ini
+Pote plástico (de no mínimo 1L) com tampa e
+trava lateral, de material reutilizável.
+0005909   550   0,00   0,00 UN
+Kit com 2 (duas) unidades de potes plásticos
+(de no mínimo 1L) com tampa e trava lateral,
+de material reutilizável.
+0005910   550   0,00   0,00 KIT
+Kit com 3 (três) unidades de potes plásticos
+(de no mínimo 1L) com tampa e trava lateral,
+de material reutilizável
+0005911   550   0,00   0,00 KIT
+Embalagem para presente, adequada ao
+acondicionamento de potes plásticos
+individuais ou kits contendo até 3 (três)
+unidades, com capacidade mínima de 1 litro
+cada.
+0005912   6   0,00   0,00 ROLO
+Fita adesiva transparente tipo durex,
+contendo rolos de dimensões padrão, indicada
+para uso geral em escritório. Pacote contendo 10
+unidades em cada.
+0005913   5   0,00   0,00 PACOTE
+0,00 Valor Total:
+SECRETÁRIO DE EDUCAÇÃO, CULTURA, ESPORTE E LAZER
+MARIA MARILDA SILVA DA ROCHA
+878.541.554-53
+`;
+
 function createPdfFile(name = "SD.pdf", type = "application/pdf", content = "pdf") {
   return new File([content], name, { type });
 }
@@ -175,6 +259,44 @@ describe("expense request PDF helpers", () => {
       totalValue: "0,00",
     });
     expect(extraction.suggestions.justification).toContain("Carnaval de Pureza 2026");
+  });
+
+  it("parses multi-item TopDown text into reviewed item rows", () => {
+    const extraction = parseTopDownExpenseRequestText(multiItemKitSchoolText, "SD-kit.pdf");
+
+    expect(extraction.extractedFields).not.toHaveProperty("itemStructureDiagnostics");
+    expect(extraction.extractedFields.items).toHaveLength(3);
+    expect(extraction.extractedFields.item).toMatchObject({
+      code: "0005113",
+      quantity: "550",
+      unit: "KIT",
+    });
+    expect(extraction.suggestions.expenseRequestItems).toHaveLength(3);
+  });
+
+  it("parses the SD Dias das Maes item table pattern", () => {
+    const extraction = parseTopDownExpenseRequestText(mothersDayMultiItemText, "SD-maes.pdf");
+
+    expect(extraction.extractedFields.items).toHaveLength(5);
+    expect(extraction.extractedFields.items?.[0]).toMatchObject({
+      code: "0005909",
+      description: expect.stringContaining("Pote plástico"),
+      quantity: "550",
+      unit: "UN",
+      unitValue: "0,00",
+      totalValue: "0,00",
+    });
+    expect(extraction.extractedFields.items?.[4]).toMatchObject({
+      code: "0005913",
+      description: expect.stringContaining("Fita adesiva"),
+      quantity: "5",
+      unit: "PACOTE",
+    });
+    expect(extraction.extractedFields.item).toMatchObject({
+      code: "0005909",
+      quantity: "550",
+      unit: "UN",
+    });
   });
 
   it("keeps missing optional values as warnings instead of inventing data", () => {
