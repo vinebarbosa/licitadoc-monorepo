@@ -188,8 +188,8 @@ function Stepper({
   }
 
   return (
-    <div className="hidden md:block">
-      <div className="flex items-start justify-between gap-0 px-2">
+    <div className="hidden md:block px-4">
+      <div className="flex items-start justify-between gap-0">
         {steps.map((step, index) => {
           const isActive = index === currentIndex;
           const isComplete = index < currentIndex;
@@ -827,7 +827,7 @@ export function ProcessCreateDemoPage() {
         </div>
 
         {/* Desktop Stepper */}
-        <div className="mb-6 -mx-6 px-6">
+        <div className="mb-6 -mx-4">
           <Stepper currentStep={currentStep} />
         </div>
 
