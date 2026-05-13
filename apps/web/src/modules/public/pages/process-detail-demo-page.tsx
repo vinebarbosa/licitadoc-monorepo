@@ -237,18 +237,18 @@ function getDocumentStatusConfig(status: DocumentStatus) {
     generating: {
       label: "Gerando...",
       icon: Loader2,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-400/30",
-      badgeClassName: "bg-blue-50 text-blue-700 border-blue-200",
+      color: "text-cyan-600",
+      bgColor: "bg-cyan-50",
+      borderColor: "border-cyan-400/30",
+      badgeClassName: "bg-cyan-50 text-cyan-700 border-cyan-200",
     },
     error: {
       label: "Erro na geração",
       icon: XCircle,
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-      borderColor: "border-red-400/30",
-      badgeClassName: "bg-red-50 text-red-700 border-red-200",
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
+      borderColor: "border-orange-400/30",
+      badgeClassName: "bg-orange-50 text-orange-700 border-orange-200",
     },
     generated: {
       label: "Gerado",
@@ -580,32 +580,32 @@ function DocumentCard({ document }: { document: Document }) {
     <Card 
       className={`group relative overflow-hidden transition-all hover:border-primary/30 hover:shadow-md border ${config.borderColor}`}
     >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${config.bgColor}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.bgColor}`}>
             {document.status === "generating" ? (
-              <Loader2 className={`h-6 w-6 ${config.color} animate-spin`} />
+              <Loader2 className={`h-5 w-5 ${config.color} animate-spin`} />
             ) : document.status === "generated" ? (
-              <FileCheck className={`h-6 w-6 ${config.color}`} />
+              <FileCheck className={`h-5 w-5 ${config.color}`} />
             ) : document.status === "error" ? (
-              <AlertCircle className={`h-6 w-6 ${config.color}`} />
+              <AlertCircle className={`h-5 w-5 ${config.color}`} />
             ) : (
-              <FileText className={`h-6 w-6 ${config.color}`} />
+              <FileText className={`h-5 w-5 ${config.color}`} />
             )}
           </div>
-          <Badge variant="outline" className={`text-xs ${config.badgeClassName}`}>
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base font-bold">{document.acronym}</CardTitle>
+            <CardDescription className="text-xs font-medium text-foreground/70">
+              {document.name}
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className={`shrink-0 text-xs ${config.badgeClassName}`}>
             {config.label}
           </Badge>
         </div>
-        <div className="space-y-1 pt-2">
-          <CardTitle className="text-xl font-bold">{document.acronym}</CardTitle>
-          <CardDescription className="text-sm font-medium text-foreground/80">
-            {document.name}
-          </CardDescription>
-        </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 pt-0">
         <p className="text-sm text-muted-foreground leading-relaxed">
           {document.description}
         </p>
