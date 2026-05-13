@@ -231,7 +231,7 @@ function getDocumentStatusConfig(status: DocumentStatus) {
       icon: FileQuestion,
       color: "text-muted-foreground",
       bgColor: "bg-muted/50",
-      borderColor: "border-muted",
+      shadowColor: "0 0 0 1px rgba(148, 163, 184, 0.1)",
       badgeClassName: "bg-slate-50 text-slate-600 border-slate-200",
     },
     generating: {
@@ -239,7 +239,7 @@ function getDocumentStatusConfig(status: DocumentStatus) {
       icon: Loader2,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
+      shadowColor: "0 0 20px rgba(59, 130, 246, 0.1)",
       badgeClassName: "bg-blue-50 text-blue-700 border-blue-200",
     },
     error: {
@@ -247,7 +247,7 @@ function getDocumentStatusConfig(status: DocumentStatus) {
       icon: XCircle,
       color: "text-red-600",
       bgColor: "bg-red-50",
-      borderColor: "border-red-200",
+      shadowColor: "0 0 20px rgba(239, 68, 68, 0.1)",
       badgeClassName: "bg-red-50 text-red-700 border-red-200",
     },
     generated: {
@@ -255,7 +255,7 @@ function getDocumentStatusConfig(status: DocumentStatus) {
       icon: CheckCircle2,
       color: "text-emerald-600",
       bgColor: "bg-emerald-50",
-      borderColor: "border-emerald-200",
+      shadowColor: "0 0 20px rgba(16, 185, 129, 0.1)",
       badgeClassName: "bg-emerald-50 text-emerald-700 border-emerald-200",
     },
   };
@@ -577,7 +577,10 @@ function DocumentCard({ document }: { document: Document }) {
   const StatusIcon = config.icon;
 
   return (
-    <Card className={`group relative overflow-hidden transition-all hover:shadow-md border-2 ${config.borderColor}`}>
+    <Card 
+      className="group relative overflow-hidden transition-all hover:shadow-md"
+      style={{ boxShadow: config.shadowColor }}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${config.bgColor}`}>
