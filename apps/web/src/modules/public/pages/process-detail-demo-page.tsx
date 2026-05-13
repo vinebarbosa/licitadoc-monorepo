@@ -341,15 +341,15 @@ function ExecutiveSummary({ process }: { process: ProcessData }) {
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-br from-background to-muted/30 sm:col-span-2">
+      <Card className="sm:col-span-2 border-muted/50">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-              <Scale className="h-5 w-5 text-emerald-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50">
+              <Scale className="h-5 w-5 text-muted-foreground/60" />
             </div>
             <div>
-              <p className="text-2xl font-semibold">{formatCurrency(totalValue)}</p>
-              <p className="text-xs text-muted-foreground">Valor total estimado</p>
+              <p className="text-lg font-semibold text-foreground/80">{formatCurrency(totalValue)}</p>
+              <p className="text-xs text-muted-foreground/70">Valor total estimado</p>
             </div>
           </div>
         </CardContent>
