@@ -342,7 +342,7 @@ export function ProcessDetailPageContent() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="font-mono">{process.processNumber}</span>
               <Separator orientation="vertical" className="h-4" />
-              <span>{getProcessTypeLabel(process.type)}</span>
+              <span>{getProcessTypeLabel(process.procurementMethod ?? "")}</span>
               <Separator orientation="vertical" className="h-4" />
               <span>{departmentLabel}</span>
             </div>
@@ -369,12 +369,12 @@ export function ProcessDetailPageContent() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-sm text-muted-foreground">Responsável</p>
-                <p className="font-medium">{process.responsibleName}</p>
+                <p className="font-medium">{process.responsibleName ?? "Nao informado"}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Valor Estimado</p>
                 <p className="font-medium">
-                  {getProcessEstimatedValueLabel(process.estimatedValue)}
+                  {getProcessEstimatedValueLabel(process.summary.estimatedTotalValue)}
                 </p>
               </div>
               <div>

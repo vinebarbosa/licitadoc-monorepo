@@ -45,6 +45,11 @@
           "organizationId": {
             "type": "string",
             "readOnly": true
+          },
+          "onboardingStatus": {
+            "type": "string",
+            "default": "complete",
+            "readOnly": true
           }
         },
         "required": [
@@ -290,6 +295,16 @@
                         }
                       ]
                     },
+                    "provisionedUserId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "acceptedByUserId": {
                       "anyOf": [
                         {
@@ -340,6 +355,7 @@
                     "role",
                     "organizationId",
                     "invitedByUserId",
+                    "provisionedUserId",
                     "acceptedByUserId",
                     "status",
                     "expiresAt",
@@ -619,6 +635,16 @@
                               }
                             ]
                           },
+                          "provisionedUserId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "acceptedByUserId": {
                             "anyOf": [
                               {
@@ -663,6 +689,7 @@
                           "role",
                           "organizationId",
                           "invitedByUserId",
+                          "provisionedUserId",
                           "acceptedByUserId",
                           "status",
                           "expiresAt",
@@ -1132,6 +1159,16 @@
                         }
                       ]
                     },
+                    "provisionedUserId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "acceptedByUserId": {
                       "anyOf": [
                         {
@@ -1176,6 +1213,7 @@
                     "role",
                     "organizationId",
                     "invitedByUserId",
+                    "provisionedUserId",
                     "acceptedByUserId",
                     "status",
                     "expiresAt",
@@ -1458,6 +1496,14 @@
                               }
                             ]
                           },
+                          "onboardingStatus": {
+                            "type": "string",
+                            "enum": [
+                              "pending_profile",
+                              "pending_organization",
+                              "complete"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -1473,6 +1519,7 @@
                           "image",
                           "role",
                           "organizationId",
+                          "onboardingStatus",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -1668,6 +1715,250 @@
         }
       }
     },
+    "/api/users/me/onboarding/profile": {
+      "post": {
+        "summary": "Complete current user profile onboarding",
+        "tags": [
+          "Users"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "example": "Maria Silva"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128,
+                    "example": "NovaSenha123!"
+                  }
+                },
+                "required": [
+                  "name",
+                  "password"
+                ],
+                "example": {
+                  "name": "Maria Silva",
+                  "password": "NovaSenha123!"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email",
+                      "example": "user@example.com"
+                    },
+                    "emailVerified": {
+                      "type": "boolean"
+                    },
+                    "image": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "admin",
+                        "organization_owner",
+                        "member"
+                      ]
+                    },
+                    "organizationId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "onboardingStatus": {
+                      "type": "string",
+                      "enum": [
+                        "pending_profile",
+                        "pending_organization",
+                        "complete"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "emailVerified",
+                    "image",
+                    "role",
+                    "organizationId",
+                    "onboardingStatus",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "validation_error"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "bad_request"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "internal_server_error"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/users/{userId}": {
       "get": {
         "summary": "Get user by id",
@@ -1736,6 +2027,14 @@
                         }
                       ]
                     },
+                    "onboardingStatus": {
+                      "type": "string",
+                      "enum": [
+                        "pending_profile",
+                        "pending_organization",
+                        "complete"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -1751,6 +2050,7 @@
                     "image",
                     "role",
                     "organizationId",
+                    "onboardingStatus",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -2058,6 +2358,14 @@
                         }
                       ]
                     },
+                    "onboardingStatus": {
+                      "type": "string",
+                      "enum": [
+                        "pending_profile",
+                        "pending_organization",
+                        "complete"
+                      ]
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -2073,6 +2381,7 @@
                     "image",
                     "role",
                     "organizationId",
+                    "onboardingStatus",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -5290,9 +5599,27 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "type": {
-                    "example": "pregao-eletronico",
-                    "type": "string"
+                  "procurementMethod": {
+                    "example": "bidding",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "biddingModality": {
+                    "example": "reverse_auction",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "processNumber": {
                     "example": "PE-2026-0001",
@@ -5312,6 +5639,17 @@
                   "issuedAt": {
                     "example": "2026-01-15T10:30:00.000Z",
                     "type": "string"
+                  },
+                  "title": {
+                    "example": "Materiais de escritorio",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "object": {
                     "example": "Aquisicao de materiais de escritorio",
@@ -5345,59 +5683,250 @@
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     }
                   },
-                  "sourceKind": {
-                    "example": "expense_request",
-                    "anyOf": [
+                  "items": {
+                    "example": [
                       {
-                        "type": "string"
+                        "kind": "kit",
+                        "code": "1",
+                        "title": "Kit escolar",
+                        "quantity": "100",
+                        "unit": "kit",
+                        "unitValue": "120.00",
+                        "totalValue": "12000.00",
+                        "components": [
+                          {
+                            "title": "Caderno",
+                            "description": "Caderno brochura capa dura",
+                            "quantity": "2",
+                            "unit": "unidade"
+                          }
+                        ]
                       },
                       {
-                        "type": "null"
+                        "kind": "simple",
+                        "code": "2",
+                        "title": "Caneta azul",
+                        "description": "Caneta esferografica azul",
+                        "quantity": "500",
+                        "unit": "unidade",
+                        "unitValue": "1.50",
+                        "totalValue": "750.00"
                       }
-                    ]
-                  },
-                  "sourceReference": {
-                    "example": "SD-6-2026",
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sourceMetadata": {
-                    "example": {
-                      "extractedFields": {
-                        "budgetUnitCode": "06.001",
-                        "requestNumber": "6"
-                      },
-                      "sourceFile": {
-                        "contentType": "application/pdf",
-                        "etag": "abc123",
-                        "fileName": "SD.pdf",
-                        "sizeBytes": 245760,
-                        "storageBucket": "licitadoc-expense-requests",
-                        "storageKey": "expense-requests/2026/04/2026-04-21t12-00-00-000z-sd.pdf",
-                        "uploadedAt": "2026-04-21T12:00:00.000Z"
-                      },
-                      "warnings": []
-                    },
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {},
-                        "additionalProperties": {}
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    ],
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "simple"
+                            },
+                            "code": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "quantity": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "unit": {
+                              "type": "string"
+                            },
+                            "unitValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "totalValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "code",
+                            "title",
+                            "unit"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "kit"
+                            },
+                            "code": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "quantity": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "unit": {
+                              "type": "string"
+                            },
+                            "unitValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "totalValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "components": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "quantity": {
+                                    "anyOf": [
+                                      {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "number"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "title",
+                                  "unit"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "code",
+                            "title",
+                            "unit"
+                          ]
+                        }
+                      ],
+                      "type": "object"
+                    }
                   }
                 },
                 "required": [
-                  "type",
                   "processNumber",
                   "issuedAt",
                   "object",
@@ -5407,10 +5936,12 @@
                 ],
                 "additionalProperties": false,
                 "example": {
-                  "type": "pregao-eletronico",
+                  "procurementMethod": "bidding",
+                  "biddingModality": "reverse_auction",
                   "processNumber": "PE-2026-0001",
                   "externalId": "PROC-2026-001",
                   "issuedAt": "2026-01-15T10:30:00.000Z",
+                  "title": "Materiais de escritorio",
                   "object": "Aquisicao de materiais de escritorio",
                   "justification": "Reposicao de estoque das unidades administrativas.",
                   "responsibleName": "Maria Silva",
@@ -5419,24 +5950,35 @@
                   "departmentIds": [
                     "123e4567-e89b-12d3-a456-426614174000"
                   ],
-                  "sourceKind": "expense_request",
-                  "sourceReference": "SD-6-2026",
-                  "sourceMetadata": {
-                    "extractedFields": {
-                      "budgetUnitCode": "06.001",
-                      "requestNumber": "6"
+                  "items": [
+                    {
+                      "kind": "kit",
+                      "code": "1",
+                      "title": "Kit escolar",
+                      "quantity": "100",
+                      "unit": "kit",
+                      "unitValue": "120.00",
+                      "totalValue": "12000.00",
+                      "components": [
+                        {
+                          "title": "Caderno",
+                          "description": "Caderno brochura capa dura",
+                          "quantity": "2",
+                          "unit": "unidade"
+                        }
+                      ]
                     },
-                    "sourceFile": {
-                      "contentType": "application/pdf",
-                      "etag": "abc123",
-                      "fileName": "SD.pdf",
-                      "sizeBytes": 245760,
-                      "storageBucket": "licitadoc-expense-requests",
-                      "storageKey": "expense-requests/2026/04/2026-04-21t12-00-00-000z-sd.pdf",
-                      "uploadedAt": "2026-04-21T12:00:00.000Z"
-                    },
-                    "warnings": []
-                  }
+                    {
+                      "kind": "simple",
+                      "code": "2",
+                      "title": "Caneta azul",
+                      "description": "Caneta esferografica azul",
+                      "quantity": "500",
+                      "unit": "unidade",
+                      "unitValue": "1.50",
+                      "totalValue": "750.00"
+                    }
+                  ]
                 }
               }
             }
@@ -5460,8 +6002,25 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     },
-                    "type": {
-                      "type": "string"
+                    "procurementMethod": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "biddingModality": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "processNumber": {
                       "type": "string"
@@ -5479,6 +6038,9 @@
                     "issuedAt": {
                       "type": "string"
                     },
+                    "title": {
+                      "type": "string"
+                    },
                     "object": {
                       "type": "string"
                     },
@@ -5491,38 +6053,6 @@
                     "status": {
                       "type": "string"
                     },
-                    "sourceKind": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceReference": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceMetadata": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {},
-                          "additionalProperties": {}
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "departmentIds": {
                       "type": "array",
                       "items": {
@@ -5534,6 +6064,243 @@
                         "123e4567-e89b-12d3-a456-426614174000"
                       ]
                     },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "simple"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "kit"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "components": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "description",
+                                    "quantity",
+                                    "unit"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue",
+                              "components"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "itemCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "componentCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "estimatedTotalValue": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "itemCount",
+                        "componentCount",
+                        "estimatedTotalValue"
+                      ],
+                      "additionalProperties": false
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -5544,18 +6311,19 @@
                   "required": [
                     "id",
                     "organizationId",
-                    "type",
+                    "procurementMethod",
+                    "biddingModality",
                     "processNumber",
                     "externalId",
                     "issuedAt",
+                    "title",
                     "object",
                     "justification",
                     "responsibleName",
                     "status",
-                    "sourceKind",
-                    "sourceReference",
-                    "sourceMetadata",
                     "departmentIds",
+                    "items",
+                    "summary",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -5828,7 +6596,14 @@
               "type": "string"
             },
             "in": "query",
-            "name": "type"
+            "name": "procurementMethod"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "biddingModality"
           }
         ],
         "responses": {
@@ -5854,8 +6629,25 @@
                             "format": "uuid",
                             "example": "123e4567-e89b-12d3-a456-426614174000"
                           },
-                          "type": {
-                            "type": "string"
+                          "procurementMethod": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "biddingModality": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "processNumber": {
                             "type": "string"
@@ -5873,6 +6665,9 @@
                           "issuedAt": {
                             "type": "string"
                           },
+                          "title": {
+                            "type": "string"
+                          },
                           "object": {
                             "type": "string"
                           },
@@ -5885,38 +6680,6 @@
                           "status": {
                             "type": "string"
                           },
-                          "sourceKind": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "sourceReference": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "sourceMetadata": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
                           "departmentIds": {
                             "type": "array",
                             "items": {
@@ -5927,6 +6690,243 @@
                             "example": [
                               "123e4567-e89b-12d3-a456-426614174000"
                             ]
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "simple"
+                                    },
+                                    "code": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    },
+                                    "unitValue": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "totalValue": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "code",
+                                    "title",
+                                    "description",
+                                    "quantity",
+                                    "unit",
+                                    "unitValue",
+                                    "totalValue"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "const": "kit"
+                                    },
+                                    "code": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    },
+                                    "unitValue": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "totalValue": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "components": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "example": "123e4567-e89b-12d3-a456-426614174000"
+                                          },
+                                          "title": {
+                                            "type": "string"
+                                          },
+                                          "description": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "quantity": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "unit": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "title",
+                                          "description",
+                                          "quantity",
+                                          "unit"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "code",
+                                    "title",
+                                    "description",
+                                    "quantity",
+                                    "unit",
+                                    "unitValue",
+                                    "totalValue",
+                                    "components"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "summary": {
+                            "type": "object",
+                            "properties": {
+                              "itemCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "componentCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "estimatedTotalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "itemCount",
+                              "componentCount",
+                              "estimatedTotalValue"
+                            ],
+                            "additionalProperties": false
                           },
                           "createdAt": {
                             "type": "string"
@@ -5987,18 +6987,19 @@
                         "required": [
                           "id",
                           "organizationId",
-                          "type",
+                          "procurementMethod",
+                          "biddingModality",
                           "processNumber",
                           "externalId",
                           "issuedAt",
+                          "title",
                           "object",
                           "justification",
                           "responsibleName",
                           "status",
-                          "sourceKind",
-                          "sourceReference",
-                          "sourceMetadata",
                           "departmentIds",
+                          "items",
+                          "summary",
                           "createdAt",
                           "updatedAt",
                           "documents",
@@ -6286,8 +7287,25 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     },
-                    "type": {
-                      "type": "string"
+                    "procurementMethod": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "biddingModality": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "processNumber": {
                       "type": "string"
@@ -6305,6 +7323,9 @@
                     "issuedAt": {
                       "type": "string"
                     },
+                    "title": {
+                      "type": "string"
+                    },
                     "object": {
                       "type": "string"
                     },
@@ -6317,38 +7338,6 @@
                     "status": {
                       "type": "string"
                     },
-                    "sourceKind": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceReference": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceMetadata": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {},
-                          "additionalProperties": {}
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "departmentIds": {
                       "type": "array",
                       "items": {
@@ -6360,6 +7349,243 @@
                         "123e4567-e89b-12d3-a456-426614174000"
                       ]
                     },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "simple"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "kit"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "components": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "description",
+                                    "quantity",
+                                    "unit"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue",
+                              "components"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "itemCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "componentCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "estimatedTotalValue": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "itemCount",
+                        "componentCount",
+                        "estimatedTotalValue"
+                      ],
+                      "additionalProperties": false
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -6370,18 +7596,19 @@
                   "required": [
                     "id",
                     "organizationId",
-                    "type",
+                    "procurementMethod",
+                    "biddingModality",
                     "processNumber",
                     "externalId",
                     "issuedAt",
+                    "title",
                     "object",
                     "justification",
                     "responsibleName",
                     "status",
-                    "sourceKind",
-                    "sourceReference",
-                    "sourceMetadata",
                     "departmentIds",
+                    "items",
+                    "summary",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -6676,8 +7903,25 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     },
-                    "type": {
-                      "type": "string"
+                    "procurementMethod": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "biddingModality": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "processNumber": {
                       "type": "string"
@@ -6695,6 +7939,9 @@
                     "issuedAt": {
                       "type": "string"
                     },
+                    "title": {
+                      "type": "string"
+                    },
                     "object": {
                       "type": "string"
                     },
@@ -6707,38 +7954,6 @@
                     "status": {
                       "type": "string"
                     },
-                    "sourceKind": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceReference": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceMetadata": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {},
-                          "additionalProperties": {}
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "departmentIds": {
                       "type": "array",
                       "items": {
@@ -6750,6 +7965,243 @@
                         "123e4567-e89b-12d3-a456-426614174000"
                       ]
                     },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "simple"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "kit"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "components": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "description",
+                                    "quantity",
+                                    "unit"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue",
+                              "components"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "itemCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "componentCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "estimatedTotalValue": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "itemCount",
+                        "componentCount",
+                        "estimatedTotalValue"
+                      ],
+                      "additionalProperties": false
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -6760,18 +8212,19 @@
                   "required": [
                     "id",
                     "organizationId",
-                    "type",
+                    "procurementMethod",
+                    "biddingModality",
                     "processNumber",
                     "externalId",
                     "issuedAt",
+                    "title",
                     "object",
                     "justification",
                     "responsibleName",
                     "status",
-                    "sourceKind",
-                    "sourceReference",
-                    "sourceMetadata",
                     "departmentIds",
+                    "items",
+                    "summary",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -7038,8 +8491,25 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     },
-                    "type": {
-                      "type": "string"
+                    "procurementMethod": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "biddingModality": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "processNumber": {
                       "type": "string"
@@ -7057,6 +8527,9 @@
                     "issuedAt": {
                       "type": "string"
                     },
+                    "title": {
+                      "type": "string"
+                    },
                     "object": {
                       "type": "string"
                     },
@@ -7069,38 +8542,6 @@
                     "status": {
                       "type": "string"
                     },
-                    "sourceKind": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceReference": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceMetadata": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {},
-                          "additionalProperties": {}
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "departmentIds": {
                       "type": "array",
                       "items": {
@@ -7112,32 +8553,499 @@
                         "123e4567-e89b-12d3-a456-426614174000"
                       ]
                     },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "simple"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "kit"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "components": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "description",
+                                    "quantity",
+                                    "unit"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue",
+                              "components"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "itemCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "componentCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "estimatedTotalValue": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "itemCount",
+                        "componentCount",
+                        "estimatedTotalValue"
+                      ],
+                      "additionalProperties": false
+                    },
                     "createdAt": {
                       "type": "string"
                     },
                     "updatedAt": {
+                      "type": "string"
+                    },
+                    "departments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "example": "123e4567-e89b-12d3-a456-426614174000"
+                          },
+                          "organizationId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "example": "123e4567-e89b-12d3-a456-426614174000"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "budgetUnitCode": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "organizationId",
+                          "name",
+                          "budgetUnitCode",
+                          "label"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "documents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "dfd",
+                              "etp",
+                              "tr",
+                              "minuta"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "concluido",
+                              "em_edicao",
+                              "pendente",
+                              "erro"
+                            ]
+                          },
+                          "documentId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lastUpdatedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "progress": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "availableActions": {
+                            "type": "object",
+                            "properties": {
+                              "create": {
+                                "type": "boolean"
+                              },
+                              "edit": {
+                                "type": "boolean"
+                              },
+                              "view": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "create",
+                              "edit",
+                              "view"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "label",
+                          "title",
+                          "description",
+                          "status",
+                          "documentId",
+                          "lastUpdatedAt",
+                          "progress",
+                          "availableActions"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "detailUpdatedAt": {
                       "type": "string"
                     }
                   },
                   "required": [
                     "id",
                     "organizationId",
-                    "type",
+                    "procurementMethod",
+                    "biddingModality",
                     "processNumber",
                     "externalId",
                     "issuedAt",
+                    "title",
                     "object",
                     "justification",
                     "responsibleName",
                     "status",
-                    "sourceKind",
-                    "sourceReference",
-                    "sourceMetadata",
                     "departmentIds",
+                    "items",
+                    "summary",
                     "createdAt",
-                    "updatedAt"
+                    "updatedAt",
+                    "departments",
+                    "documents",
+                    "detailUpdatedAt"
                   ],
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "example": {
+                    "procurementMethod": "bidding",
+                    "biddingModality": "reverse_auction",
+                    "processNumber": "PE-2026-0001",
+                    "externalId": "PROC-2026-001",
+                    "issuedAt": "2026-01-15T10:30:00.000Z",
+                    "title": "Materiais de escritorio",
+                    "object": "Aquisicao de materiais de escritorio",
+                    "justification": "Reposicao de estoque das unidades administrativas.",
+                    "responsibleName": "Maria Silva",
+                    "status": "draft",
+                    "organizationId": "123e4567-e89b-12d3-a456-426614174000",
+                    "departmentIds": [
+                      "123e4567-e89b-12d3-a456-426614174000"
+                    ],
+                    "items": [
+                      {
+                        "kind": "kit",
+                        "code": "1",
+                        "title": "Kit escolar",
+                        "quantity": "100",
+                        "unit": "kit",
+                        "unitValue": "120.00",
+                        "totalValue": "12000.00",
+                        "components": [
+                          {
+                            "title": "Caderno",
+                            "description": "Caderno brochura capa dura",
+                            "quantity": "2",
+                            "unit": "unidade"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "simple",
+                        "code": "2",
+                        "title": "Caneta azul",
+                        "description": "Caneta esferografica azul",
+                        "quantity": "500",
+                        "unit": "unidade",
+                        "unitValue": "1.50",
+                        "totalValue": "750.00"
+                      }
+                    ],
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "summary": {
+                      "itemCount": 2,
+                      "componentCount": 1,
+                      "estimatedTotalValue": "12750.00"
+                    },
+                    "createdAt": "2026-01-15T10:30:00.000Z",
+                    "updatedAt": "2026-01-15T10:30:00.000Z",
+                    "departments": [
+                      {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "organizationId": "123e4567-e89b-12d3-a456-426614174000",
+                        "name": "Secretaria Municipal de Educacao",
+                        "budgetUnitCode": "06.001",
+                        "label": "06.001 - Secretaria Municipal de Educacao"
+                      }
+                    ],
+                    "documents": [
+                      {
+                        "type": "dfd",
+                        "label": "DFD",
+                        "title": "Documento de Formalização de Demanda",
+                        "description": "Justificativa da necessidade de contratação",
+                        "status": "concluido",
+                        "documentId": "123e4567-e89b-12d3-a456-426614174000",
+                        "lastUpdatedAt": "2026-01-15T10:30:00.000Z",
+                        "progress": null,
+                        "availableActions": {
+                          "create": false,
+                          "edit": true,
+                          "view": true
+                        }
+                      }
+                    ],
+                    "detailUpdatedAt": "2026-01-15T10:30:00.000Z"
+                  }
                 }
               }
             }
@@ -7342,9 +9250,27 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "type": {
-                    "example": "pregao-eletronico",
-                    "type": "string"
+                  "procurementMethod": {
+                    "example": "bidding",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "biddingModality": {
+                    "example": "reverse_auction",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "processNumber": {
                     "example": "PE-2026-0001",
@@ -7364,6 +9290,17 @@
                   "issuedAt": {
                     "example": "2026-01-15T10:30:00.000Z",
                     "type": "string"
+                  },
+                  "title": {
+                    "example": "Materiais de escritorio",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "object": {
                     "example": "Aquisicao de materiais de escritorio",
@@ -7391,12 +9328,255 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     }
+                  },
+                  "items": {
+                    "example": [
+                      {
+                        "kind": "kit",
+                        "code": "1",
+                        "title": "Kit escolar",
+                        "quantity": "100",
+                        "unit": "kit",
+                        "unitValue": "120.00",
+                        "totalValue": "12000.00",
+                        "components": [
+                          {
+                            "title": "Caderno",
+                            "description": "Caderno brochura capa dura",
+                            "quantity": "2",
+                            "unit": "unidade"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "simple",
+                        "code": "2",
+                        "title": "Caneta azul",
+                        "description": "Caneta esferografica azul",
+                        "quantity": "500",
+                        "unit": "unidade",
+                        "unitValue": "1.50",
+                        "totalValue": "750.00"
+                      }
+                    ],
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "simple"
+                            },
+                            "code": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "quantity": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "unit": {
+                              "type": "string"
+                            },
+                            "unitValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "totalValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "code",
+                            "title",
+                            "unit"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "kit"
+                            },
+                            "code": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "quantity": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "unit": {
+                              "type": "string"
+                            },
+                            "unitValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "totalValue": {
+                              "anyOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "components": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "quantity": {
+                                    "anyOf": [
+                                      {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "number"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "title",
+                                  "unit"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "code",
+                            "title",
+                            "unit"
+                          ]
+                        }
+                      ],
+                      "type": "object"
+                    }
                   }
                 },
                 "additionalProperties": false,
                 "example": {
                   "status": "draft",
-                  "justification": "Reposicao de estoque das unidades administrativas."
+                  "justification": "Reposicao de estoque das unidades administrativas.",
+                  "responsibleName": "Maria Silva"
                 }
               }
             }
@@ -7432,8 +9612,25 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     },
-                    "type": {
-                      "type": "string"
+                    "procurementMethod": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "biddingModality": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "processNumber": {
                       "type": "string"
@@ -7451,6 +9648,9 @@
                     "issuedAt": {
                       "type": "string"
                     },
+                    "title": {
+                      "type": "string"
+                    },
                     "object": {
                       "type": "string"
                     },
@@ -7463,38 +9663,6 @@
                     "status": {
                       "type": "string"
                     },
-                    "sourceKind": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceReference": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceMetadata": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {},
-                          "additionalProperties": {}
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "departmentIds": {
                       "type": "array",
                       "items": {
@@ -7506,6 +9674,243 @@
                         "123e4567-e89b-12d3-a456-426614174000"
                       ]
                     },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "simple"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "123e4567-e89b-12d3-a456-426614174000"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "const": "kit"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "unit": {
+                                "type": "string"
+                              },
+                              "unitValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "totalValue": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "components": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "unit": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "title",
+                                    "description",
+                                    "quantity",
+                                    "unit"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "kind",
+                              "code",
+                              "title",
+                              "description",
+                              "quantity",
+                              "unit",
+                              "unitValue",
+                              "totalValue",
+                              "components"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "itemCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "componentCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "estimatedTotalValue": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "itemCount",
+                        "componentCount",
+                        "estimatedTotalValue"
+                      ],
+                      "additionalProperties": false
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -7516,18 +9921,19 @@
                   "required": [
                     "id",
                     "organizationId",
-                    "type",
+                    "procurementMethod",
+                    "biddingModality",
                     "processNumber",
                     "externalId",
                     "issuedAt",
+                    "title",
                     "object",
                     "justification",
                     "responsibleName",
                     "status",
-                    "sourceKind",
-                    "sourceReference",
-                    "sourceMetadata",
                     "departmentIds",
+                    "items",
+                    "summary",
                     "createdAt",
                     "updatedAt"
                   ],
@@ -7786,6 +10192,17 @@
                     ],
                     "example": "dfd"
                   },
+                  "name": {
+                    "example": "DFD - PE-2024-045",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "instructions": {
                     "example": "Texto de exemplo",
                     "anyOf": [
@@ -7806,6 +10223,7 @@
                 "example": {
                   "processId": "123e4567-e89b-12d3-a456-426614174000",
                   "documentType": "dfd",
+                  "name": null,
                   "instructions": "Priorizar linguagem objetiva para avaliacao preliminar."
                 }
               }
@@ -7838,11 +10256,27 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     },
+                    "processNumber": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "type": {
                       "type": "string"
                     },
                     "status": {
                       "type": "string"
+                    },
+                    "responsibles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     },
                     "createdAt": {
                       "type": "string"
@@ -7869,12 +10303,6 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "responsibles": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
                     }
                   },
                   "required": [
@@ -7882,13 +10310,14 @@
                     "name",
                     "organizationId",
                     "processId",
+                    "processNumber",
                     "type",
                     "status",
+                    "responsibles",
                     "createdAt",
                     "updatedAt",
                     "draftContent",
-                    "storageKey",
-                    "responsibles"
+                    "storageKey"
                   ],
                   "additionalProperties": false
                 }
@@ -8119,11 +10548,27 @@
                             "format": "uuid",
                             "example": "123e4567-e89b-12d3-a456-426614174000"
                           },
+                          "processNumber": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "type": {
                             "type": "string"
                           },
                           "status": {
                             "type": "string"
+                          },
+                          "responsibles": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           },
                           "createdAt": {
                             "type": "string"
@@ -8137,8 +10582,10 @@
                           "name",
                           "organizationId",
                           "processId",
+                          "processNumber",
                           "type",
                           "status",
+                          "responsibles",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -8291,11 +10738,27 @@
                       "format": "uuid",
                       "example": "123e4567-e89b-12d3-a456-426614174000"
                     },
+                    "processNumber": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "type": {
                       "type": "string"
                     },
                     "status": {
                       "type": "string"
+                    },
+                    "responsibles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     },
                     "createdAt": {
                       "type": "string"
@@ -8322,12 +10785,6 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "responsibles": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
                     }
                   },
                   "required": [
@@ -8335,13 +10792,14 @@
                     "name",
                     "organizationId",
                     "processId",
+                    "processNumber",
                     "type",
                     "status",
+                    "responsibles",
                     "createdAt",
                     "updatedAt",
                     "draftContent",
-                    "storageKey",
-                    "responsibles"
+                    "storageKey"
                   ],
                   "additionalProperties": false
                 }
@@ -8424,6 +10882,757 @@
                     "error": {
                       "type": "string",
                       "const": "not_found"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "internal_server_error"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{documentId}/adjustments/suggestions": {
+      "post": {
+        "summary": "Suggest document text adjustment",
+        "tags": [
+          "Documents"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "selectedText": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000,
+                    "example": "Texto de exemplo"
+                  },
+                  "instruction": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1200,
+                    "example": "Deixe este trecho mais objetivo e formal."
+                  },
+                  "selectionContext": {
+                    "type": "object",
+                    "properties": {
+                      "prefix": {
+                        "example": "## 2. CONTEXTO",
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "suffix": {
+                        "example": "Solicitante:",
+                        "type": "string",
+                        "maxLength": 500
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "selectedText",
+                  "instruction"
+                ],
+                "additionalProperties": false,
+                "example": {
+                  "selectedText": "A contratação se faz necessária para atender à demanda apresentada.",
+                  "instruction": "Deixe mais objetivo, mantendo o tom formal.",
+                  "selectionContext": {
+                    "prefix": "## 2. CONTEXTO E NECESSIDADE DA DEMANDA",
+                    "suffix": "## 3. OBJETO DA CONTRATAÇÃO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "123e4567-e89b-12d3-a456-426614174000"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "selectedText": {
+                      "type": "string"
+                    },
+                    "replacementText": {
+                      "type": "string"
+                    },
+                    "sourceContentHash": {
+                      "type": "string"
+                    },
+                    "sourceTarget": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "example": 42
+                        },
+                        "end": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "example": 89
+                        },
+                        "sourceText": {
+                          "type": "string",
+                          "minLength": 1,
+                          "example": "Texto de exemplo"
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "sourceText"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "selectedText",
+                    "replacementText",
+                    "sourceContentHash",
+                    "sourceTarget"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "validation_error"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "bad_request"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "forbidden"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "not_found"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "conflict"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "internal_server_error"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{documentId}/adjustments/apply": {
+      "post": {
+        "summary": "Apply document text adjustment",
+        "tags": [
+          "Documents"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sourceTarget": {
+                    "type": "object",
+                    "properties": {
+                      "start": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "example": 42
+                      },
+                      "end": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991,
+                        "example": 89
+                      },
+                      "sourceText": {
+                        "type": "string",
+                        "minLength": 1,
+                        "example": "Texto de exemplo"
+                      }
+                    },
+                    "required": [
+                      "start",
+                      "end",
+                      "sourceText"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "replacementText": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 6000,
+                    "example": "Texto de exemplo"
+                  },
+                  "sourceContentHash": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "example": "sha256:3b6f7d0b4c2e1a9f"
+                  }
+                },
+                "required": [
+                  "sourceTarget",
+                  "replacementText",
+                  "sourceContentHash"
+                ],
+                "additionalProperties": false,
+                "example": {
+                  "sourceTarget": {
+                    "start": 42,
+                    "end": 89,
+                    "sourceText": "A contratação se faz necessária para atender à demanda apresentada."
+                  },
+                  "replacementText": "A contratação é necessária para atender à demanda apresentada pela Administração.",
+                  "sourceContentHash": "sha256:3b6f7d0b4c2e1a9f"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "123e4567-e89b-12d3-a456-426614174000"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "processId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "processNumber": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "responsibles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "draftContent": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "storageKey": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "organizationId",
+                    "processId",
+                    "processNumber",
+                    "type",
+                    "status",
+                    "responsibles",
+                    "createdAt",
+                    "updatedAt",
+                    "draftContent",
+                    "storageKey"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "validation_error"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "bad_request"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "forbidden"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "not_found"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "conflict"
                     },
                     "message": {
                       "type": "string"

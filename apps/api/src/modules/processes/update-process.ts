@@ -9,6 +9,8 @@ import {
   assertDepartmentIdsBelongToOrganization,
   deriveConciseProcessTitle,
   getProcessDepartmentIds,
+  getProcessItems,
+  replaceProcessItems,
   serializeProcess,
   throwIfProcessConflict,
 } from "./processes.shared";
@@ -46,7 +48,12 @@ export async function updateProcess({ actor, db, processId, changes }: Input) {
       [updatedProcess] = await tx
         .update(processes)
         .set({
-          type: changes.type,
+          type:
+            changes.procurementMethod === undefined
+              ? undefined
+              : (changes.procurementMethod ?? "process"),
+          procurementMethod: changes.procurementMethod,
+          biddingModality: changes.biddingModality,
           processNumber: changes.processNumber,
           externalId: changes.externalId,
           issuedAt: changes.issuedAt ? new Date(changes.issuedAt) : undefined,
@@ -61,6 +68,7 @@ export async function updateProcess({ actor, db, processId, changes }: Input) {
           object: changes.object,
           justification: changes.justification,
           responsibleName: changes.responsibleName,
+          responsibleUserId: changes.responsibleName === undefined ? undefined : null,
           status: changes.status,
           updatedAt: new Date(),
         })
@@ -82,15 +90,25 @@ export async function updateProcess({ actor, db, processId, changes }: Input) {
           departmentId,
         })),
       );
+    }
 
-      return serializeProcess(updatedProcess, changes.departmentIds);
+    if (changes.items !== undefined) {
+      await replaceProcessItems({
+        db: tx,
+        processId,
+        items: changes.items,
+      });
     }
 
     const currentDepartmentIds = await getProcessDepartmentIds({
       db: tx,
       processId,
     });
+    const items = await getProcessItems({
+      db: tx,
+      processId,
+    });
 
-    return serializeProcess(updatedProcess, currentDepartmentIds);
+    return serializeProcess(updatedProcess, currentDepartmentIds, items);
   });
 }

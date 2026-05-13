@@ -147,7 +147,7 @@ export type ProcessesFilters = {
   page: number;
   search: string;
   status: ProcessStatus | "todos";
-  type: string | "todos";
+  procurementMethod: string | "todos";
 };
 
 export const PROCESSES_PAGE_SIZE = 10;
@@ -232,13 +232,14 @@ const statusFallbackConfig = {
 export function getDefaultProcessesFilters(searchParams: URLSearchParams): ProcessesFilters {
   const page = Number(searchParams.get("page") ?? "1");
   const status = searchParams.get("status");
-  const type = searchParams.get("type");
+  const procurementMethod = searchParams.get("procurementMethod") ?? searchParams.get("type");
 
   return {
     page: Number.isFinite(page) && page > 0 ? page : 1,
     search: searchParams.get("search") ?? "",
     status: isProcessStatus(status) ? status : "todos",
-    type: type && type.length > 0 ? type : "todos",
+    procurementMethod:
+      procurementMethod && procurementMethod.length > 0 ? procurementMethod : "todos",
   };
 }
 
@@ -248,7 +249,8 @@ export function getProcessesQueryParams(filters: ProcessesFilters): ProcessesLis
     pageSize: PROCESSES_PAGE_SIZE,
     search: filters.search.trim() || undefined,
     status: filters.status === "todos" ? undefined : filters.status,
-    type: filters.type === "todos" ? undefined : filters.type,
+    procurementMethod:
+      filters.procurementMethod === "todos" ? undefined : filters.procurementMethod,
   };
 }
 
@@ -267,8 +269,8 @@ export function getProcessesFilterSearchParams(filters: ProcessesFilters) {
     searchParams.set("status", filters.status);
   }
 
-  if (filters.type !== "todos") {
-    searchParams.set("type", filters.type);
+  if (filters.procurementMethod !== "todos") {
+    searchParams.set("procurementMethod", filters.procurementMethod);
   }
 
   return searchParams;
@@ -554,31 +556,11 @@ function normalizeProcessDetailItem(value: unknown, index: number): ProcessDetai
 }
 
 export function getProcessDetailItems(
-  process: Pick<ProcessDetailResponse, "sourceMetadata">,
+  process: Pick<ProcessDetailResponse, "items"> | { items?: ProcessDetailResponse["items"] },
 ): ProcessDetailSourceItem[] {
-  if (!isRecord(process.sourceMetadata)) {
-    return [];
-  }
-
-  const extractedFields = process.sourceMetadata.extractedFields;
-
-  if (!isRecord(extractedFields)) {
-    return [];
-  }
-
-  const items = Array.isArray(extractedFields.items)
-    ? extractedFields.items
-        .map((item, index) => normalizeProcessDetailItem(item, index))
-        .filter((item): item is ProcessDetailSourceItem => item !== null)
-    : [];
-
-  if (items.length > 0) {
-    return items;
-  }
-
-  const fallbackItem = normalizeProcessDetailItem(extractedFields.item, 0);
-
-  return fallbackItem ? [fallbackItem] : [];
+  return (process.items ?? [])
+    .map((item, index) => normalizeProcessDetailItem(item, index))
+    .filter((item): item is ProcessDetailSourceItem => item !== null);
 }
 
 export function getProcessDetailDocumentStatusConfig(status: ProcessDetailDocumentStatus) {
@@ -941,57 +923,13 @@ export function normalizeExpenseRequestItemsForMetadata(items: ExpenseRequestFor
     );
 }
 
-function mergeExpenseRequestItemsIntoSourceMetadata(
-  sourceMetadata: Record<string, unknown> | null,
-  items: ExpenseRequestFormItem[],
-) {
-  const normalizedItems = normalizeExpenseRequestItemsForMetadata(items);
-
-  if (normalizedItems.length === 0) {
-    return sourceMetadata;
-  }
-
-  const currentMetadata = sourceMetadata ?? {};
-  const extractedFields = isRecord(currentMetadata.extractedFields)
-    ? currentMetadata.extractedFields
-    : {};
-  const source = isRecord(currentMetadata.source) ? currentMetadata.source : {};
-
-  return {
-    ...currentMetadata,
-    extractedFields: {
-      ...extractedFields,
-      item: normalizedItems[0],
-      items: normalizedItems,
-    },
-    source:
-      sourceMetadata == null
-        ? {
-            ...source,
-            inputMode: "native_form",
-          }
-        : {
-            ...source,
-            inputMode:
-              typeof source.inputMode === "string" && source.inputMode.length > 0
-                ? source.inputMode
-                : "native_form",
-          },
-    warnings: Array.isArray(currentMetadata.warnings) ? currentMetadata.warnings : [],
-  };
-}
-
 export function buildProcessCreateRequest(
   values: ProcessCreationFormValues,
   actor: ProcessCreationActor,
 ): ProcessCreateRequest {
-  const sourceMetadata = mergeExpenseRequestItemsIntoSourceMetadata(
-    values.sourceMetadata,
-    values.expenseRequestItems,
-  );
-
   return {
-    type: values.type.trim(),
+    procurementMethod: values.type.trim() || null,
+    biddingModality: null,
     processNumber: values.processNumber.trim(),
     externalId: values.externalId.trim() || null,
     issuedAt: new Date(values.issuedAt).toISOString(),
@@ -1004,9 +942,34 @@ export function buildProcessCreateRequest(
     ...(actor.role === "admin" || values.organizationId !== actor.organizationId
       ? { organizationId: values.organizationId }
       : {}),
-    sourceKind: values.sourceKind,
-    sourceReference: values.sourceReference,
-    sourceMetadata,
+    items: normalizeExpenseRequestItemsForMetadata(values.expenseRequestItems).map((item) =>
+      item.kind === "kit"
+        ? {
+            kind: "kit",
+            code: item.code ?? "",
+            title: item.title ?? item.description ?? "",
+            quantity: item.quantity,
+            unit: item.unit ?? "un",
+            unitValue: item.unitValue,
+            totalValue: item.totalValue,
+            components: item.components.map((component) => ({
+              title: component.title ?? "",
+              description: component.description,
+              quantity: component.quantity,
+              unit: component.unit ?? "un",
+            })),
+          }
+        : {
+            kind: "simple",
+            code: item.code ?? "",
+            title: item.title ?? item.description ?? "",
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit ?? "un",
+            unitValue: item.unitValue,
+            totalValue: item.totalValue,
+          },
+    ),
   };
 }
 

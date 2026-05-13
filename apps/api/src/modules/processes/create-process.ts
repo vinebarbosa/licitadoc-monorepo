@@ -7,6 +7,8 @@ import type { CreateProcessInput } from "./processes.schemas";
 import {
   assertDepartmentIdsBelongToOrganization,
   deriveConciseProcessTitle,
+  getProcessItems,
+  replaceProcessItems,
   serializeProcess,
   throwIfProcessConflict,
 } from "./processes.shared";
@@ -42,7 +44,9 @@ export async function createProcess({ actor, db, process }: Input) {
         .insert(processes)
         .values({
           organizationId,
-          type: process.type,
+          type: process.procurementMethod ?? "process",
+          procurementMethod: process.procurementMethod,
+          biddingModality: process.biddingModality,
           processNumber: process.processNumber,
           externalId: process.externalId,
           issuedAt: new Date(process.issuedAt),
@@ -54,10 +58,8 @@ export async function createProcess({ actor, db, process }: Input) {
           object: process.object,
           justification: process.justification,
           responsibleName: process.responsibleName,
+          responsibleUserId: null,
           status: process.status,
-          sourceKind: process.sourceKind,
-          sourceReference: process.sourceReference,
-          sourceMetadata: process.sourceMetadata ?? null,
         })
         .returning();
     } catch (error) {
@@ -74,7 +76,16 @@ export async function createProcess({ actor, db, process }: Input) {
         departmentId,
       })),
     );
+    await replaceProcessItems({
+      db: tx,
+      processId: createdProcess.id,
+      items: process.items,
+    });
+    const items = await getProcessItems({
+      db: tx,
+      processId: createdProcess.id,
+    });
 
-    return serializeProcess(createdProcess, process.departmentIds);
+    return serializeProcess(createdProcess, process.departmentIds, items);
   });
 }

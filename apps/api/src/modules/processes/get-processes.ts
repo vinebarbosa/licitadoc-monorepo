@@ -9,6 +9,7 @@ import {
   type ExpectedProcessDocumentType,
   expectedProcessDocumentTypes,
   getDepartmentIdsByProcessIds,
+  getProcessItemsByProcessIds,
   getProcessesVisibilityScope,
   isExpectedProcessDocumentType,
   type ProcessListAggregation,
@@ -22,15 +23,17 @@ type Input = {
   pageSize?: number;
   search?: string | null;
   status?: string | null;
-  type?: string | null;
+  procurementMethod?: string | null;
+  biddingModality?: string | null;
 };
 
 function buildProcessesListScope({
   actor,
+  biddingModality,
+  procurementMethod,
   search,
   status,
-  type,
-}: Pick<Input, "actor" | "search" | "status" | "type">) {
+}: Pick<Input, "actor" | "biddingModality" | "procurementMethod" | "search" | "status">) {
   const conditions: SQL<unknown>[] = [];
   const visibilityScope = getProcessesVisibilityScope(actor);
 
@@ -44,7 +47,7 @@ function buildProcessesListScope({
       ilike(processes.processNumber, pattern),
       ilike(processes.externalId, pattern),
       ilike(processes.object, pattern),
-      ilike(processes.responsibleName, pattern),
+      ilike(processes.title, pattern),
     );
 
     if (searchScope) {
@@ -56,8 +59,12 @@ function buildProcessesListScope({
     conditions.push(ilike(processes.status, status));
   }
 
-  if (type) {
-    conditions.push(ilike(processes.type, type));
+  if (procurementMethod) {
+    conditions.push(ilike(processes.procurementMethod, procurementMethod));
+  }
+
+  if (biddingModality) {
+    conditions.push(ilike(processes.biddingModality, biddingModality));
   }
 
   if (conditions.length === 0) {
@@ -147,7 +154,16 @@ async function getProcessListAggregations({
   return aggregations;
 }
 
-export async function getProcesses({ actor, db, page, pageSize, search, status, type }: Input) {
+export async function getProcesses({
+  actor,
+  biddingModality,
+  db,
+  page,
+  pageSize,
+  procurementMethod,
+  search,
+  status,
+}: Input) {
   canListProcesses(actor);
 
   const pagination = normalizePagination({ page, pageSize });
@@ -162,7 +178,13 @@ export async function getProcesses({ actor, db, page, pageSize, search, status, 
     };
   }
 
-  const scope = buildProcessesListScope({ actor, search, status, type });
+  const scope = buildProcessesListScope({
+    actor,
+    biddingModality,
+    procurementMethod,
+    search,
+    status,
+  });
   const [[countResult], rows] = await Promise.all([
     db
       .select({
@@ -187,6 +209,10 @@ export async function getProcesses({ actor, db, page, pageSize, search, status, 
     db,
     processes: rows,
   });
+  const itemsByProcessId = await getProcessItemsByProcessIds({
+    db,
+    processIds: rows.map((row) => row.id),
+  });
 
   return {
     items: rows.map((row) =>
@@ -194,6 +220,7 @@ export async function getProcesses({ actor, db, page, pageSize, search, status, 
         row,
         departmentIdsByProcessId.get(row.id) ?? [],
         aggregationsByProcessId.get(row.id),
+        itemsByProcessId.get(row.id) ?? [],
       ),
     ),
     page: pagination.page,

@@ -1,19 +1,21 @@
 import {
-  AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Building2,
+  Calendar,
+  Check,
   CheckCircle2,
   FileText,
+  Hash,
   Layers3,
-  Loader2,
-  PackagePlus,
+  Package,
   Plus,
+  Scale,
   Trash2,
-  Upload,
+  User,
 } from "lucide-react";
-import type { ChangeEvent, FormEvent } from "react";
-import { useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuthSession } from "@/modules/auth";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
@@ -21,1453 +23,1619 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Checkbox } from "@/shared/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Separator } from "@/shared/ui/separator";
 import { Textarea } from "@/shared/ui/textarea";
 import {
+  type ProcessCreateRequest,
+  type ProcessDepartmentListItem,
+  type ProcessOrganizationListItem,
   useProcessCreate,
   useProcessDepartmentsList,
   useProcessOrganizationsList,
 } from "../api/processes";
-import { extractExpenseRequestFromPdf } from "../model/expense-request-pdf";
-import {
-  addExpenseRequestComponentToItem,
-  applyExtractionToFormValues,
-  buildProcessCreateRequest,
-  calculateExpenseRequestItemTotalValue,
-  createEmptyExpenseRequestFormItem,
-  deriveProcessTitlePreview,
-  type ExpenseRequestExtractionResult,
-  type ExpenseRequestFormItem,
-  type ExpenseRequestFormItemComponent,
-  type ExpenseRequestFormItemKind,
-  filterDepartmentsForOrganization,
-  getDefaultProcessCreationFormValues,
-  getExpenseRequestItemTotalPreview,
-  getProcessCreateErrorMessage,
-  hasProcessCreationErrors,
-  mapDepartmentOptions,
-  mapOrganizationOptions,
-  type ProcessCreationFormErrors,
-  type ProcessCreationFormValues,
-  processCreationStatusOptions,
-  processTypeOptions,
-  removeExpenseRequestComponentFromItem,
-  toExpenseRequestFormItems,
-  updateExpenseRequestComponentField,
-  updateExpenseRequestFormItemField,
-  validateProcessCreationForm,
-} from "../model/processes";
 
-type FieldName = keyof ProcessCreationFormValues;
-type ProcessCreationStep = "request" | "links" | "items" | "review";
+type ProcessStep = "dados" | "vinculos" | "itens" | "revisao";
 
-const wizardSteps: Array<{
-  id: ProcessCreationStep;
-  label: string;
+type ProcessItemComponent = {
+  id: string;
+  title: string;
   description: string;
-}> = [
-  {
-    id: "request",
-    label: "Dados",
-    description: "Processo",
-  },
-  {
-    id: "links",
-    label: "Vínculos",
-    description: "Organização",
-  },
-  {
-    id: "items",
-    label: "Itens",
-    description: "SD nativa",
-  },
-  {
-    id: "review",
-    label: "Revisão",
-    description: "Conferência",
-  },
-];
-
-const requestStepErrorFields: Array<keyof ProcessCreationFormErrors> = [
-  "type",
-  "processNumber",
-  "issuedAt",
-  "title",
-  "object",
-  "justification",
-  "responsibleName",
-];
-
-const linksStepErrorFields: Array<keyof ProcessCreationFormErrors> = [
-  "organizationId",
-  "departmentIds",
-];
-
-const warningLabels: Record<string, string> = {
-  organization_cnpj_missing: "CNPJ da organizacao nao foi encontrado no PDF.",
-  budget_unit_code_missing: "Codigo da unidade orcamentaria nao foi encontrado.",
-  budget_unit_name_missing: "Nome da unidade orcamentaria nao foi encontrado.",
-  item_description_missing: "Descricao do item nao foi encontrada.",
-  item_value_missing: "Valor do item nao foi encontrado.",
-  item_rows_missing: "Itens da SD nao foram detectados com seguranca.",
-  responsible_name_missing: "Responsavel nao foi encontrado.",
-  required_field_missing: "Revise os campos obrigatorios extraidos do PDF.",
-  organization_match_missing: "Organizacao extraida nao foi encontrada no cadastro.",
-  department_match_missing: "Unidade orcamentaria extraida nao foi encontrada no cadastro.",
+  quantity: string;
+  unit: string;
 };
 
-function FieldError({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
+type ProcessItem = {
+  id: string;
+  kind: "simple" | "kit";
+  code: string;
+  title: string;
+  description: string;
+  quantity: string;
+  unit: string;
+  unitValue: string;
+  totalValue: string;
+  components: ProcessItemComponent[];
+};
 
-  return <p className="text-critical text-sm">{message}</p>;
+type FormValues = {
+  formaContratacao: string;
+  modalidade: string;
+  processNumber: string;
+  externalId: string;
+  issuedAt: string;
+  responsibleName: string;
+  title: string;
+  object: string;
+  justification: string;
+  organizationId: string;
+  departmentIds: string[];
+  items: ProcessItem[];
+};
+
+type ProcessCreateItemRequest = NonNullable<ProcessCreateRequest["items"]>[number];
+
+const steps: Array<{ id: ProcessStep; label: string; description: string }> = [
+  { id: "dados", label: "Dados do Processo", description: "Informações básicas" },
+  { id: "vinculos", label: "Vínculos", description: "Unidades vinculadas" },
+  { id: "itens", label: "Itens", description: "Produtos e serviços" },
+  { id: "revisao", label: "Revisão", description: "Conferência final" },
+];
+
+const formasContratacao = [
+  { value: "licitacao", label: "Licitação" },
+  { value: "dispensa", label: "Dispensa" },
+  { value: "inexigibilidade", label: "Inexigibilidade" },
+];
+
+const modalidadesLicitacao = [
+  { value: "pregao", label: "Pregão" },
+  { value: "concorrencia", label: "Concorrência" },
+  { value: "concurso", label: "Concurso" },
+  { value: "leilao", label: "Leilão" },
+  { value: "dialogo_competitivo", label: "Diálogo Competitivo" },
+];
+
+function generateId() {
+  return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 9);
 }
 
-function getImportErrorMessage(error: unknown) {
-  if (typeof error === "object" && error !== null && "reason" in error) {
-    const reason = error.reason;
+function trimOrNull(value: string) {
+  const trimmed = value.trim();
 
-    if (reason === "invalid_file" || reason === "read_failed" || reason === "empty_text") {
-      return {
-        title: "PDF nao lido",
-        description: getProcessCreateErrorMessage(error),
-      };
-    }
-
-    if (reason === "unrecognized_sd") {
-      return {
-        title: "Solicitacao nao reconhecida",
-        description: getProcessCreateErrorMessage(error),
-      };
-    }
-
-    if (reason === "missing_required_fields") {
-      return {
-        title: "Dados obrigatorios ausentes",
-        description: getProcessCreateErrorMessage(error),
-      };
-    }
-  }
-
-  return {
-    title: "PDF nao importado",
-    description: getProcessCreateErrorMessage(error),
-  };
+  return trimmed.length > 0 ? trimmed : null;
 }
 
-function getExtractionItems(extraction: ExpenseRequestExtractionResult | null) {
-  if (!extraction) {
-    return [];
+function formatCurrency(value: string) {
+  const num = Number.parseFloat(value.replace(/[^\d,.-]/g, "").replace(",", "."));
+
+  if (Number.isNaN(num)) {
+    return "";
   }
 
-  if (extraction.suggestions.expenseRequestItems) {
-    return extraction.suggestions.expenseRequestItems.map((item) => ({
-      ...createEmptyExpenseRequestFormItem({
-        kind: item.kind ?? "simple",
-        source: item.source ?? "pdf",
-      }),
-      ...item,
-      kind: item.kind ?? "simple",
-      title: item.title ?? "",
-      components: item.kind === "kit" ? (item.components ?? []) : [],
-    }));
+  return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function parseCurrencyToNumber(value: string) {
+  const num = Number.parseFloat(value.replace(/[^\d,.-]/g, "").replace(",", "."));
+
+  return Number.isNaN(num) ? 0 : num;
+}
+
+function calculateItemTotal(quantity: string, unitValue: string) {
+  const qty = Number.parseFloat(quantity) || 0;
+  const unit = parseCurrencyToNumber(unitValue);
+
+  return (qty * unit).toFixed(2);
+}
+
+function formatDate(dateString: string) {
+  if (!dateString) {
+    return "";
   }
 
-  return toExpenseRequestFormItems(
-    extraction.extractedFields.items && extraction.extractedFields.items.length > 0
-      ? extraction.extractedFields.items
-      : [extraction.extractedFields.item],
-    "pdf",
+  const date = new Date(`${dateString}T00:00:00`);
+
+  return date.toLocaleDateString("pt-BR");
+}
+
+function getDepartmentCode(department: ProcessDepartmentListItem) {
+  return department.budgetUnitCode ?? department.id.slice(0, 8);
+}
+
+function getApiErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    "message" in error.data &&
+    typeof error.data.message === "string" &&
+    error.data.message.length > 0
+  ) {
+    return error.data.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.length > 0
+  ) {
+    return error.message;
+  }
+
+  return "Não foi possível criar o processo.";
+}
+
+function Stepper({
+  currentStep,
+  isMobile = false,
+}: {
+  currentStep: ProcessStep;
+  isMobile?: boolean;
+}) {
+  const currentIndex = steps.findIndex((step) => step.id === currentStep);
+
+  if (isMobile) {
+    return (
+      <div className="flex items-center justify-start gap-1 overflow-x-auto pb-2 md:hidden">
+        {steps.map((step, index) => {
+          const isActive = index === currentIndex;
+          const isComplete = index < currentIndex;
+
+          return (
+            <div
+              key={step.id}
+              className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-all ${
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : isComplete
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {isComplete ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <span className="font-medium">{index + 1}</span>
+              )}
+              <span className="font-medium">{step.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <ol
+      aria-label="Etapas de criação do processo"
+      className="hidden items-start justify-between px-6 py-8 md:flex"
+      data-testid="process-creation-stepper"
+    >
+      {steps.map((step, index) => {
+        const isActive = index === currentIndex;
+        const isComplete = index < currentIndex;
+        const isLast = index === steps.length - 1;
+
+        return (
+          <li
+            key={step.id}
+            aria-current={isActive ? "step" : undefined}
+            className="relative flex flex-1 flex-col items-center"
+            data-state={isActive ? "active" : isComplete ? "complete" : "pending"}
+          >
+            {!isLast && (
+              <div
+                className={`absolute left-[calc(50%+20px)] right-[calc(-50%+20px)] top-4 h-0.5 ${
+                  isComplete ? "bg-primary" : "bg-muted"
+                }`}
+              />
+            )}
+
+            <div
+              data-step-indicator
+              className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-all ${
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : isComplete
+                    ? "border-2 border-primary/60 bg-primary/10 text-primary"
+                    : "border-2 border-muted bg-background text-muted-foreground"
+              }`}
+            >
+              {isComplete ? <Check className="h-4 w-4" /> : index + 1}
+            </div>
+
+            <div className="mt-3 max-w-40 text-center">
+              <span
+                className={`block text-sm font-medium ${
+                  isActive || isComplete ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {step.label}
+              </span>
+              <span
+                className={`mt-0.5 block text-xs ${
+                  isActive || isComplete ? "text-muted-foreground" : "text-muted-foreground/70"
+                }`}
+              >
+                {step.description}
+              </span>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-function getItemSummary(item: ExpenseRequestFormItem) {
-  const parts = [
-    item.code.trim(),
-    item.quantity.trim() && item.unit.trim()
-      ? `${item.quantity.trim()} ${item.unit.trim()}`
-      : item.quantity.trim() || item.unit.trim(),
-    getExpenseRequestItemTotalPreview(item)
-      ? `Total ${getExpenseRequestItemTotalPreview(item)}`
-      : "",
-  ].filter(Boolean);
-
-  return parts.join(" | ");
-}
-
-function getItemDisplayName(item: ExpenseRequestFormItem) {
-  return item.title.trim() || item.description.trim() || "Item sem titulo";
-}
-
-function ProcessCreationStepper({ currentStep }: { currentStep: ProcessCreationStep }) {
-  const currentStepIndex = wizardSteps.findIndex((step) => step.id === currentStep);
+function SummaryPanel({
+  departments,
+  organizations,
+  values,
+}: {
+  departments: ProcessDepartmentListItem[];
+  organizations: ProcessOrganizationListItem[];
+  values: FormValues;
+}) {
+  const selectedDepartments = departments.filter((department) =>
+    values.departmentIds.includes(department.id),
+  );
+  const selectedOrg = organizations.find(
+    (organization) => organization.id === values.organizationId,
+  );
+  const totalItems = values.items.length;
+  const totalValue = values.items.reduce(
+    (acc, item) => acc + parseCurrencyToNumber(item.totalValue),
+    0,
+  );
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <ol className="grid gap-3 md:grid-cols-4">
-          {wizardSteps.map((step, index) => {
-            const isActive = step.id === currentStep;
-            const isComplete = index < currentStepIndex;
+    <Card className="sticky top-6 hidden lg:block">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <FileText className="h-4 w-4 text-primary" />
+          Resumo do Processo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        {values.processNumber && (
+          <div className="flex items-start gap-2">
+            <Hash className="mt-0.5 h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-muted-foreground">Número</p>
+              <p className="font-medium">{values.processNumber}</p>
+            </div>
+          </div>
+        )}
 
-            return (
-              <li
-                key={step.id}
-                className="flex items-center gap-3 rounded-md border border-border/70 px-3 py-2"
-              >
-                <span
-                  className={
-                    isActive || isComplete
-                      ? "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium"
-                      : "flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-medium"
-                  }
-                >
-                  {isComplete ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">{step.label}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {step.description}
+        {values.formaContratacao && (
+          <div className="flex items-start gap-2">
+            <Scale className="mt-0.5 h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-muted-foreground">Forma de contratação</p>
+              <p className="font-medium">
+                {formasContratacao.find((item) => item.value === values.formaContratacao)?.label}
+                {values.formaContratacao === "licitacao" && values.modalidade && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    - {modalidadesLicitacao.find((item) => item.value === values.modalidade)?.label}
                   </span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {values.responsibleName && (
+          <div className="flex items-start gap-2">
+            <User className="mt-0.5 h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-muted-foreground">Responsável</p>
+              <p className="font-medium">{values.responsibleName}</p>
+            </div>
+          </div>
+        )}
+
+        {values.issuedAt && (
+          <div className="flex items-start gap-2">
+            <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-muted-foreground">Data de emissão</p>
+              <p className="font-medium">{formatDate(values.issuedAt)}</p>
+            </div>
+          </div>
+        )}
+
+        {selectedOrg && (
+          <div className="flex items-start gap-2">
+            <Building2 className="mt-0.5 h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-muted-foreground">Organização</p>
+              <p className="font-medium">{selectedOrg.name}</p>
+            </div>
+          </div>
+        )}
+
+        {selectedDepartments.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <p className="mb-2 text-muted-foreground">Unidades vinculadas</p>
+              <div className="flex flex-wrap gap-1">
+                {selectedDepartments.map((department) => (
+                  <Badge key={department.id} variant="secondary" className="text-xs">
+                    {getDepartmentCode(department)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {totalItems > 0 && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Total de itens</span>
+                <Badge variant="secondary">{totalItems}</Badge>
+              </div>
+              {totalValue > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Valor estimado</span>
+                  <span className="font-semibold text-primary">
+                    {totalValue.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {!values.processNumber && !values.formaContratacao && totalItems === 0 && (
+          <p className="text-muted-foreground italic">
+            Preencha os campos para visualizar o resumo do processo.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-export function ProcessCreatePage() {
-  const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { role, organizationId } = useAuthSession();
-  const actor = { role, organizationId };
-  const [values, setValues] = useState<ProcessCreationFormValues>(() =>
-    getDefaultProcessCreationFormValues(actor),
-  );
-  const [dirtyFields, setDirtyFields] = useState<Partial<Record<FieldName, boolean>>>({});
-  const [errors, setErrors] = useState<ProcessCreationFormErrors>({});
-  const [extraction, setExtraction] = useState<ExpenseRequestExtractionResult | null>(null);
-  const [pendingExtraction, setPendingExtraction] = useState<ExpenseRequestExtractionResult | null>(
-    null,
-  );
-  const [importError, setImportError] = useState<{
-    title: string;
-    description: string;
-  } | null>(null);
-  const [currentStep, setCurrentStep] = useState<ProcessCreationStep>("request");
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
-
-  const departmentsQuery = useProcessDepartmentsList();
-  const organizationsQuery = useProcessOrganizationsList(role === "admin");
-  const createProcess = useProcessCreate();
-  const departmentOptions = useMemo(
-    () => mapDepartmentOptions(departmentsQuery.data?.items ?? []),
-    [departmentsQuery.data],
-  );
-  const organizationOptions = useMemo(
-    () => mapOrganizationOptions(organizationsQuery.data?.items ?? []),
-    [organizationsQuery.data],
-  );
-  const visibleDepartmentOptions = filterDepartmentsForOrganization(
-    departmentOptions,
-    role === "admin" ? values.organizationId : (organizationId ?? ""),
-  );
-  const referenceDataError =
-    departmentsQuery.isError || (role === "admin" && organizationsQuery.isError);
-  const isReferenceDataLoading =
-    departmentsQuery.isLoading || (role === "admin" && organizationsQuery.isLoading);
-  const isSubmitDisabled =
-    isReferenceDataLoading || referenceDataError || isExtracting || createProcess.isPending;
-
-  function updateField<Field extends FieldName>(
-    field: Field,
-    value: ProcessCreationFormValues[Field],
-  ) {
-    setValues((currentValues) => ({ ...currentValues, [field]: value }));
-    setDirtyFields((currentFields) => ({ ...currentFields, [field]: true }));
-    setErrors((currentErrors) => ({ ...currentErrors, [field]: undefined, form: undefined }));
-  }
-
-  function toggleDepartment(departmentId: string) {
-    const nextDepartmentIds = values.departmentIds.includes(departmentId)
-      ? values.departmentIds.filter((id) => id !== departmentId)
-      : [...values.departmentIds, departmentId];
-
-    updateField("departmentIds", nextDepartmentIds);
-  }
-
-  function addExpenseRequestItem(kind: ExpenseRequestFormItemKind = "simple") {
-    setValues((currentValues) => ({
-      ...currentValues,
-      expenseRequestItems: [
-        ...currentValues.expenseRequestItems,
-        createEmptyExpenseRequestFormItem({ kind, source: "manual" }),
-      ],
-    }));
-    setErrors((currentErrors) => ({ ...currentErrors, form: undefined }));
-  }
-
-  function updateExpenseRequestItem(
-    itemId: string,
-    field: keyof Omit<ExpenseRequestFormItem, "id" | "source" | "components">,
-    value: string,
-  ) {
-    setValues((currentValues) => ({
-      ...currentValues,
-      expenseRequestItems: currentValues.expenseRequestItems.map((item) =>
-        item.id === itemId ? updateExpenseRequestFormItemField(item, field, value as never) : item,
-      ),
-    }));
-    setErrors((currentErrors) => ({ ...currentErrors, form: undefined }));
-  }
-
-  function removeExpenseRequestItem(itemId: string) {
-    setValues((currentValues) => ({
-      ...currentValues,
-      expenseRequestItems: currentValues.expenseRequestItems.filter((item) => item.id !== itemId),
-    }));
-    setErrors((currentErrors) => ({ ...currentErrors, form: undefined }));
-  }
-
-  function addExpenseRequestComponent(itemId: string) {
-    setValues((currentValues) => ({
-      ...currentValues,
-      expenseRequestItems: currentValues.expenseRequestItems.map((item) =>
-        item.id === itemId ? addExpenseRequestComponentToItem(item) : item,
-      ),
-    }));
-    setErrors((currentErrors) => ({ ...currentErrors, form: undefined }));
-  }
-
-  function updateExpenseRequestComponent(
-    itemId: string,
+function ItemCard({
+  index,
+  item,
+  onAddComponent,
+  onRemove,
+  onRemoveComponent,
+  onUpdate,
+  onUpdateComponent,
+}: {
+  index: number;
+  item: ProcessItem;
+  onAddComponent: () => void;
+  onRemove: () => void;
+  onRemoveComponent: (componentId: string) => void;
+  onUpdate: (field: keyof ProcessItem, value: string) => void;
+  onUpdateComponent: (
     componentId: string,
-    field: keyof Omit<ExpenseRequestFormItemComponent, "id">,
+    field: keyof ProcessItemComponent,
     value: string,
-  ) {
-    setValues((currentValues) => ({
-      ...currentValues,
-      expenseRequestItems: currentValues.expenseRequestItems.map((item) =>
-        item.id === itemId
-          ? updateExpenseRequestComponentField(item, componentId, field, value)
-          : item,
+  ) => void;
+}) {
+  const isKit = item.kind === "kit";
+
+  return (
+    <div className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant={isKit ? "default" : "secondary"}>
+            {isKit ? (
+              <>
+                <Package className="mr-1 h-3 w-3" />
+                Kit {index + 1}
+              </>
+            ) : (
+              <>Item {index + 1}</>
+            )}
+          </Badge>
+          {item.title && (
+            <span className="max-w-48 truncate text-sm text-muted-foreground">{item.title}</span>
+          )}
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
+          <span className="sr-only">Remover item {index + 1}</span>
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-2">
+          <Label>Código</Label>
+          <Input
+            aria-label={`Código do item ${index + 1}`}
+            value={item.code}
+            onChange={(event) => onUpdate("code", event.target.value)}
+            placeholder="Ex: 001.001"
+          />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Título</Label>
+          <Input
+            aria-label={`Título do item ${index + 1}`}
+            value={item.title}
+            onChange={(event) => onUpdate("title", event.target.value)}
+            placeholder="Título do item"
+          />
+        </div>
+        {!isKit && (
+          <div className="space-y-2 sm:col-span-2 lg:col-span-3">
+            <Label>Descrição</Label>
+            <Textarea
+              aria-label={`Descrição do item ${index + 1}`}
+              value={item.description}
+              onChange={(event) => onUpdate("description", event.target.value)}
+              placeholder="Descrição detalhada do item ou serviço"
+              className="min-h-20"
+            />
+          </div>
+        )}
+        <div className="space-y-2">
+          <Label>Quantidade</Label>
+          <Input
+            aria-label={`Quantidade do item ${index + 1}`}
+            type="number"
+            value={item.quantity}
+            onChange={(event) => {
+              onUpdate("quantity", event.target.value);
+              onUpdate("totalValue", calculateItemTotal(event.target.value, item.unitValue));
+            }}
+            placeholder="0"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Unidade</Label>
+          <Input
+            aria-label={`Unidade do item ${index + 1}`}
+            value={item.unit}
+            onChange={(event) => onUpdate("unit", event.target.value)}
+            placeholder="UN, KG, M..."
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Valor unitário</Label>
+          <Input
+            aria-label={`Valor unitário do item ${index + 1}`}
+            value={item.unitValue}
+            onChange={(event) => {
+              onUpdate("unitValue", event.target.value);
+              onUpdate("totalValue", calculateItemTotal(item.quantity, event.target.value));
+            }}
+            placeholder="R$ 0,00"
+          />
+        </div>
+      </div>
+
+      {item.totalValue && parseCurrencyToNumber(item.totalValue) > 0 && (
+        <div className="mt-4 flex items-center justify-end gap-2 text-sm">
+          <span className="text-muted-foreground">Valor total:</span>
+          <span className="font-semibold">{formatCurrency(item.totalValue)}</span>
+        </div>
+      )}
+
+      {isKit && (
+        <div className="mt-4 border-t pt-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-sm font-medium">Componentes do Kit</h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddComponent}
+              aria-label={`Adicionar componente ao item ${index + 1}`}
+            >
+              <Plus className="mr-1 h-3 w-3" />
+              Componente
+            </Button>
+          </div>
+
+          {item.components.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">Adicione componentes a este kit.</p>
+          ) : (
+            <div className="space-y-3">
+              {item.components.map((component, componentIndex) => (
+                <div key={component.id} className="rounded-md border border-dashed bg-muted/30 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <Badge variant="outline" className="text-xs">
+                      Componente {componentIndex + 1}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemoveComponent(component.id)}
+                      aria-label={`Remover componente ${componentIndex + 1} do item ${index + 1}`}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Título</Label>
+                      <Input
+                        aria-label={`Título do componente ${componentIndex + 1} do item ${
+                          index + 1
+                        }`}
+                        value={component.title}
+                        onChange={(event) =>
+                          onUpdateComponent(component.id, "title", event.target.value)
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label className="text-xs">Descrição</Label>
+                      <Input
+                        aria-label={`Descrição do componente ${componentIndex + 1} do item ${
+                          index + 1
+                        }`}
+                        value={component.description}
+                        onChange={(event) =>
+                          onUpdateComponent(component.id, "description", event.target.value)
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Qtd.</Label>
+                        <Input
+                          aria-label={`Quantidade do componente ${componentIndex + 1} do item ${
+                            index + 1
+                          }`}
+                          type="number"
+                          value={component.quantity}
+                          onChange={(event) =>
+                            onUpdateComponent(component.id, "quantity", event.target.value)
+                          }
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Un.</Label>
+                        <Input
+                          aria-label={`Unidade do componente ${componentIndex + 1} do item ${
+                            index + 1
+                          }`}
+                          value={component.unit}
+                          onChange={(event) =>
+                            onUpdateComponent(component.id, "unit", event.target.value)
+                          }
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function normalizeItemForRequest(
+  item: ProcessItem,
+  index: number,
+): ProcessCreateItemRequest | null {
+  const code = trimOrNull(item.code) ?? String(index + 1);
+  const title = trimOrNull(item.title) ?? trimOrNull(item.description);
+  const unit = trimOrNull(item.unit) ?? "UN";
+  const hasMeaningfulValue = Boolean(
+    title ||
+      trimOrNull(item.code) ||
+      trimOrNull(item.quantity) ||
+      trimOrNull(item.unitValue) ||
+      trimOrNull(item.totalValue) ||
+      item.components.some((component) =>
+        Boolean(
+          trimOrNull(component.title) ||
+            trimOrNull(component.description) ||
+            trimOrNull(component.quantity) ||
+            trimOrNull(component.unit),
+        ),
       ),
-    }));
-    setErrors((currentErrors) => ({ ...currentErrors, form: undefined }));
+  );
+
+  if (!hasMeaningfulValue || !title) {
+    return null;
   }
 
-  function removeExpenseRequestComponent(itemId: string, componentId: string) {
-    setValues((currentValues) => ({
-      ...currentValues,
-      expenseRequestItems: currentValues.expenseRequestItems.map((item) =>
-        item.id === itemId ? removeExpenseRequestComponentFromItem(item, componentId) : item,
-      ),
-    }));
-    setErrors((currentErrors) => ({ ...currentErrors, form: undefined }));
-  }
-
-  function handleObjectChange(object: string) {
-    setValues((currentValues) => ({
-      ...currentValues,
-      object,
-      ...(dirtyFields.title
-        ? {}
-        : {
-            title: deriveProcessTitlePreview({
-              object,
-              processNumber: currentValues.processNumber,
-            }),
-          }),
-    }));
-    setDirtyFields((currentFields) => ({ ...currentFields, object: true }));
-    setErrors((currentErrors) => ({
-      ...currentErrors,
-      object: undefined,
-      ...(dirtyFields.title ? {} : { title: undefined }),
-      form: undefined,
-    }));
-  }
-
-  function addReferenceDataMatches(nextExtraction: ExpenseRequestExtractionResult) {
-    const warnings = new Set(nextExtraction.warnings);
-    const organizationMatch = organizationOptions.find(
-      (organization) => organization.cnpj === nextExtraction.extractedFields.organizationCnpj,
-    );
-    const departmentMatch = departmentOptions.find(
-      (department) =>
-        department.budgetUnitCode === nextExtraction.extractedFields.budgetUnitCode &&
-        (!organizationMatch || department.organizationId === organizationMatch.id),
-    );
-
-    if (role === "admin" && nextExtraction.extractedFields.organizationCnpj && !organizationMatch) {
-      warnings.add("organization_match_missing");
-    }
-
-    if (nextExtraction.extractedFields.budgetUnitCode && !departmentMatch) {
-      warnings.add("department_match_missing");
-    }
-
+  if (item.kind === "kit") {
     return {
-      ...nextExtraction,
-      warnings: Array.from(warnings),
-      suggestions: {
-        ...nextExtraction.suggestions,
-        sourceMetadata: {
-          ...(nextExtraction.suggestions.sourceMetadata ?? {}),
-          warnings: Array.from(warnings),
-        },
-        ...(role === "admin" && organizationMatch ? { organizationId: organizationMatch.id } : {}),
-        ...(departmentMatch ? { departmentIds: [departmentMatch.id] } : {}),
-      },
+      kind: "kit",
+      code,
+      title,
+      quantity: trimOrNull(item.quantity),
+      unit,
+      unitValue: trimOrNull(item.unitValue),
+      totalValue: trimOrNull(item.totalValue),
+      components: item.components
+        .map((component) => {
+          const componentTitle = trimOrNull(component.title) ?? trimOrNull(component.description);
+
+          if (!componentTitle) {
+            return null;
+          }
+
+          return {
+            title: componentTitle,
+            description: trimOrNull(component.description),
+            quantity: trimOrNull(component.quantity),
+            unit: trimOrNull(component.unit) ?? "UN",
+          };
+        })
+        .filter((component): component is NonNullable<typeof component> => component !== null),
     };
   }
 
-  function handleImportDialogOpenChange(open: boolean) {
-    setIsImportDialogOpen(open);
+  return {
+    kind: "simple",
+    code,
+    title,
+    description: trimOrNull(item.description),
+    quantity: trimOrNull(item.quantity),
+    unit,
+    unitValue: trimOrNull(item.unitValue),
+    totalValue: trimOrNull(item.totalValue),
+  };
+}
 
-    if (open) {
-      setPendingExtraction(extraction);
-      setImportError(null);
+function buildCreateRequest(values: FormValues, isAdmin: boolean): ProcessCreateRequest {
+  return {
+    procurementMethod: trimOrNull(values.formaContratacao),
+    biddingModality: values.formaContratacao === "licitacao" ? trimOrNull(values.modalidade) : null,
+    processNumber: values.processNumber.trim(),
+    externalId: trimOrNull(values.externalId),
+    issuedAt: new Date(`${values.issuedAt}T00:00:00`).toISOString(),
+    title: trimOrNull(values.title),
+    object: values.object.trim(),
+    justification: values.justification.trim(),
+    responsibleName: values.responsibleName.trim(),
+    status: "draft",
+    ...(isAdmin ? { organizationId: values.organizationId } : {}),
+    departmentIds: values.departmentIds,
+    items: values.items
+      .map((item, index) => normalizeItemForRequest(item, index))
+      .filter((item): item is NonNullable<typeof item> => item !== null),
+  };
+}
+
+export function ProcessCreatePage() {
+  const navigate = useNavigate();
+  const { organizationId: actorOrganizationId, role } = useAuthSession();
+  const isAdmin = role === "admin";
+  const createProcess = useProcessCreate();
+  const departmentsQuery = useProcessDepartmentsList();
+  const organizationsQuery = useProcessOrganizationsList(isAdmin);
+  const [currentStep, setCurrentStep] = useState<ProcessStep>("dados");
+  const [values, setValues] = useState<FormValues>({
+    formaContratacao: "licitacao",
+    modalidade: "pregao",
+    processNumber: "",
+    externalId: "",
+    issuedAt: "",
+    responsibleName: "",
+    title: "",
+    object: "",
+    justification: "",
+    organizationId: actorOrganizationId ?? "",
+    departmentIds: [],
+    items: [],
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const organizations = organizationsQuery.data?.items ?? [];
+  const departments = departmentsQuery.data?.items ?? [];
+  const currentStepIndex = steps.findIndex((step) => step.id === currentStep);
+  const isFirstStep = currentStepIndex === 0;
+  const isLastStep = currentStepIndex === steps.length - 1;
+  const visibleDepartments = departments.filter(
+    (department) => department.organizationId === values.organizationId,
+  );
+  const selectedOrg = organizations.find(
+    (organization) => organization.id === values.organizationId,
+  );
+  const selectedDepartments = departments.filter((department) =>
+    values.departmentIds.includes(department.id),
+  );
+  const totalValue = values.items.reduce(
+    (acc, item) => acc + parseCurrencyToNumber(item.totalValue),
+    0,
+  );
+  const totalComponents = values.items.reduce((acc, item) => acc + item.components.length, 0);
+  const hasReferenceError = departmentsQuery.isError || organizationsQuery.isError;
+
+  const productionOrganizations = useMemo(() => {
+    if (isAdmin) {
+      return organizations;
+    }
+
+    if (!actorOrganizationId) {
+      return [];
+    }
+
+    const fromApi = organizations.find((organization) => organization.id === actorOrganizationId);
+
+    return (
+      fromApi
+        ? [fromApi]
+        : [
+            {
+              id: actorOrganizationId,
+              name: "Sua organização",
+              cnpj: "",
+              slug: "",
+              officialName: "Sua organização",
+              city: "",
+              state: "",
+              address: "",
+              zipCode: "",
+              phone: "",
+              institutionalEmail: "",
+              website: null,
+              logoUrl: null,
+              authorityName: "",
+              authorityRole: "",
+              isActive: true,
+              createdByUserId: "",
+              createdAt: "",
+              updatedAt: "",
+            },
+          ]
+    ) as ProcessOrganizationListItem[];
+  }, [actorOrganizationId, isAdmin, organizations]);
+
+  useEffect(() => {
+    if (!isAdmin && actorOrganizationId && values.organizationId !== actorOrganizationId) {
+      setValues((prev) => ({
+        ...prev,
+        organizationId: actorOrganizationId,
+        departmentIds: [],
+      }));
+    }
+  }, [actorOrganizationId, isAdmin, values.organizationId]);
+
+  useEffect(() => {
+    if (!isAdmin || values.organizationId || productionOrganizations.length === 0) {
       return;
     }
 
-    setPendingExtraction(null);
-    setImportError(null);
-    setIsExtracting(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }
-
-  async function handlePdfChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    setIsExtracting(true);
-    setImportError(null);
-    setPendingExtraction(null);
-
-    try {
-      setPendingExtraction(addReferenceDataMatches(await extractExpenseRequestFromPdf(file)));
-    } catch (error) {
-      setImportError(getImportErrorMessage(error));
-    } finally {
-      setIsExtracting(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  }
-
-  function handleApplyPendingExtraction() {
-    if (!pendingExtraction) {
-      return;
-    }
-
-    setExtraction(pendingExtraction);
-    setValues((currentValues) => ({
-      ...applyExtractionToFormValues(currentValues, pendingExtraction, dirtyFields),
-      expenseRequestItems: getExtractionItems(pendingExtraction),
+    setValues((prev) => ({
+      ...prev,
+      organizationId: productionOrganizations[0].id,
+      departmentIds: [],
     }));
-    setIsImportDialogOpen(false);
-    setImportError(null);
-    setPendingExtraction(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+  }, [isAdmin, productionOrganizations, values.organizationId]);
+
+  function updateField<K extends keyof FormValues>(field: K, value: FormValues[K]) {
+    setValues((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
   }
 
-  function getCurrentStepIndex() {
-    return wizardSteps.findIndex((step) => step.id === currentStep);
+  function selectOrganization(organizationId: string) {
+    setValues((prev) => ({
+      ...prev,
+      organizationId,
+      departmentIds: [],
+    }));
+    setErrors((prev) => ({ ...prev, organizationId: "", departmentIds: "" }));
   }
 
-  function validateStep(step: ProcessCreationStep) {
-    const nextErrors = validateProcessCreationForm(values, actor);
+  function toggleDepartment(departmentId: string) {
+    setValues((prev) => ({
+      ...prev,
+      departmentIds: prev.departmentIds.includes(departmentId)
+        ? prev.departmentIds.filter((id) => id !== departmentId)
+        : [...prev.departmentIds, departmentId],
+    }));
+    setErrors((prev) => ({ ...prev, departmentIds: "" }));
+  }
 
-    if (step === "request") {
-      const requestErrors = Object.fromEntries(
-        requestStepErrorFields
-          .filter((field) => nextErrors[field])
-          .map((field) => [field, nextErrors[field]]),
-      ) as ProcessCreationFormErrors;
+  function addItem(kind: "simple" | "kit") {
+    const newItem: ProcessItem = {
+      id: generateId(),
+      kind,
+      code: "",
+      title: "",
+      description: "",
+      quantity: "",
+      unit: "UN",
+      unitValue: "",
+      totalValue: "",
+      components: [],
+    };
 
-      if (hasProcessCreationErrors(requestErrors)) {
-        setErrors(requestErrors);
-        return false;
+    setValues((prev) => ({ ...prev, items: [...prev.items, newItem] }));
+  }
+
+  function updateItem(itemId: string, field: keyof ProcessItem, value: string) {
+    setValues((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => (item.id === itemId ? { ...item, [field]: value } : item)),
+    }));
+  }
+
+  function removeItem(itemId: string) {
+    setValues((prev) => ({
+      ...prev,
+      items: prev.items.filter((item) => item.id !== itemId),
+    }));
+  }
+
+  function addComponent(itemId: string) {
+    const newComponent: ProcessItemComponent = {
+      id: generateId(),
+      title: "",
+      description: "",
+      quantity: "",
+      unit: "UN",
+    };
+
+    setValues((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === itemId ? { ...item, components: [...item.components, newComponent] } : item,
+      ),
+    }));
+  }
+
+  function updateComponent(
+    itemId: string,
+    componentId: string,
+    field: keyof ProcessItemComponent,
+    value: string,
+  ) {
+    setValues((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              components: item.components.map((component) =>
+                component.id === componentId ? { ...component, [field]: value } : component,
+              ),
+            }
+          : item,
+      ),
+    }));
+  }
+
+  function removeComponent(itemId: string, componentId: string) {
+    setValues((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              components: item.components.filter((component) => component.id !== componentId),
+            }
+          : item,
+      ),
+    }));
+  }
+
+  function getValidationErrors(step: ProcessStep) {
+    const newErrors: Record<string, string> = {};
+
+    if (step === "dados") {
+      if (!values.processNumber) {
+        newErrors.processNumber = "Informe o número do processo";
+      }
+
+      if (!values.issuedAt) {
+        newErrors.issuedAt = "Informe a data de emissão";
+      }
+
+      if (!values.responsibleName.trim()) {
+        newErrors.responsibleName = "Informe o responsável";
+      }
+
+      if (!values.title) {
+        newErrors.title = "Informe o título do processo";
+      }
+
+      if (!values.object) {
+        newErrors.object = "Descreva o objeto da contratação";
+      }
+
+      if (!values.justification) {
+        newErrors.justification = "Informe a justificativa";
       }
     }
 
-    if (step === "links") {
-      const linkErrors = Object.fromEntries(
-        linksStepErrorFields
-          .filter((field) => nextErrors[field])
-          .map((field) => [field, nextErrors[field]]),
-      ) as ProcessCreationFormErrors;
+    if (step === "vinculos") {
+      if (!values.organizationId) {
+        newErrors.organizationId = "Selecione a organização";
+      }
 
-      if (hasProcessCreationErrors(linkErrors) || referenceDataError) {
-        setErrors(
-          hasProcessCreationErrors(linkErrors)
-            ? linkErrors
-            : { form: "Recarregue os dados de apoio antes de continuar." },
-        );
-        return false;
+      if (values.departmentIds.length === 0) {
+        newErrors.departmentIds = "Selecione ao menos uma unidade";
       }
     }
 
-    if (step === "items") {
-      const hasInvalidItem = values.expenseRequestItems.some(
-        (item) =>
-          !item.title.trim() &&
-          !item.description.trim() &&
-          item.components.every(
-            (component) => !component.title.trim() && !component.description.trim(),
-          ),
-      );
-
-      if (hasInvalidItem) {
-        setErrors({ form: "Informe ao menos um titulo ou descricao para cada item." });
-        return false;
-      }
-    }
-
-    setErrors((currentErrors) => ({ ...currentErrors, form: undefined }));
-    return true;
+    return newErrors;
   }
 
-  function goToPreviousStep() {
-    const currentIndex = getCurrentStepIndex();
-    const previousStep = wizardSteps[currentIndex - 1]?.id;
+  function validateStep() {
+    const newErrors = getValidationErrors(currentStep);
 
-    if (previousStep) {
-      setCurrentStep(previousStep);
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  }
+
+  function validateSubmission() {
+    const newErrors = {
+      ...getValidationErrors("dados"),
+      ...getValidationErrors("vinculos"),
+    };
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length === 0) {
+      return true;
     }
+
+    setCurrentStep(
+      newErrors.processNumber ||
+        newErrors.issuedAt ||
+        newErrors.responsibleName ||
+        newErrors.title ||
+        newErrors.object ||
+        newErrors.justification
+        ? "dados"
+        : "vinculos",
+    );
+
+    return false;
   }
 
   function goToNextStep() {
-    if (!validateStep(currentStep)) {
+    if (!validateStep()) {
       return;
     }
 
-    const currentIndex = getCurrentStepIndex();
-    const nextStep = wizardSteps[currentIndex + 1]?.id;
+    const nextStep = steps[currentStepIndex + 1]?.id;
 
     if (nextStep) {
       setCurrentStep(nextStep);
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function goToPreviousStep() {
+    const previousStep = steps[currentStepIndex - 1]?.id;
 
-    const nextErrors = validateProcessCreationForm(values, actor);
+    if (previousStep) {
+      setCurrentStep(previousStep);
+    }
+  }
 
-    if (hasProcessCreationErrors(nextErrors)) {
-      setErrors(nextErrors);
-      setCurrentStep(
-        requestStepErrorFields.some((field) => nextErrors[field]) ? "request" : "links",
-      );
+  async function handleSubmit() {
+    if (!validateSubmission()) {
       return;
     }
 
     try {
       const process = await createProcess.mutateAsync({
-        data: buildProcessCreateRequest(values, actor),
+        data: buildCreateRequest(values, isAdmin),
       });
 
       toast.success("Processo criado com sucesso.");
       navigate(`/app/processo/${process.id}`);
     } catch (error) {
-      setErrors({ form: getProcessCreateErrorMessage(error) });
+      setErrors((prev) => ({ ...prev, form: getApiErrorMessage(error) }));
     }
   }
 
   return (
-    <main className="flex-1 overflow-auto p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <Button asChild variant="ghost" size="sm" className="-ml-3">
-              <Link to="/app/processos">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Processos
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-semibold tracking-tight">Novo Processo</h1>
-            <p className="text-muted-foreground">
-              Crie manualmente ou importe uma Solicitacao de Despesa TopDown para revisar os dados.
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleImportDialogOpenChange(true)}
-            className="w-full md:w-auto"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Importar SD
-          </Button>
+    <main className="flex-1 overflow-auto bg-background">
+      <div className="mx-auto max-w-7xl px-4 py-6 md:py-8">
+        <div className="mb-5 space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Novo Processo</h1>
+          <p className="text-muted-foreground">
+            Cadastre os dados do processo e revise as informações antes de gerar os documentos.
+          </p>
         </div>
 
-        {referenceDataError ? (
-          <Alert variant="destructive">
-            <AlertCircle />
-            <AlertTitle>Dados de apoio indisponiveis</AlertTitle>
+        <div className="mb-4 md:hidden">
+          <Stepper currentStep={currentStep} isMobile />
+        </div>
+
+        <div className="mb-6 md:mb-7">
+          <Stepper currentStep={currentStep} />
+        </div>
+
+        {hasReferenceError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Não foi possível carregar os dados de referência</AlertTitle>
             <AlertDescription>
-              Nao foi possivel carregar departamentos ou organizacoes. Tente novamente antes de
-              criar o processo.
-              <div className="mt-3 flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void departmentsQuery.refetch()}
-                >
-                  Recarregar departamentos
-                </Button>
-                {role === "admin" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void organizationsQuery.refetch()}
-                  >
-                    Recarregar organizacoes
-                  </Button>
-                ) : null}
-              </div>
+              Recarregue a página ou tente novamente em instantes.
             </AlertDescription>
           </Alert>
-        ) : null}
+        )}
 
-        <Dialog open={isImportDialogOpen} onOpenChange={handleImportDialogOpenChange}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Importar SD TopDown</DialogTitle>
-              <DialogDescription>
-                Selecione o PDF, confira os dados encontrados e aplique ao formulario.
-              </DialogDescription>
-            </DialogHeader>
+        {errors.form && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Não foi possível criar o processo</AlertTitle>
+            <AlertDescription>{errors.form}</AlertDescription>
+          </Alert>
+        )}
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="expense-request-pdf">Selecionar PDF TopDown</Label>
-                <Input
-                  ref={fileInputRef}
-                  id="expense-request-pdf"
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={(event) => void handlePdfChange(event)}
-                  disabled={isExtracting}
-                />
-              </div>
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+          <div className="space-y-6">
+            {currentStep === "dados" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Dados do Processo</CardTitle>
+                  <CardDescription>
+                    Preencha as informações básicas do processo de contratação.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-12">
+                    <div className="space-y-2 lg:col-span-3">
+                      <Label htmlFor="formaContratacao">Forma de contratação</Label>
+                      <Select
+                        value={values.formaContratacao}
+                        onValueChange={(value) => {
+                          updateField("formaContratacao", value);
+                          if (value !== "licitacao") {
+                            updateField("modalidade", "");
+                          }
+                        }}
+                      >
+                        <SelectTrigger id="formaContratacao" className="w-full">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {formasContratacao.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              {isExtracting ? (
-                <Alert>
-                  <Loader2 className="animate-spin" />
-                  <AlertTitle>Lendo PDF</AlertTitle>
-                  <AlertDescription>Extraindo o texto da Solicitacao de Despesa.</AlertDescription>
-                </Alert>
-              ) : null}
+                    <div className="space-y-2 lg:col-span-3">
+                      <Label htmlFor="modalidade">Modalidade</Label>
+                      <Select
+                        value={values.modalidade}
+                        onValueChange={(value) => updateField("modalidade", value)}
+                        disabled={values.formaContratacao !== "licitacao"}
+                      >
+                        <SelectTrigger id="modalidade" className="w-full">
+                          <SelectValue
+                            placeholder={
+                              values.formaContratacao === "licitacao" ? "Selecione" : "N/A"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {modalidadesLicitacao.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              {importError ? (
-                <Alert variant="destructive">
-                  <AlertCircle />
-                  <AlertTitle>{importError.title}</AlertTitle>
-                  <AlertDescription>{importError.description}</AlertDescription>
-                </Alert>
-              ) : null}
+                    <div className="space-y-2 lg:col-span-3">
+                      <Label htmlFor="processNumber">
+                        Número do processo <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="processNumber"
+                        value={values.processNumber}
+                        onChange={(event) => updateField("processNumber", event.target.value)}
+                        placeholder="Ex: PE-2024/0001"
+                        aria-invalid={Boolean(errors.processNumber)}
+                      />
+                      {errors.processNumber && (
+                        <p className="text-sm text-destructive">{errors.processNumber}</p>
+                      )}
+                    </div>
 
-              {pendingExtraction ? (
-                <div className="space-y-4 rounded-md border p-4">
-                  <div className="flex items-start gap-3">
-                    <FileText className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 space-y-1">
-                      <h3 className="font-medium">Preview de {pendingExtraction.fileName}</h3>
-                      <p className="text-muted-foreground text-sm">
-                        Estes dados serao aplicados somente ao confirmar.
-                      </p>
+                    <div className="space-y-2 lg:col-span-3">
+                      <Label htmlFor="externalId">ID externo</Label>
+                      <Input
+                        id="externalId"
+                        value={values.externalId}
+                        onChange={(event) => updateField("externalId", event.target.value)}
+                        placeholder="Opcional"
+                      />
+                    </div>
+
+                    <div className="space-y-2 lg:col-span-3">
+                      <Label htmlFor="issuedAt">
+                        Data de emissão <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="issuedAt"
+                        type="date"
+                        value={values.issuedAt}
+                        onChange={(event) => updateField("issuedAt", event.target.value)}
+                        aria-invalid={Boolean(errors.issuedAt)}
+                      />
+                      {errors.issuedAt && (
+                        <p className="text-sm text-destructive">{errors.issuedAt}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 lg:col-span-6">
+                      <Label htmlFor="responsibleName">
+                        Responsável <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="responsibleName"
+                        value={values.responsibleName}
+                        onChange={(event) => updateField("responsibleName", event.target.value)}
+                        placeholder="Nome do responsável"
+                        aria-invalid={Boolean(errors.responsibleName)}
+                      />
+                      {errors.responsibleName && (
+                        <p className="text-sm text-destructive">{errors.responsibleName}</p>
+                      )}
                     </div>
                   </div>
 
-                  <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <dt className="text-muted-foreground">Título</dt>
-                      <dd className="font-medium">
-                        {pendingExtraction.suggestions.title ?? "Não encontrado"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Numero</dt>
-                      <dd className="font-medium">
-                        {pendingExtraction.suggestions.processNumber ?? "Nao encontrado"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Data</dt>
-                      <dd className="font-medium">
-                        {pendingExtraction.suggestions.issuedAt ?? "Nao encontrada"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Unidade</dt>
-                      <dd className="font-medium">
-                        {pendingExtraction.extractedFields.budgetUnitCode ?? "--"}
-                        {pendingExtraction.extractedFields.budgetUnitName
-                          ? ` - ${pendingExtraction.extractedFields.budgetUnitName}`
-                          : ""}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Responsavel</dt>
-                      <dd className="font-medium">
-                        {pendingExtraction.suggestions.responsibleName ?? "Nao encontrado"}
-                      </dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-muted-foreground">Objeto</dt>
-                      <dd className="font-medium">
-                        {pendingExtraction.suggestions.object ?? "Nao encontrado"}
-                      </dd>
-                    </div>
-                  </dl>
+                  <div className="space-y-2">
+                    <Label htmlFor="title">
+                      Título do processo <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="title"
+                      value={values.title}
+                      onChange={(event) => updateField("title", event.target.value)}
+                      placeholder="Título descritivo do processo"
+                      aria-invalid={Boolean(errors.title)}
+                    />
+                    {errors.title && <p className="text-sm text-destructive">{errors.title}</p>}
+                  </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <h4 className="font-medium text-sm">Itens encontrados</h4>
-                      <Badge variant="secondary">
-                        {getExtractionItems(pendingExtraction).length} item
-                        {getExtractionItems(pendingExtraction).length === 1 ? "" : "s"}
-                      </Badge>
-                    </div>
-                    {getExtractionItems(pendingExtraction).length > 0 ? (
-                      <div className="space-y-2">
-                        {getExtractionItems(pendingExtraction).map((item, index) => (
-                          <div
-                            key={item.id}
-                            className="grid gap-2 rounded-md border bg-muted/30 p-3 text-sm"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="font-medium">
-                                {index + 1}. {item.description || "Descricao nao encontrada"}
-                              </p>
-                            </div>
-                            <p className="text-muted-foreground">{getItemSummary(item)}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        Nenhum item estruturado foi detectado no PDF.
-                      </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="object">
+                      Objeto da contratação <span className="text-destructive">*</span>
+                    </Label>
+                    <Textarea
+                      id="object"
+                      value={values.object}
+                      onChange={(event) => updateField("object", event.target.value)}
+                      placeholder="Descreva o objeto da contratação de forma clara e objetiva"
+                      className="min-h-28"
+                      aria-invalid={Boolean(errors.object)}
+                    />
+                    {errors.object && <p className="text-sm text-destructive">{errors.object}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="justification">
+                      Justificativa <span className="text-destructive">*</span>
+                    </Label>
+                    <Textarea
+                      id="justification"
+                      value={values.justification}
+                      onChange={(event) => updateField("justification", event.target.value)}
+                      placeholder="Justifique a necessidade da contratação"
+                      className="min-h-32"
+                      aria-invalid={Boolean(errors.justification)}
+                    />
+                    {errors.justification && (
+                      <p className="text-sm text-destructive">{errors.justification}</p>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  {pendingExtraction.warnings.length > 0 ? (
+            {currentStep === "vinculos" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vínculos Institucionais</CardTitle>
+                  <CardDescription>
+                    Selecione as unidades orçamentárias vinculadas ao processo.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {isAdmin && (
                     <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm">
-                        Alguns pontos precisam de revisao:
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {pendingExtraction.warnings.map((warning) => (
-                          <Badge key={warning} variant="secondary">
-                            {warningLabels[warning] ?? warning}
-                          </Badge>
-                        ))}
-                      </div>
+                      <Label htmlFor="organizationId">
+                        Organização <span className="text-destructive">*</span>
+                      </Label>
+                      <Select value={values.organizationId} onValueChange={selectOrganization}>
+                        <SelectTrigger
+                          id="organizationId"
+                          className="w-full"
+                          aria-invalid={Boolean(errors.organizationId)}
+                        >
+                          <SelectValue placeholder="Selecione a organização" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productionOrganizations.map((organization) => (
+                            <SelectItem key={organization.id} value={organization.id}>
+                              {organization.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.organizationId && (
+                        <p className="text-sm text-destructive">{errors.organizationId}</p>
+                      )}
                     </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+                  )}
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleImportDialogOpenChange(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleApplyPendingExtraction}
-                disabled={!pendingExtraction || isExtracting}
-              >
-                Aplicar dados
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <ProcessCreationStepper currentStep={currentStep} />
-
-          {extraction ? (
-            <Alert>
-              <FileText />
-              <AlertTitle>Dados importados de {extraction.fileName}</AlertTitle>
-              <AlertDescription>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <span>Revise os campos preenchidos antes de criar o processo.</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleImportDialogOpenChange(true)}
-                    className="w-full sm:w-auto"
-                  >
-                    Substituir PDF
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {errors.form ? (
-            <Alert variant="destructive">
-              <AlertCircle />
-              <AlertTitle>Nao foi possivel continuar</AlertTitle>
-              <AlertDescription>{errors.form}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          {currentStep === "request" ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Dados do Processo</CardTitle>
-                <CardDescription>Campos obrigatorios para criacao do processo.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="process-type">Tipo</Label>
-                    <Select value={values.type} onValueChange={(type) => updateField("type", type)}>
-                      <SelectTrigger id="process-type" aria-invalid={Boolean(errors.type)}>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {processTypeOptions.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                        {values.type &&
-                        !processTypeOptions.some((type) => type.value === values.type) ? (
-                          <SelectItem value={values.type}>{values.type}</SelectItem>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
-                    <FieldError message={errors.type} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="process-number">Numero do processo</Label>
-                    <Input
-                      id="process-number"
-                      value={values.processNumber}
-                      onChange={(event) => updateField("processNumber", event.target.value)}
-                      aria-invalid={Boolean(errors.processNumber)}
-                    />
-                    <FieldError message={errors.processNumber} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="external-id">ID externo</Label>
-                    <Input
-                      id="external-id"
-                      value={values.externalId}
-                      onChange={(event) => updateField("externalId", event.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="issued-at">Data de emissao</Label>
-                    <Input
-                      id="issued-at"
-                      type="date"
-                      value={values.issuedAt}
-                      onChange={(event) => updateField("issuedAt", event.target.value)}
-                      aria-invalid={Boolean(errors.issuedAt)}
-                    />
-                    <FieldError message={errors.issuedAt} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="responsible-name">Responsavel</Label>
-                    <Input
-                      id="responsible-name"
-                      value={values.responsibleName}
-                      onChange={(event) => updateField("responsibleName", event.target.value)}
-                      aria-invalid={Boolean(errors.responsibleName)}
-                    />
-                    <FieldError message={errors.responsibleName} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="process-status">Status</Label>
-                    <Select
-                      value={values.status}
-                      onValueChange={(status) =>
-                        updateField("status", status as ProcessCreationFormValues["status"])
-                      }
-                    >
-                      <SelectTrigger id="process-status">
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {processCreationStatusOptions.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="process-title">Título</Label>
-                  <Input
-                    id="process-title"
-                    value={values.title}
-                    onChange={(event) => updateField("title", event.target.value)}
-                    aria-invalid={Boolean(errors.title)}
-                  />
-                  <FieldError message={errors.title} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="process-object">Objeto</Label>
-                  <Textarea
-                    id="process-object"
-                    value={values.object}
-                    onChange={(event) => handleObjectChange(event.target.value)}
-                    aria-invalid={Boolean(errors.object)}
-                    className="min-h-24"
-                  />
-                  <FieldError message={errors.object} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="process-justification">Justificativa</Label>
-                  <Textarea
-                    id="process-justification"
-                    value={values.justification}
-                    onChange={(event) => updateField("justification", event.target.value)}
-                    aria-invalid={Boolean(errors.justification)}
-                    className="min-h-28"
-                  />
-                  <FieldError message={errors.justification} />
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {currentStep === "items" ? (
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle>Itens da Solicitação</CardTitle>
-                    <CardDescription>
-                      Cadastre itens simples ou kits com componentes separados.
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button type="button" variant="outline" onClick={() => addExpenseRequestItem()}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Item simples
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => addExpenseRequestItem("kit")}
-                    >
-                      <PackagePlus className="mr-2 h-4 w-4" />
-                      Kit
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {values.expenseRequestItems.length === 0 ? (
-                  <div className="rounded-md border border-dashed p-4 text-muted-foreground text-sm">
-                    Nenhum item vinculado ao processo. Adicione um item simples ou kit.
-                  </div>
-                ) : (
                   <div className="space-y-3">
-                    {values.expenseRequestItems.map((item, index) => (
-                      <div key={item.id} className="rounded-md border p-3">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">Item {index + 1}</Badge>
-                            <Badge variant="outline">
-                              {item.source === "pdf" ? "PDF" : "Manual"}
-                            </Badge>
-                            <Badge variant={item.kind === "kit" ? "default" : "outline"}>
-                              {item.kind === "kit" ? "Kit" : "Simples"}
-                            </Badge>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Remover item ${index + 1}`}
-                            onClick={() => removeExpenseRequestItem(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                    <Label>
+                      Unidades orçamentárias <span className="text-destructive">*</span>
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Selecione as unidades vinculadas ao processo.
+                    </p>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {visibleDepartments.length === 0 ? (
+                        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground sm:col-span-2">
+                          Nenhuma unidade disponível para a organização selecionada.
                         </div>
+                      ) : (
+                        visibleDepartments.map((department) => {
+                          const isSelected = values.departmentIds.includes(department.id);
 
-                        <div className="grid gap-3 md:grid-cols-[minmax(7rem,0.8fr)_minmax(10rem,1.2fr)_minmax(12rem,2fr)_minmax(6rem,0.7fr)_minmax(6rem,0.7fr)_minmax(7rem,0.8fr)_minmax(7rem,0.8fr)]">
-                          <div className="space-y-2">
-                            <Label htmlFor={`item-code-${item.id}`}>Codigo</Label>
-                            <Input
-                              id={`item-code-${item.id}`}
-                              aria-label={`Codigo do item ${index + 1}`}
-                              value={item.code}
-                              onChange={(event) =>
-                                updateExpenseRequestItem(item.id, "code", event.target.value)
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`item-title-${item.id}`}>Título</Label>
-                            <Input
-                              id={`item-title-${item.id}`}
-                              aria-label={`Título do item ${index + 1}`}
-                              value={item.title}
-                              onChange={(event) =>
-                                updateExpenseRequestItem(item.id, "title", event.target.value)
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`item-description-${item.id}`}>Descricao</Label>
-                            <Textarea
-                              id={`item-description-${item.id}`}
-                              aria-label={`Descricao do item ${index + 1}`}
-                              value={item.description}
-                              onChange={(event) =>
-                                updateExpenseRequestItem(item.id, "description", event.target.value)
-                              }
-                              className="min-h-10 md:min-h-10"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`item-quantity-${item.id}`}>Qtd.</Label>
-                            <Input
-                              id={`item-quantity-${item.id}`}
-                              aria-label={`Quantidade do item ${index + 1}`}
-                              value={item.quantity}
-                              onChange={(event) =>
-                                updateExpenseRequestItem(item.id, "quantity", event.target.value)
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`item-unit-${item.id}`}>Und.</Label>
-                            <Input
-                              id={`item-unit-${item.id}`}
-                              aria-label={`Unidade do item ${index + 1}`}
-                              value={item.unit}
-                              onChange={(event) =>
-                                updateExpenseRequestItem(item.id, "unit", event.target.value)
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`item-unit-value-${item.id}`}>Vlr. unit.</Label>
-                            <Input
-                              id={`item-unit-value-${item.id}`}
-                              aria-label={`Valor unitario do item ${index + 1}`}
-                              value={item.unitValue}
-                              onChange={(event) =>
-                                updateExpenseRequestItem(item.id, "unitValue", event.target.value)
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor={`item-total-value-${item.id}`}>Vlr. total</Label>
-                            <Input
-                              id={`item-total-value-${item.id}`}
-                              aria-label={`Valor total do item ${index + 1}`}
-                              value={item.totalValue}
-                              onChange={(event) =>
-                                updateExpenseRequestItem(item.id, "totalValue", event.target.value)
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        {calculateExpenseRequestItemTotalValue(item.quantity, item.unitValue) ? (
-                          <p className="mt-3 text-muted-foreground text-xs">
-                            Total calculado:{" "}
-                            <span className="font-medium text-foreground">
-                              {calculateExpenseRequestItemTotalValue(item.quantity, item.unitValue)}
-                            </span>
-                          </p>
-                        ) : null}
-
-                        {item.kind === "kit" ? (
-                          <div className="mt-4 space-y-3 border-l pl-4">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <p className="font-medium text-sm">Componentes do kit</p>
-                                <p className="text-muted-foreground text-xs">
-                                  Separe cada componente para evitar descrições enormes.
+                          return (
+                            <div
+                              key={department.id}
+                              className={`flex items-start gap-3 rounded-lg border p-3 transition-all hover:bg-muted/50 ${
+                                isSelected ? "border-primary bg-primary/5" : "border-border"
+                              }`}
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleDepartment(department.id)}
+                                className="mt-0.5"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium leading-tight">
+                                  {department.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Código: {getDepartmentCode(department)}
                                 </p>
                               </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => addExpenseRequestComponent(item.id)}
-                              >
-                                <Layers3 className="mr-2 h-4 w-4" />
-                                Adicionar componente
-                              </Button>
                             </div>
+                          );
+                        })
+                      )}
+                    </div>
 
-                            {item.components.length === 0 ? (
-                              <div className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
-                                Nenhum componente cadastrado para este kit.
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {item.components.map((component, componentIndex) => (
-                                  <div key={component.id} className="rounded-md border p-3">
-                                    <div className="mb-3 flex items-center justify-between gap-3">
-                                      <Badge variant="secondary">
-                                        Componente {componentIndex + 1}
-                                      </Badge>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label={`Remover componente ${componentIndex + 1} do item ${index + 1}`}
-                                        onClick={() =>
-                                          removeExpenseRequestComponent(item.id, component.id)
-                                        }
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
+                    {errors.departmentIds && (
+                      <p className="text-sm text-destructive">{errors.departmentIds}</p>
+                    )}
 
-                                    <div className="grid gap-3 md:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.5fr)_minmax(6rem,0.7fr)_minmax(6rem,0.7fr)]">
-                                      <div className="space-y-2">
-                                        <Label htmlFor={`component-title-${component.id}`}>
-                                          Título
-                                        </Label>
-                                        <Input
-                                          id={`component-title-${component.id}`}
-                                          aria-label={`Título do componente ${componentIndex + 1} do item ${index + 1}`}
-                                          value={component.title}
-                                          onChange={(event) =>
-                                            updateExpenseRequestComponent(
-                                              item.id,
-                                              component.id,
-                                              "title",
-                                              event.target.value,
-                                            )
-                                          }
-                                        />
-                                      </div>
-                                      <div className="space-y-2">
-                                        <Label htmlFor={`component-description-${component.id}`}>
-                                          Descricao
-                                        </Label>
-                                        <Textarea
-                                          id={`component-description-${component.id}`}
-                                          aria-label={`Descricao do componente ${componentIndex + 1} do item ${index + 1}`}
-                                          value={component.description}
-                                          onChange={(event) =>
-                                            updateExpenseRequestComponent(
-                                              item.id,
-                                              component.id,
-                                              "description",
-                                              event.target.value,
-                                            )
-                                          }
-                                          className="min-h-16"
-                                        />
-                                      </div>
-                                      <div className="space-y-2">
-                                        <Label htmlFor={`component-quantity-${component.id}`}>
-                                          Qtd.
-                                        </Label>
-                                        <Input
-                                          id={`component-quantity-${component.id}`}
-                                          aria-label={`Quantidade do componente ${componentIndex + 1} do item ${index + 1}`}
-                                          value={component.quantity}
-                                          onChange={(event) =>
-                                            updateExpenseRequestComponent(
-                                              item.id,
-                                              component.id,
-                                              "quantity",
-                                              event.target.value,
-                                            )
-                                          }
-                                        />
-                                      </div>
-                                      <div className="space-y-2">
-                                        <Label htmlFor={`component-unit-${component.id}`}>
-                                          Und.
-                                        </Label>
-                                        <Input
-                                          id={`component-unit-${component.id}`}
-                                          aria-label={`Unidade do componente ${componentIndex + 1} do item ${index + 1}`}
-                                          value={component.unit}
-                                          onChange={(event) =>
-                                            updateExpenseRequestComponent(
-                                              item.id,
-                                              component.id,
-                                              "unit",
-                                              event.target.value,
-                                            )
-                                          }
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ) : null}
+                    {values.departmentIds.length > 0 && (
+                      <div className="mt-4 rounded-lg bg-muted/50 p-3">
+                        <p className="mb-2 text-sm font-medium">
+                          Unidades selecionadas ({values.departmentIds.length})
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedDepartments.map((department) => (
+                            <Badge key={department.id} variant="secondary">
+                              {getDepartmentCode(department)} - {department.name}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
+                </CardContent>
+              </Card>
+            )}
 
-          {currentStep === "links" ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Vinculos</CardTitle>
-                <CardDescription>
-                  Defina a organizacao e os departamentos do processo.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {role === "admin" ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="organization">Organizacao</Label>
-                    <Select
-                      value={values.organizationId}
-                      onValueChange={(organizationId) => {
-                        updateField("organizationId", organizationId);
-                        updateField("departmentIds", []);
-                      }}
-                      disabled={organizationsQuery.isLoading}
-                    >
-                      <SelectTrigger
-                        id="organization"
-                        aria-invalid={Boolean(errors.organizationId)}
+            {currentStep === "itens" && (
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle>Itens do Processo</CardTitle>
+                      <CardDescription>
+                        Cadastre os itens simples ou kits que compõem o processo.
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addItem("simple")}
                       >
-                        <SelectValue placeholder="Selecione a organizacao" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {organizationOptions.map((organization) => (
-                          <SelectItem key={organization.id} value={organization.id}>
-                            {organization.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FieldError message={errors.organizationId} />
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Item simples
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addItem("kit")}
+                      >
+                        <Layers3 className="mr-1.5 h-4 w-4" />
+                        Kit
+                      </Button>
+                    </div>
                   </div>
-                ) : null}
-
-                <div className="space-y-2">
-                  <Label>Departamentos</Label>
-                  <div className="grid gap-2 rounded-md border p-3 md:grid-cols-2">
-                    {isReferenceDataLoading ? (
-                      <p className="text-muted-foreground text-sm">Carregando departamentos...</p>
-                    ) : visibleDepartmentOptions.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">
-                        Nenhum departamento disponivel para a organizacao selecionada.
+                </CardHeader>
+                <CardContent>
+                  {values.items.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+                      <Package className="mb-3 h-10 w-10 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">Nenhum item cadastrado.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Adicione um item simples ou kit para continuar.
                       </p>
-                    ) : (
-                      visibleDepartmentOptions.map((department) => (
-                        <Label
-                          key={department.id}
-                          className="flex min-w-0 items-center gap-3 rounded-md border px-3 py-2"
-                        >
-                          <Checkbox
-                            checked={values.departmentIds.includes(department.id)}
-                            onCheckedChange={() => toggleDepartment(department.id)}
-                          />
-                          <span className="truncate">{department.label}</span>
-                        </Label>
-                      ))
-                    )}
-                  </div>
-                  <FieldError message={errors.departmentIds} />
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {currentStep === "review" ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Revisão da Solicitação</CardTitle>
-                <CardDescription>
-                  Confira os dados antes de criar o processo e liberar a geração dos documentos.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Número</p>
-                    <p className="font-medium">{values.processNumber || "Nao informado"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-sm">Responsável</p>
-                    <p className="font-medium">{values.responsibleName || "Nao informado"}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <p className="text-muted-foreground text-sm">Objeto</p>
-                    <p className="font-medium">{values.object || "Nao informado"}</p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <p className="text-muted-foreground text-sm">Justificativa</p>
-                    <p className="font-medium">{values.justification || "Nao informado"}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-muted-foreground text-sm">Departamentos</p>
-                  <div className="flex flex-wrap gap-2">
-                    {values.departmentIds.length === 0 ? (
-                      <Badge variant="secondary">Nenhum departamento</Badge>
-                    ) : (
-                      values.departmentIds.map((departmentId) => (
-                        <Badge key={departmentId} variant="secondary">
-                          {departmentOptions.find((department) => department.id === departmentId)
-                            ?.label ?? departmentId}
-                        </Badge>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-muted-foreground text-sm">Itens</p>
-                    <Badge variant="secondary">
-                      {values.expenseRequestItems.length} item
-                      {values.expenseRequestItems.length === 1 ? "" : "s"}
-                    </Badge>
-                  </div>
-                  {values.expenseRequestItems.length === 0 ? (
-                    <div className="rounded-md border border-dashed p-4 text-muted-foreground text-sm">
-                      Nenhum item cadastrado.
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {values.expenseRequestItems.map((item, index) => (
-                        <div key={item.id} className="rounded-md border p-4">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant={item.kind === "kit" ? "default" : "outline"}>
-                                  {item.kind === "kit" ? "Kit" : "Item simples"}
-                                </Badge>
-                                <span className="font-medium">
-                                  {index + 1}. {getItemDisplayName(item)}
-                                </span>
-                              </div>
-                              {item.description ? (
-                                <p className="mt-2 text-muted-foreground text-sm">
-                                  {item.description}
-                                </p>
-                              ) : null}
-                            </div>
-                            <p className="text-sm">
-                              {getItemSummary(item) || getExpenseRequestItemTotalPreview(item)}
-                            </p>
-                          </div>
-                          {item.components.length > 0 ? (
-                            <div className="mt-3 space-y-2 border-l pl-4">
-                              <p className="text-muted-foreground text-xs">Componentes</p>
-                              {item.components.map((component) => (
-                                <div key={component.id} className="text-sm">
-                                  <span className="font-medium">
-                                    {component.title || component.description || "Componente"}
-                                  </span>
-                                  {component.quantity || component.unit ? (
-                                    <span className="text-muted-foreground">
-                                      {" "}
-                                      —{" "}
-                                      {[component.quantity, component.unit]
-                                        .filter(Boolean)
-                                        .join(" ")}
-                                    </span>
-                                  ) : null}
-                                  {component.description && component.title ? (
-                                    <p className="text-muted-foreground">{component.description}</p>
-                                  ) : null}
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
+                    <div className="space-y-4">
+                      {values.items.map((item, index) => (
+                        <ItemCard
+                          key={item.id}
+                          item={item}
+                          index={index}
+                          onUpdate={(field, value) => updateItem(item.id, field, value)}
+                          onRemove={() => removeItem(item.id)}
+                          onAddComponent={() => addComponent(item.id)}
+                          onUpdateComponent={(componentId, field, value) =>
+                            updateComponent(item.id, componentId, field, value)
+                          }
+                          onRemoveComponent={(componentId) => removeComponent(item.id, componentId)}
+                        />
                       ))}
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
+                </CardContent>
+              </Card>
+            )}
 
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            {currentStep === "request" ? (
-              <Button asChild type="button" variant="outline">
-                <Link to="/app/processos">Cancelar</Link>
-              </Button>
-            ) : (
-              <Button type="button" variant="outline" onClick={goToPreviousStep}>
+            {currentStep === "revisao" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-success" />
+                      Revisão Final
+                    </CardTitle>
+                    <CardDescription>
+                      Confira todas as informações antes de criar o processo.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Dados do Processo</h3>
+                      <div className="grid gap-4 rounded-lg bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Número</p>
+                          <p className="font-medium">{values.processNumber}</p>
+                        </div>
+                        {values.formaContratacao && (
+                          <div>
+                            <p className="text-xs text-muted-foreground">Forma de contratação</p>
+                            <p className="font-medium">
+                              {
+                                formasContratacao.find(
+                                  (item) => item.value === values.formaContratacao,
+                                )?.label
+                              }
+                              {values.formaContratacao === "licitacao" && values.modalidade && (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  -{" "}
+                                  {
+                                    modalidadesLicitacao.find(
+                                      (item) => item.value === values.modalidade,
+                                    )?.label
+                                  }
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs text-muted-foreground">Responsável</p>
+                          <p className="font-medium">{values.responsibleName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Data de emissão</p>
+                          <p className="font-medium">{formatDate(values.issuedAt)}</p>
+                        </div>
+                        {values.externalId && (
+                          <div>
+                            <p className="text-xs text-muted-foreground">ID externo</p>
+                            <p className="font-medium">{values.externalId}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div>
+                        <p className="mb-1 text-xs text-muted-foreground">Título</p>
+                        <p className="font-medium">{values.title}</p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs text-muted-foreground">Objeto</p>
+                        <p className="text-sm leading-relaxed">{values.object}</p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs text-muted-foreground">Justificativa</p>
+                        <p className="text-sm leading-relaxed">{values.justification}</p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <h3 className="font-semibold">Vínculos Institucionais</h3>
+                      <div className="rounded-lg bg-muted/30 p-4">
+                        <div className="mb-3">
+                          <p className="text-xs text-muted-foreground">Organização</p>
+                          <p className="font-medium">{selectedOrg?.name ?? "Sua organização"}</p>
+                        </div>
+                        <div>
+                          <p className="mb-2 text-xs text-muted-foreground">
+                            Unidades orçamentárias ({selectedDepartments.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedDepartments.map((department) => (
+                              <Badge key={department.id} variant="secondary">
+                                {getDepartmentCode(department)} - {department.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">Itens do Processo</h3>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="secondary">
+                            {values.items.length} item{values.items.length !== 1 && "s"}
+                          </Badge>
+                          {totalComponents > 0 && (
+                            <Badge variant="outline">
+                              {totalComponents} componente{totalComponents !== 1 && "s"}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {values.items.length === 0 ? (
+                          <p className="rounded-lg bg-muted/30 p-3 text-sm text-muted-foreground">
+                            Nenhum item informado.
+                          </p>
+                        ) : (
+                          values.items.map((item, index) => (
+                            <div
+                              key={item.id}
+                              className="flex items-start justify-between gap-4 rounded-lg bg-muted/30 p-3"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={item.kind === "kit" ? "default" : "secondary"}
+                                    className="shrink-0"
+                                  >
+                                    {item.kind === "kit" ? "Kit" : "Item"} {index + 1}
+                                  </Badge>
+                                  <span className="truncate text-sm font-medium">
+                                    {item.title || "Sem título"}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {item.code && `${item.code} · `}
+                                  {item.quantity} {item.unit}
+                                  {item.kind === "kit" &&
+                                    item.components.length > 0 &&
+                                    ` · ${item.components.length} componente${
+                                      item.components.length !== 1 ? "s" : ""
+                                    }`}
+                                </p>
+                              </div>
+                              {parseCurrencyToNumber(item.totalValue) > 0 && (
+                                <span className="shrink-0 text-sm font-semibold">
+                                  {formatCurrency(item.totalValue)}
+                                </span>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {totalValue > 0 && (
+                        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-4">
+                          <span className="font-medium">Valor total estimado</span>
+                          <span className="text-lg font-bold text-primary">
+                            {totalValue.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    <Alert>
+                      <FileText className="h-4 w-4" />
+                      <AlertTitle>Próximos passos</AlertTitle>
+                      <AlertDescription>
+                        Após criar o processo, você poderá gerar os documentos oficiais: DFD, ETP,
+                        Termo de Referência e Minuta Contratual.
+                      </AlertDescription>
+                    </Alert>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-4 border-t pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={goToPreviousStep}
+                disabled={isFirstStep || createProcess.isPending}
+              >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Voltar
               </Button>
-            )}
-            {currentStep === "review" ? (
-              <Button type="submit" disabled={isSubmitDisabled}>
-                {createProcess.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Criar Processo
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={goToNextStep}
-                disabled={currentStep === "links" && isReferenceDataLoading}
-              >
-                Continuar
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+
+              {isLastStep ? (
+                <Button type="button" onClick={handleSubmit} disabled={createProcess.isPending}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  {createProcess.isPending ? "Criando..." : "Criar Processo"}
+                </Button>
+              ) : (
+                <Button type="button" onClick={goToNextStep}>
+                  Continuar
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
-        </form>
+
+          <SummaryPanel
+            departments={departments}
+            organizations={productionOrganizations}
+            values={values}
+          />
+        </div>
       </div>
     </main>
   );

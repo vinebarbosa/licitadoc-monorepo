@@ -51,7 +51,8 @@ export const registerProcessRoutes: FastifyPluginAsyncZodOpenApi = async (app) =
         pageSize: request.query.pageSize,
         search: request.query.search,
         status: request.query.status,
-        type: request.query.type,
+        procurementMethod: request.query.procurementMethod,
+        biddingModality: request.query.biddingModality,
       });
     },
   );

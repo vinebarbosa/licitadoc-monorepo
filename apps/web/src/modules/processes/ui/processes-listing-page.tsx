@@ -158,7 +158,10 @@ export function ProcessesListingPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filters.type} onValueChange={(type) => handleFilterChange({ type })}>
+            <Select
+              value={filters.procurementMethod}
+              onValueChange={(procurementMethod) => handleFilterChange({ procurementMethod })}
+            >
               <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
@@ -268,10 +271,10 @@ export function ProcessesListingPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {getProcessTypeLabel(process.type)}
+                        {getProcessTypeLabel(process.procurementMethod ?? "")}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {process.responsibleName}
+                        {process.responsibleName ?? "Nao informado"}
                       </TableCell>
                       <TableCell>
                         <fieldset

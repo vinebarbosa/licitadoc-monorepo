@@ -260,6 +260,8 @@ function createProcessRow(
     id: PROCESS_ID,
     organizationId: ORGANIZATION_ID,
     type: "inexigibilidade",
+    procurementMethod: "inexigibilidade",
+    biddingModality: null,
     processNumber: "2026-001",
     externalId: null,
     issuedAt: new Date("2026-01-08T00:00:00.000Z"),
@@ -267,6 +269,7 @@ function createProcessRow(
     object: "Contratacao de apresentacao artistica",
     justification: "Atender evento cultural do municipio",
     responsibleName: "Ana Souza",
+    responsibleUserId: "user_responsible",
     status: "draft",
     sourceKind: null,
     sourceReference: null,
@@ -744,14 +747,9 @@ test("createProcess preserves native expense request item and kit metadata", asy
   });
 
   assert.deepEqual(insertedProcessValues?.sourceMetadata, nativeSourceMetadata);
-  assert.equal(
-    (response.sourceMetadata as Record<string, unknown> | null)?.source &&
-      ((response.sourceMetadata as Record<string, unknown>).source as Record<string, unknown>)
-        .inputMode,
-    "native_form",
-  );
-  assert.ok(JSON.stringify(response.sourceMetadata).includes("Kit escolar"));
-  assert.ok(JSON.stringify(response.sourceMetadata).includes("Caderno brochura"));
+  assert.equal("sourceMetadata" in response, false);
+  assert.ok(JSON.stringify(response.items).includes("Kit escolar"));
+  assert.ok(JSON.stringify(response.items).includes("Caderno brochura"));
 });
 
 test("createProcess scopes members to their own organization and rejects foreign departments", async () => {
@@ -937,9 +935,8 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
   ]);
   assert.equal(response.processNumber, "SD-6-2026");
   assert.equal(response.title, "Apresentacao artistica musical da banda FORRO TSUNAMI");
-  assert.equal(response.sourceKind, "expense_request");
-  assert.ok(JSON.stringify(response.sourceMetadata).includes("requestNumber"));
-  assert.equal(JSON.stringify(response.sourceMetadata).includes("expenseRequestText"), false);
+  assert.equal("sourceKind" in response, false);
+  assert.equal("sourceMetadata" in response, false);
 });
 
 test("createProcessFromExpenseRequestText persists source file traceability when provided", async () => {
@@ -1027,7 +1024,7 @@ test("createProcessFromExpenseRequestText persists source file traceability when
 
   const sourceMetadata = insertedProcessValues?.sourceMetadata as Record<string, unknown>;
   assert.ok(sourceMetadata);
-  assert.equal(response.sourceKind, "expense_request");
+  assert.equal("sourceKind" in response, false);
   assert.deepEqual((sourceMetadata.sourceFile ?? null) as Record<string, unknown>, {
     contentType: "application/pdf",
     etag: "etag-1",
@@ -1631,7 +1628,7 @@ test("getProcesses applies listing filters and aggregates completed document typ
     db,
     search: "material",
     status: "em_edicao",
-    type: "pregao-eletronico",
+    procurementMethod: "pregao-eletronico",
   });
 
   assert.ok(capturedCountWhere);
@@ -1687,7 +1684,7 @@ test("getProcess allows admins and rejects members outside organization", async 
     "Prestacao de servicos tecnicos de assessoria e suporte em Recursos Humanos",
   );
   assert.deepEqual(response.departments, []);
-  assert.equal(response.estimatedValue, null);
+  assert.equal(response.summary.estimatedTotalValue, null);
   assert.deepEqual(response.documents, [
     {
       type: "dfd",
@@ -1857,7 +1854,7 @@ test("getProcess returns enriched detail data and keeps base fields compatible",
 
   assert.equal(response.processNumber, process.processNumber);
   assert.equal(response.status, process.status);
-  assert.equal(response.estimatedValue, "R$ 450.000,00");
+  assert.equal(response.summary.estimatedTotalValue, "450000.00");
   assert.deepEqual(response.departmentIds, [SECOND_DEPARTMENT_ID, DEPARTMENT_ID]);
   assert.deepEqual(response.departments, [
     {

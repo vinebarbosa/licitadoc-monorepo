@@ -2,7 +2,6 @@ import { pickErrorResponses } from "../../shared/http/errors";
 import {
   type AppRouteSchema,
   OPENAPI_EXAMPLE_DATE_TIME,
-  OPENAPI_EXAMPLE_PERSON_NAME,
   OPENAPI_EXAMPLE_PROCESS_NUMBER,
   OPENAPI_EXAMPLE_PROCESS_STATUS,
   OPENAPI_EXAMPLE_UUID,
@@ -48,87 +47,66 @@ function processDepartmentIdsSchema(fieldLabel: string) {
     });
 }
 
-const OPENAPI_EXAMPLE_PROCESS_TYPE = "pregao-eletronico";
+const OPENAPI_EXAMPLE_PROCUREMENT_METHOD = "bidding";
+const OPENAPI_EXAMPLE_BIDDING_MODALITY = "reverse_auction";
 const OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID = "PROC-2026-001";
 const OPENAPI_EXAMPLE_PROCESS_TITLE = "Materiais de escritorio";
 const OPENAPI_EXAMPLE_PROCESS_OBJECT = "Aquisicao de materiais de escritorio";
 const OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION = "Reposicao de estoque das unidades administrativas.";
-const OPENAPI_EXAMPLE_PROCESS_SOURCE_METADATA = {
-  extractedFields: {
-    budgetUnitCode: "06.001",
-    requestNumber: "6",
-    item: {
-      code: "1",
-      components: [
-        {
-          description: "Caderno brochura capa dura",
-          quantity: "2",
-          title: "Caderno",
-          unit: "unidade",
-        },
-      ],
-      description: "Kit escolar com componentes separados",
-      kind: "kit",
-      quantity: "100",
-      title: "Kit escolar",
-      totalValue: "R$ 12.000,00",
-      unit: "kit",
-      unitValue: "R$ 120,00",
-    },
-    items: [
+const OPENAPI_EXAMPLE_PROCESS_RESPONSIBLE_NAME = "Maria Silva";
+const OPENAPI_EXAMPLE_PROCESS_ITEMS = [
+  {
+    kind: "kit",
+    code: "1",
+    title: "Kit escolar",
+    quantity: "100",
+    unit: "kit",
+    unitValue: "120.00",
+    totalValue: "12000.00",
+    components: [
       {
-        code: "1",
-        components: [
-          {
-            description: "Caderno brochura capa dura",
-            quantity: "2",
-            title: "Caderno",
-            unit: "unidade",
-          },
-        ],
-        description: "Kit escolar com componentes separados",
-        kind: "kit",
-        quantity: "100",
-        title: "Kit escolar",
-        totalValue: "R$ 12.000,00",
-        unit: "kit",
-        unitValue: "R$ 120,00",
+        title: "Caderno",
+        description: "Caderno brochura capa dura",
+        quantity: "2",
+        unit: "unidade",
       },
     ],
   },
-  source: {
-    inputMode: "native_form",
+  {
+    kind: "simple",
+    code: "2",
+    title: "Caneta azul",
+    description: "Caneta esferografica azul",
+    quantity: "500",
+    unit: "unidade",
+    unitValue: "1.50",
+    totalValue: "750.00",
   },
-  sourceFile: {
-    contentType: "application/pdf",
-    etag: "abc123",
-    fileName: "SD.pdf",
-    sizeBytes: 245760,
-    storageBucket: "licitadoc-expense-requests",
-    storageKey: "expense-requests/2026/04/2026-04-21t12-00-00-000z-sd.pdf",
-    uploadedAt: "2026-04-21T12:00:00.000Z",
-  },
-  warnings: [],
+];
+const OPENAPI_EXAMPLE_PROCESS_SUMMARY = {
+  itemCount: 2,
+  componentCount: 1,
+  estimatedTotalValue: "12750.00",
 };
 const createProcessBodyExample = {
-  type: OPENAPI_EXAMPLE_PROCESS_TYPE,
+  procurementMethod: OPENAPI_EXAMPLE_PROCUREMENT_METHOD,
+  biddingModality: OPENAPI_EXAMPLE_BIDDING_MODALITY,
   processNumber: OPENAPI_EXAMPLE_PROCESS_NUMBER,
   externalId: OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
   issuedAt: OPENAPI_EXAMPLE_DATE_TIME,
   title: OPENAPI_EXAMPLE_PROCESS_TITLE,
   object: OPENAPI_EXAMPLE_PROCESS_OBJECT,
   justification: OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION,
-  responsibleName: OPENAPI_EXAMPLE_PERSON_NAME,
+  responsibleName: OPENAPI_EXAMPLE_PROCESS_RESPONSIBLE_NAME,
   status: OPENAPI_EXAMPLE_PROCESS_STATUS,
   organizationId: OPENAPI_EXAMPLE_UUID,
   departmentIds: OPENAPI_EXAMPLE_UUID_LIST,
-  sourceKind: "expense_request",
-  sourceReference: "SD-6-2026",
-  sourceMetadata: OPENAPI_EXAMPLE_PROCESS_SOURCE_METADATA,
+  items: OPENAPI_EXAMPLE_PROCESS_ITEMS,
 };
 const updateProcessBodyExample = {
   status: OPENAPI_EXAMPLE_PROCESS_STATUS,
   justification: OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION,
+  responsibleName: OPENAPI_EXAMPLE_PROCESS_RESPONSIBLE_NAME,
 };
 const createProcessFromExpenseRequestBodyExample = {
   expenseRequestText:
@@ -144,29 +122,37 @@ const createProcessFromExpenseRequestPdfBodyExample = {
   sourceLabel: "SD.pdf",
 };
 
-const processTypeSchema = withOpenApiExample(
-  requiredTextSchema("Process type"),
-  OPENAPI_EXAMPLE_PROCESS_TYPE,
-);
+const nullableTextCreateSchema = z
+  .string()
+  .nullable()
+  .optional()
+  .transform(normalizeNullableOptionalText);
+const nullableTextUpdateSchema = z
+  .string()
+  .nullable()
+  .transform(normalizeNullableOptionalText)
+  .optional();
+const decimalTextSchema = z.union([z.string(), z.number()]).transform((value) => {
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return value.trim();
+});
+const optionalDecimalTextSchema = decimalTextSchema
+  .nullable()
+  .optional()
+  .transform((value) => {
+    if (value == null || value === "") {
+      return null;
+    }
+
+    return value;
+  });
+
 const processNumberSchema = withOpenApiExample(
   requiredTextSchema("Process number"),
   OPENAPI_EXAMPLE_PROCESS_NUMBER,
-);
-const processExternalIdCreateSchema = withOpenApiExample(
-  z.string().nullable().optional().transform(normalizeNullableOptionalText),
-  OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
-);
-const processExternalIdUpdateSchema = withOpenApiExample(
-  z.string().nullable().transform(normalizeNullableOptionalText).optional(),
-  OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
-);
-const processTitleCreateSchema = withOpenApiExample(
-  z.string().nullable().optional().transform(normalizeNullableOptionalText),
-  OPENAPI_EXAMPLE_PROCESS_TITLE,
-);
-const processTitleUpdateSchema = withOpenApiExample(
-  z.string().nullable().transform(normalizeNullableOptionalText).optional(),
-  OPENAPI_EXAMPLE_PROCESS_TITLE,
 );
 const processIssuedAtSchema = withOpenApiExample(
   dateTimeSchema("Process issued at"),
@@ -182,7 +168,7 @@ const processJustificationSchema = withOpenApiExample(
 );
 const processResponsibleNameSchema = withOpenApiExample(
   requiredTextSchema("Process responsible name"),
-  OPENAPI_EXAMPLE_PERSON_NAME,
+  OPENAPI_EXAMPLE_PROCESS_RESPONSIBLE_NAME,
 );
 const processStatusSchema = withOpenApiExample(
   requiredTextSchema("Process status"),
@@ -192,23 +178,82 @@ const expenseRequestTextSchema = withOpenApiExample(
   requiredTextSchema("Expense request text"),
   createProcessFromExpenseRequestBodyExample.expenseRequestText,
 );
-const processSourceKindSchema = withOpenApiExample(
-  z.string().nullable().optional().transform(normalizeNullableOptionalText),
-  "expense_request",
-);
-const processSourceReferenceSchema = withOpenApiExample(
-  z.string().nullable().optional().transform(normalizeNullableOptionalText),
-  "SD-6-2026",
-);
-const processSourceMetadataSchema = withOpenApiExample(
-  z.object({}).catchall(z.unknown()).nullable().optional(),
-  OPENAPI_EXAMPLE_PROCESS_SOURCE_METADATA,
-);
+
+const processItemComponentInputSchema = z.object({
+  title: requiredTextSchema("Process item component title"),
+  description: nullableTextCreateSchema,
+  quantity: optionalDecimalTextSchema,
+  unit: requiredTextSchema("Process item component unit"),
+});
+const simpleProcessItemInputSchema = z.object({
+  kind: z.literal("simple"),
+  code: requiredTextSchema("Process item code"),
+  title: requiredTextSchema("Process item title"),
+  description: nullableTextCreateSchema,
+  quantity: optionalDecimalTextSchema,
+  unit: requiredTextSchema("Process item unit"),
+  unitValue: optionalDecimalTextSchema,
+  totalValue: optionalDecimalTextSchema,
+});
+const kitProcessItemInputSchema = z.object({
+  kind: z.literal("kit"),
+  code: requiredTextSchema("Process item code"),
+  title: requiredTextSchema("Process item title"),
+  quantity: optionalDecimalTextSchema,
+  unit: requiredTextSchema("Process item unit"),
+  unitValue: optionalDecimalTextSchema,
+  totalValue: optionalDecimalTextSchema,
+  components: z.array(processItemComponentInputSchema).default([]),
+});
+const processItemInputSchema = z.discriminatedUnion("kind", [
+  simpleProcessItemInputSchema,
+  kitProcessItemInputSchema,
+]);
+const processItemComponentSchema = z.object({
+  id: openApiUuidSchema(),
+  title: z.string(),
+  description: z.string().nullable(),
+  quantity: z.string().nullable(),
+  unit: z.string(),
+});
+const simpleProcessItemSchema = z.object({
+  id: openApiUuidSchema(),
+  kind: z.literal("simple"),
+  code: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  quantity: z.string().nullable(),
+  unit: z.string(),
+  unitValue: z.string().nullable(),
+  totalValue: z.string().nullable(),
+});
+const kitProcessItemSchema = z.object({
+  id: openApiUuidSchema(),
+  kind: z.literal("kit"),
+  code: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  quantity: z.string().nullable(),
+  unit: z.string(),
+  unitValue: z.string().nullable(),
+  totalValue: z.string().nullable(),
+  components: z.array(processItemComponentSchema),
+});
+const processItemSchema = z.discriminatedUnion("kind", [
+  simpleProcessItemSchema,
+  kitProcessItemSchema,
+]);
+const processSummarySchema = z.object({
+  itemCount: z.number().int().nonnegative(),
+  componentCount: z.number().int().nonnegative(),
+  estimatedTotalValue: z.string().nullable(),
+});
 
 const processSchema = z.object({
   id: openApiUuidSchema(),
   organizationId: openApiUuidSchema(),
-  type: z.string(),
+  procurementMethod: z.string().nullable(),
+  biddingModality: z.string().nullable(),
   processNumber: z.string(),
   externalId: z.string().nullable(),
   issuedAt: z.string(),
@@ -217,12 +262,11 @@ const processSchema = z.object({
   justification: z.string(),
   responsibleName: z.string(),
   status: z.string(),
-  sourceKind: z.string().nullable(),
-  sourceReference: z.string().nullable(),
-  sourceMetadata: z.object({}).catchall(z.unknown()).nullable(),
   departmentIds: z.array(openApiUuidSchema()).meta({
     example: OPENAPI_EXAMPLE_UUID_LIST,
   }),
+  items: z.array(processItemSchema),
+  summary: processSummarySchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -270,21 +314,11 @@ const processDetailDocumentCardSchema = z.object({
 });
 
 const processDetailExample = {
+  ...createProcessBodyExample,
   id: OPENAPI_EXAMPLE_UUID,
   organizationId: OPENAPI_EXAMPLE_UUID,
-  type: OPENAPI_EXAMPLE_PROCESS_TYPE,
-  processNumber: OPENAPI_EXAMPLE_PROCESS_NUMBER,
-  externalId: OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID,
-  issuedAt: OPENAPI_EXAMPLE_DATE_TIME,
   title: OPENAPI_EXAMPLE_PROCESS_TITLE,
-  object: OPENAPI_EXAMPLE_PROCESS_OBJECT,
-  justification: OPENAPI_EXAMPLE_PROCESS_JUSTIFICATION,
-  responsibleName: OPENAPI_EXAMPLE_PERSON_NAME,
-  status: OPENAPI_EXAMPLE_PROCESS_STATUS,
-  sourceKind: "expense_request",
-  sourceReference: "SD-6-2026",
-  sourceMetadata: OPENAPI_EXAMPLE_PROCESS_SOURCE_METADATA,
-  departmentIds: OPENAPI_EXAMPLE_UUID_LIST,
+  summary: OPENAPI_EXAMPLE_PROCESS_SUMMARY,
   createdAt: OPENAPI_EXAMPLE_DATE_TIME,
   updatedAt: OPENAPI_EXAMPLE_DATE_TIME,
   departments: [
@@ -296,7 +330,6 @@ const processDetailExample = {
       label: "06.001 - Secretaria Municipal de Educacao",
     },
   ],
-  estimatedValue: "R$ 245.760,00",
   documents: [
     {
       type: "dfd",
@@ -313,51 +346,6 @@ const processDetailExample = {
         view: true,
       },
     },
-    {
-      type: "etp",
-      label: "ETP",
-      title: "Estudo Técnico Preliminar",
-      description: "Análise técnica e levantamento de soluções",
-      status: "em_edicao",
-      documentId: OPENAPI_EXAMPLE_UUID,
-      lastUpdatedAt: OPENAPI_EXAMPLE_DATE_TIME,
-      progress: null,
-      availableActions: {
-        create: false,
-        edit: true,
-        view: true,
-      },
-    },
-    {
-      type: "tr",
-      label: "TR",
-      title: "Termo de Referência",
-      description: "Especificações técnicas e requisitos",
-      status: "pendente",
-      documentId: null,
-      lastUpdatedAt: null,
-      progress: null,
-      availableActions: {
-        create: true,
-        edit: false,
-        view: false,
-      },
-    },
-    {
-      type: "minuta",
-      label: "Minuta",
-      title: "Minuta do Contrato",
-      description: "Cláusulas e condições contratuais",
-      status: "erro",
-      documentId: OPENAPI_EXAMPLE_UUID,
-      lastUpdatedAt: OPENAPI_EXAMPLE_DATE_TIME,
-      progress: null,
-      availableActions: {
-        create: false,
-        edit: true,
-        view: true,
-      },
-    },
   ],
   detailUpdatedAt: OPENAPI_EXAMPLE_DATE_TIME,
 };
@@ -365,7 +353,6 @@ const processDetailExample = {
 const processDetailSchema = withOpenApiExample(
   processSchema.extend({
     departments: z.array(processDetailDepartmentSchema),
-    estimatedValue: z.string().nullable(),
     documents: z.array(processDetailDocumentCardSchema),
     detailUpdatedAt: z.string(),
   }),
@@ -381,17 +368,25 @@ export const processesPaginationQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().optional(),
   search: z.string().optional().transform(normalizeNullableOptionalText),
   status: z.string().optional().transform(normalizeNullableOptionalText),
-  type: z.string().optional().transform(normalizeNullableOptionalText),
+  procurementMethod: z.string().optional().transform(normalizeNullableOptionalText),
+  biddingModality: z.string().optional().transform(normalizeNullableOptionalText),
 });
 
 export const createProcessBodySchema = withOpenApiExample(
   z
     .object({
-      type: processTypeSchema,
+      procurementMethod: withOpenApiExample(
+        nullableTextCreateSchema,
+        OPENAPI_EXAMPLE_PROCUREMENT_METHOD,
+      ),
+      biddingModality: withOpenApiExample(
+        nullableTextCreateSchema,
+        OPENAPI_EXAMPLE_BIDDING_MODALITY,
+      ),
       processNumber: processNumberSchema,
-      externalId: processExternalIdCreateSchema,
+      externalId: withOpenApiExample(nullableTextCreateSchema, OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID),
       issuedAt: processIssuedAtSchema,
-      title: processTitleCreateSchema,
+      title: withOpenApiExample(nullableTextCreateSchema, OPENAPI_EXAMPLE_PROCESS_TITLE),
       object: processObjectSchema,
       justification: processJustificationSchema,
       responsibleName: processResponsibleNameSchema,
@@ -404,9 +399,10 @@ export const createProcessBodySchema = withOpenApiExample(
         processDepartmentIdsSchema("Process department ids"),
         OPENAPI_EXAMPLE_UUID_LIST,
       ),
-      sourceKind: processSourceKindSchema,
-      sourceReference: processSourceReferenceSchema,
-      sourceMetadata: processSourceMetadataSchema,
+      items: withOpenApiExample(
+        z.array(processItemInputSchema).optional().default([]),
+        OPENAPI_EXAMPLE_PROCESS_ITEMS,
+      ),
     })
     .strict(),
   createProcessBodyExample,
@@ -415,14 +411,21 @@ export const createProcessBodySchema = withOpenApiExample(
 export const updateProcessBodySchema = withOpenApiExample(
   z
     .object({
-      type: withOpenApiExample(processTypeSchema.optional(), OPENAPI_EXAMPLE_PROCESS_TYPE),
+      procurementMethod: withOpenApiExample(
+        nullableTextUpdateSchema,
+        OPENAPI_EXAMPLE_PROCUREMENT_METHOD,
+      ),
+      biddingModality: withOpenApiExample(
+        nullableTextUpdateSchema,
+        OPENAPI_EXAMPLE_BIDDING_MODALITY,
+      ),
       processNumber: withOpenApiExample(
         processNumberSchema.optional(),
         OPENAPI_EXAMPLE_PROCESS_NUMBER,
       ),
-      externalId: processExternalIdUpdateSchema,
+      externalId: withOpenApiExample(nullableTextUpdateSchema, OPENAPI_EXAMPLE_PROCESS_EXTERNAL_ID),
       issuedAt: withOpenApiExample(processIssuedAtSchema.optional(), OPENAPI_EXAMPLE_DATE_TIME),
-      title: processTitleUpdateSchema,
+      title: withOpenApiExample(nullableTextUpdateSchema, OPENAPI_EXAMPLE_PROCESS_TITLE),
       object: withOpenApiExample(processObjectSchema.optional(), OPENAPI_EXAMPLE_PROCESS_OBJECT),
       justification: withOpenApiExample(
         processJustificationSchema.optional(),
@@ -430,12 +433,16 @@ export const updateProcessBodySchema = withOpenApiExample(
       ),
       responsibleName: withOpenApiExample(
         processResponsibleNameSchema.optional(),
-        OPENAPI_EXAMPLE_PERSON_NAME,
+        OPENAPI_EXAMPLE_PROCESS_RESPONSIBLE_NAME,
       ),
       status: withOpenApiExample(processStatusSchema.optional(), OPENAPI_EXAMPLE_PROCESS_STATUS),
       departmentIds: withOpenApiExample(
         processDepartmentIdsSchema("Process department ids").optional(),
         OPENAPI_EXAMPLE_UUID_LIST,
+      ),
+      items: withOpenApiExample(
+        z.array(processItemInputSchema).optional(),
+        OPENAPI_EXAMPLE_PROCESS_ITEMS,
       ),
     })
     .strict()

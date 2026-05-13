@@ -6,6 +6,7 @@ import {
   getProcessDepartmentIds,
   getProcessDetailDepartments,
   getProcessDetailDocuments,
+  getProcessItems,
   serializeProcessDetail,
 } from "./processes.shared";
 
@@ -31,12 +32,16 @@ export async function getProcess({ actor, db, processId }: Input) {
     processId,
   });
 
-  const [departments, documents] = await Promise.all([
+  const [departments, documents, items] = await Promise.all([
     getProcessDetailDepartments({
       db,
       departmentIds,
     }),
     getProcessDetailDocuments({
+      db,
+      processId,
+    }),
+    getProcessItems({
       db,
       processId,
     }),
@@ -46,5 +51,6 @@ export async function getProcess({ actor, db, processId }: Input) {
     departmentIds,
     departments,
     documents,
+    items,
   });
 }

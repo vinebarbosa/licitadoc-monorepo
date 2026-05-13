@@ -42,7 +42,7 @@ describe("processes model helpers", () => {
       page: 2,
       search: "material",
       status: "em_revisao",
-      type: "pregao-eletronico",
+      procurementMethod: "pregao-eletronico",
     });
     expect(getProcessesQueryParams(filters)).toEqual({
       page: 2,
@@ -58,7 +58,7 @@ describe("processes model helpers", () => {
       page: 1,
       search: "",
       status: "todos",
-      type: "todos",
+      procurementMethod: "todos",
     } as const;
 
     expect(getProcessesFilterSearchParams(filters).toString()).toBe("");
@@ -67,7 +67,7 @@ describe("processes model helpers", () => {
       pageSize: 10,
       search: undefined,
       status: undefined,
-      type: undefined,
+      procurementMethod: undefined,
     });
   });
 
@@ -351,12 +351,10 @@ describe("processes model helpers", () => {
       organizationId: "organization-1",
     });
 
-    const payloadSourceMetadata = payload.sourceMetadata ?? null;
-
-    expect(payloadSourceMetadata).toMatchObject(sourceMetadata);
+    expect("sourceMetadata" in payload).toBe(false);
   });
 
-  it("serializes reviewed SD items into source metadata", () => {
+  it("serializes reviewed SD items into structured process items", () => {
     const values = {
       ...getDefaultProcessCreationFormValues({
         role: "member",
@@ -405,36 +403,18 @@ describe("processes model helpers", () => {
       organizationId: "organization-1",
     });
 
-    expect(payload.sourceKind).toBeNull();
-    expect(payload.sourceReference).toBeNull();
-    expect(payload.sourceMetadata).toMatchObject({
-      extractedFields: {
-        item: {
-          code: "0005909",
-          title: "Pote plastico",
-          description: "Pote plastico",
-          quantity: "550",
-          unit: "UN",
-          unitValue: "0,00",
-          totalValue: "0,00",
-        },
-        items: [
-          {
-            code: "0005909",
-            title: "Pote plastico",
-            description: "Pote plastico",
-            quantity: "550",
-            unit: "UN",
-            unitValue: "0,00",
-            totalValue: "0,00",
-          },
-        ],
+    expect(payload.items).toMatchObject([
+      {
+        kind: "simple",
+        code: "0005909",
+        title: "Pote plastico",
+        description: "Pote plastico",
+        quantity: "550",
+        unit: "UN",
+        unitValue: "0,00",
+        totalValue: "0,00",
       },
-      source: {
-        inputMode: "native_form",
-      },
-      warnings: [],
-    });
+    ]);
   });
 
   it("builds native simple and kit item helpers", () => {
@@ -544,40 +524,21 @@ describe("processes model helpers", () => {
       organizationId: "organization-1",
     });
 
-    expect(payload.sourceMetadata).toMatchObject({
-      extractedFields: {
-        requestNumber: "53",
-        item: {
-          code: "0005910",
-          title: "Kit com 2 potes",
-          description: "Kit com 2 potes",
-          components: [
-            {
-              title: "Pote 1L",
-              description: "Pote plastico de 1L",
-              quantity: "2",
-              unit: "unidade",
-            },
-          ],
-        },
-        items: [
+    expect(payload.items).toMatchObject([
+      {
+        kind: "kit",
+        code: "0005910",
+        title: "Kit com 2 potes",
+        components: [
           {
-            code: "0005910",
-            title: "Kit com 2 potes",
-            description: "Kit com 2 potes",
-            components: [
-              {
-                title: "Pote 1L",
-              },
-            ],
+            title: "Pote 1L",
+            description: "Pote plastico de 1L",
+            quantity: "2",
+            unit: "unidade",
           },
         ],
       },
-      source: {
-        fileName: "SD.pdf",
-      },
-      warnings: ["item_rows_missing"],
-    });
+    ]);
   });
 
   it("normalizes dates, extracts backend messages, and applies extraction without overwriting dirty fields", () => {

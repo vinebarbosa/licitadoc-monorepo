@@ -1,16 +1,59 @@
 import { and, eq, inArray, type SQL } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { departments, type documents, processDepartments, processes } from "../../db";
+import {
+  departments,
+  type documents,
+  processDepartments,
+  processes,
+  processItemComponents,
+  processItems,
+} from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
+import { NotFoundError } from "../../shared/errors/not-found-error";
+import type { CreateProcessInput } from "./processes.schemas";
 
 export type StoredProcess = typeof processes.$inferSelect;
 export type StoredDepartment = typeof departments.$inferSelect;
+export type StoredProcessItem = typeof processItems.$inferSelect;
+export type StoredProcessItemComponent = typeof processItemComponents.$inferSelect;
 type StoredProcessDocument = Pick<
   typeof documents.$inferSelect,
   "id" | "status" | "type" | "updatedAt"
 >;
+export type ProcessItemInput = CreateProcessInput["items"][number];
+export type SerializedProcessItemComponent = {
+  id: string;
+  title: string;
+  description: string | null;
+  quantity: string | null;
+  unit: string;
+};
+export type SerializedProcessItem =
+  | {
+      id: string;
+      kind: "simple";
+      code: string;
+      title: string;
+      description: string | null;
+      quantity: string | null;
+      unit: string;
+      unitValue: string | null;
+      totalValue: string | null;
+    }
+  | {
+      id: string;
+      kind: "kit";
+      code: string;
+      title: string;
+      description: string | null;
+      quantity: string | null;
+      unit: string;
+      unitValue: string | null;
+      totalValue: string | null;
+      components: SerializedProcessItemComponent[];
+    };
 export type ExpectedProcessDocumentType = "dfd" | "etp" | "tr" | "minuta";
 export type ProcessDocumentProgress = {
   completedCount: number;
@@ -110,11 +153,89 @@ export function isExpectedProcessDocumentType(value: string): value is ExpectedP
   return expectedProcessDocumentTypes.includes(value as ExpectedProcessDocumentType);
 }
 
-export function serializeProcess(process: StoredProcess, departmentIds: string[]) {
+function serializeProcessItemComponent(
+  component: StoredProcessItemComponent,
+): SerializedProcessItemComponent {
+  return {
+    id: component.id,
+    title: component.title,
+    description: component.description ?? null,
+    quantity: component.quantity ?? null,
+    unit: component.unit,
+  };
+}
+
+function serializeProcessItem({
+  components,
+  item,
+}: {
+  components: StoredProcessItemComponent[];
+  item: StoredProcessItem;
+}): SerializedProcessItem {
+  const base = {
+    id: item.id,
+    code: item.code,
+    title: item.title,
+    description: item.description ?? null,
+    quantity: item.quantity ?? null,
+    unit: item.unit,
+    unitValue: item.unitValue ?? null,
+    totalValue: item.totalValue ?? null,
+  };
+
+  if (item.kind === "kit") {
+    return {
+      ...base,
+      kind: "kit",
+      components: components
+        .sort((left, right) => left.position - right.position)
+        .map(serializeProcessItemComponent),
+    };
+  }
+
+  return {
+    ...base,
+    kind: "simple",
+  };
+}
+
+export function summarizeProcessItems(items: SerializedProcessItem[]) {
+  let componentCount = 0;
+  let estimatedTotalValue = 0;
+  let hasTotal = false;
+
+  for (const item of items) {
+    if (item.kind === "kit") {
+      componentCount += item.components.length;
+    }
+
+    if (item.totalValue !== null) {
+      const value = Number(item.totalValue);
+
+      if (Number.isFinite(value)) {
+        estimatedTotalValue += value;
+        hasTotal = true;
+      }
+    }
+  }
+
+  return {
+    itemCount: items.length,
+    componentCount,
+    estimatedTotalValue: hasTotal ? estimatedTotalValue.toFixed(2) : null,
+  };
+}
+
+export function serializeProcess(
+  process: StoredProcess,
+  departmentIds: string[],
+  items: SerializedProcessItem[] = [],
+) {
   return {
     id: process.id,
     organizationId: process.organizationId,
-    type: process.type,
+    procurementMethod: process.procurementMethod ?? null,
+    biddingModality: process.biddingModality ?? null,
     processNumber: process.processNumber,
     externalId: process.externalId ?? null,
     issuedAt: process.issuedAt.toISOString(),
@@ -128,9 +249,8 @@ export function serializeProcess(process: StoredProcess, departmentIds: string[]
     responsibleName: process.responsibleName,
     status: process.status,
     departmentIds,
-    sourceKind: process.sourceKind ?? null,
-    sourceReference: process.sourceReference ?? null,
-    sourceMetadata: process.sourceMetadata ?? null,
+    items,
+    summary: summarizeProcessItems(items),
     createdAt: process.createdAt.toISOString(),
     updatedAt: process.updatedAt.toISOString(),
   };
@@ -421,16 +541,22 @@ export function getProcessEstimatedValue(process: StoredProcess) {
   return rawValue;
 }
 
+export function getProcessEstimatedValueFromItems(items: SerializedProcessItem[]) {
+  return summarizeProcessItems(items).estimatedTotalValue;
+}
+
 export function serializeProcessDetail(
   process: StoredProcess,
   {
     departmentIds,
     departments,
     documents,
+    items = [],
   }: {
     departmentIds: string[];
     departments: StoredDepartment[];
     documents: StoredProcessDocument[];
+    items?: SerializedProcessItem[];
   },
 ) {
   const serializedDepartments = [...departments]
@@ -444,9 +570,8 @@ export function serializeProcessDetail(
   ].reduce((latest, current) => (current > latest ? current : latest), process.updatedAt);
 
   return {
-    ...serializeProcess(process, departmentIds),
+    ...serializeProcess(process, departmentIds, items),
     departments: serializedDepartments,
-    estimatedValue: getProcessEstimatedValue(process),
     documents: serializedDocuments,
     detailUpdatedAt: detailUpdatedAt.toISOString(),
   };
@@ -468,12 +593,156 @@ export function serializeProcessListItem(
   process: StoredProcess,
   departmentIds: string[],
   aggregation: ProcessListAggregation = createEmptyProcessListAggregation(process),
+  items: SerializedProcessItem[] = [],
 ) {
   return {
-    ...serializeProcess(process, departmentIds),
+    ...serializeProcess(process, departmentIds, items),
     documents: aggregation.documents,
     listUpdatedAt: aggregation.listUpdatedAt.toISOString(),
   };
+}
+
+export async function getProcessItems({
+  db,
+  processId,
+}: {
+  db: Pick<FastifyInstance["db"], "select">;
+  processId: string;
+}) {
+  const itemRows = await db
+    .select()
+    .from(processItems)
+    .where(eq(processItems.processId, processId));
+
+  if (itemRows.length === 0) {
+    return [];
+  }
+
+  const componentRows = await db
+    .select()
+    .from(processItemComponents)
+    .where(
+      inArray(
+        processItemComponents.itemId,
+        itemRows.map((item) => item.id),
+      ),
+    );
+  const componentsByItemId = new Map<string, StoredProcessItemComponent[]>();
+
+  for (const component of componentRows) {
+    const current = componentsByItemId.get(component.itemId) ?? [];
+    current.push(component);
+    componentsByItemId.set(component.itemId, current);
+  }
+
+  return itemRows
+    .sort((left, right) => left.position - right.position)
+    .map((item) =>
+      serializeProcessItem({
+        item,
+        components: componentsByItemId.get(item.id) ?? [],
+      }),
+    );
+}
+
+export async function getProcessItemsByProcessIds({
+  db,
+  processIds,
+}: {
+  db: Pick<FastifyInstance["db"], "select">;
+  processIds: string[];
+}) {
+  const itemsByProcessId = new Map<string, SerializedProcessItem[]>();
+
+  if (processIds.length === 0) {
+    return itemsByProcessId;
+  }
+
+  const itemRows = await db
+    .select()
+    .from(processItems)
+    .where(inArray(processItems.processId, processIds));
+
+  if (itemRows.length === 0) {
+    return itemsByProcessId;
+  }
+
+  const componentRows = await db
+    .select()
+    .from(processItemComponents)
+    .where(
+      inArray(
+        processItemComponents.itemId,
+        itemRows.map((item) => item.id),
+      ),
+    );
+  const componentsByItemId = new Map<string, StoredProcessItemComponent[]>();
+
+  for (const component of componentRows) {
+    const current = componentsByItemId.get(component.itemId) ?? [];
+    current.push(component);
+    componentsByItemId.set(component.itemId, current);
+  }
+
+  for (const item of [...itemRows].sort((left, right) => left.position - right.position)) {
+    const current = itemsByProcessId.get(item.processId) ?? [];
+    current.push(
+      serializeProcessItem({
+        item,
+        components: componentsByItemId.get(item.id) ?? [],
+      }),
+    );
+    itemsByProcessId.set(item.processId, current);
+  }
+
+  return itemsByProcessId;
+}
+
+export async function replaceProcessItems({
+  db,
+  items,
+  processId,
+}: {
+  db: Pick<FastifyInstance["db"], "delete" | "insert">;
+  items: ProcessItemInput[];
+  processId: string;
+}) {
+  await db.delete(processItems).where(eq(processItems.processId, processId));
+
+  for (const [index, item] of items.entries()) {
+    const [createdItem] = await db
+      .insert(processItems)
+      .values({
+        processId,
+        position: index,
+        kind: item.kind,
+        code: item.code,
+        title: item.title,
+        description: item.kind === "simple" ? item.description : null,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitValue: item.unitValue,
+        totalValue: item.totalValue,
+      })
+      .returning();
+
+    if (!createdItem) {
+      throw new NotFoundError("Process item could not be created.");
+    }
+
+    if (item.kind === "kit" && item.components.length > 0) {
+      await db.insert(processItemComponents).values(
+        item.components.map((component, componentIndex) => ({
+          itemId: createdItem.id,
+          position: componentIndex,
+          title: component.title,
+          description: component.description,
+          quantity: component.quantity,
+          unit: component.unit,
+        })),
+      );
+    }
+  }
 }
 
 export async function assertDepartmentIdsBelongToOrganization({

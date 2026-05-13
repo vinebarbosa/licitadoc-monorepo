@@ -85,6 +85,13 @@
       "when": 1778112000000,
       "tag": "0011_add_process_title",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778200000000,
+      "tag": "0012_canonical_process_payload",
+      "breakpoints": true
     }
   ]
 }

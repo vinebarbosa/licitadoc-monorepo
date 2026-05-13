@@ -352,7 +352,7 @@ export function AppHomePage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {getProcessTypeLabel(process.type)}
+                          {getProcessTypeLabel(process.procurementMethod ?? "")}
                         </TableCell>
                         <TableCell>
                           <fieldset

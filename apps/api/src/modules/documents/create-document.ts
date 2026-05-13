@@ -4,7 +4,7 @@ import { documentGenerationRuns, documents } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { TextGenerationProvider } from "../../shared/text-generation/types";
 import { canReadStoredProcess } from "../processes/processes.policies";
-import { getProcessDepartmentIds } from "../processes/processes.shared";
+import { getProcessDepartmentIds, getProcessItems } from "../processes/processes.shared";
 import type { CreateDocumentInput } from "./documents.schemas";
 import {
   buildDocumentGenerationPrompt,
@@ -65,6 +65,10 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
     db,
     processId: process.id,
   });
+  const processItems = await getProcessItems({
+    db,
+    processId: process.id,
+  });
 
   const prompt = buildDocumentGenerationPrompt({
     departments,
@@ -72,6 +76,7 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
     instructions: document.instructions,
     organization,
     process,
+    processItems,
   });
 
   const { createdDocument, generationRunId } = await db.transaction(async (tx) => {

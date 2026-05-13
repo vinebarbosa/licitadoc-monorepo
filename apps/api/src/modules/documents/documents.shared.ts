@@ -3,6 +3,7 @@ import type { Actor } from "../../authorization/actor";
 import type { departments, organizations, processes } from "../../db";
 import { documents } from "../../db";
 import type { GeneratedDocumentType } from "../../shared/text-generation/types";
+import type { SerializedProcessItem } from "../processes/processes.shared";
 import { resolveDocumentGenerationRecipe } from "./document-generation-recipes";
 
 export type StoredDocument = typeof documents.$inferSelect;
@@ -16,6 +17,10 @@ export type SourceItemForGeneration = {
   unit: string | null;
   unitValue: string | null;
   totalValue: string | null;
+};
+type ProcessGenerationExtras = {
+  processItems?: SerializedProcessItem[];
+  responsibleUserName?: string | null;
 };
 
 export function getDocumentsVisibilityScope(actor: Actor): SQL<unknown> | undefined {
@@ -191,7 +196,27 @@ function getExtractedValue(process: StoredProcess, fieldPath: string) {
   return getNullableText(current);
 }
 
-function getReviewedSourceItems(process: StoredProcess): SourceItemForGeneration[] {
+function getCanonicalProcessItems(processItems: SerializedProcessItem[] = []): SourceItemForGeneration[] {
+  return processItems.map((item) => ({
+    code: item.code,
+    description: firstText(item.description, item.title),
+    quantity: item.quantity,
+    totalValue: item.totalValue,
+    unit: item.unit,
+    unitValue: item.unitValue,
+  }));
+}
+
+function getReviewedSourceItems(
+  process: StoredProcess,
+  processItems: SerializedProcessItem[] = [],
+): SourceItemForGeneration[] {
+  const canonicalItems = getCanonicalProcessItems(processItems);
+
+  if (canonicalItems.length > 0) {
+    return canonicalItems;
+  }
+
   const extractedFields = getExtractedFields(process);
 
   if (!extractedFields || !Array.isArray(extractedFields.items)) {
@@ -437,12 +462,13 @@ function buildGenericDocumentGenerationPrompt({
   instructions,
   organization,
   process,
+  responsibleUserName = null,
 }: {
   documentType: GeneratedDocumentType;
   instructions: string | null;
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   return [
     "Você é um assistente especializado em documentos administrativos e jurídicos para prefeituras brasileiras.",
     "Gere um rascunho claro, estruturado e revisável. Não declare aprovação jurídica final.",
@@ -457,13 +483,14 @@ function buildGenericDocumentGenerationPrompt({
     `Autoridade: ${organization.authorityName} - ${organization.authorityRole}`,
     "",
     "Dados do processo:",
-    `Tipo: ${process.type}`,
+    `Método de contratação: ${process.procurementMethod ?? "não informado"}`,
+    `Modalidade: ${process.biddingModality ?? "não informado"}`,
     `Número: ${process.processNumber}`,
     `Identificador externo: ${process.externalId ?? "não informado"}`,
     `Data de emissão: ${process.issuedAt.toISOString()}`,
     `Objeto: ${process.object}`,
     `Justificativa: ${process.justification}`,
-    `Responsável: ${process.responsibleName}`,
+    `Responsável: ${firstText(responsibleUserName, process.responsibleName) ?? "não informado"}`,
     `Status: ${process.status}`,
     "",
     "Instruções adicionais do operador:",
@@ -475,18 +502,20 @@ export function buildDfdGenerationContext({
   departments,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const sortedDepartments = [...departments].sort(compareDepartments);
   const primaryDepartment = sortedDepartments[0] ?? null;
   const sourceBudgetUnitName = getExtractedTextField(process, "budgetUnitName");
   const canonicalBudgetUnitName = primaryDepartment?.name ?? null;
   const canonicalOrganizationName = firstText(organization.officialName, organization.name);
   const sourceOrganizationName = getExtractedTextField(process, "organizationName");
-  const sourceItems = getReviewedSourceItems(process);
+  const sourceItems = getReviewedSourceItems(process, processItems);
   const hasSourceItems = sourceItems.length > 0;
   const rawEstimate = firstText(
     getExtractedValue(process, "totalValue"),
@@ -528,7 +557,12 @@ export function buildDfdGenerationContext({
     ),
     organizationName: firstText(canonicalOrganizationName, sourceOrganizationName),
     processJustification: firstText(process.justification),
-    processType: firstText(getExtractedTextField(process, "processType"), process.type),
+    processType: firstText(
+      process.procurementMethod,
+      process.biddingModality,
+      getExtractedTextField(process, "processType"),
+      process.type,
+    ),
     requestNumber: firstText(getExtractedTextField(process, "requestNumber"), process.externalId),
     requester: firstText(
       canonicalBudgetUnitName,
@@ -537,8 +571,9 @@ export function buildDfdGenerationContext({
       organization.name,
     ),
     responsibleName: firstText(
-      getExtractedTextField(process, "responsibleName"),
+      responsibleUserName,
       process.responsibleName,
+      getExtractedTextField(process, "responsibleName"),
       primaryDepartment?.responsibleName,
     ),
     responsibleRole: firstText(
@@ -566,15 +601,19 @@ export function buildEtpGenerationContext({
   departments,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const dfdContext = buildDfdGenerationContext({
     departments,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
   const estimate = dfdContext.estimate;
   const itemDescription = firstText(getExtractedValue(process, "item.description"));
@@ -672,15 +711,19 @@ export function buildTrGenerationContext({
   departments,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const etpContext = buildEtpGenerationContext({
     departments,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
   const contractingType = inferContractingAnalysisProfile(
     [
@@ -703,15 +746,19 @@ export function buildMinutaGenerationContext({
   departments,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const trContext = buildTrGenerationContext({
     departments,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
 
   return {
@@ -768,12 +815,14 @@ function buildDfdGenerationPrompt({
   instructions,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   instructions: string | null;
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const recipe = resolveDocumentGenerationRecipe("dfd");
 
   if (!recipe) {
@@ -784,6 +833,8 @@ function buildDfdGenerationPrompt({
     departments,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
   const budgetUnit = [context.budgetUnitCode, context.budgetUnitName]
     .filter((value): value is string => Boolean(value))
@@ -927,12 +978,14 @@ function buildEtpGenerationPrompt({
   instructions,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   instructions: string | null;
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const recipe = resolveDocumentGenerationRecipe("etp");
 
   if (!recipe) {
@@ -943,6 +996,8 @@ function buildEtpGenerationPrompt({
     departments,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
   const budgetUnit = [context.budgetUnitCode, context.budgetUnitName]
     .filter((value): value is string => Boolean(value))
@@ -1005,12 +1060,14 @@ function buildTrGenerationPrompt({
   instructions,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   instructions: string | null;
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const recipe = resolveDocumentGenerationRecipe("tr");
 
   if (!recipe) {
@@ -1021,6 +1078,8 @@ function buildTrGenerationPrompt({
     departments,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
   const budgetUnit = [context.budgetUnitCode, context.budgetUnitName]
     .filter((value): value is string => Boolean(value))
@@ -1091,12 +1150,14 @@ function buildMinutaGenerationPrompt({
   instructions,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments: StoredDepartment[];
   instructions: string | null;
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   const recipe = resolveDocumentGenerationRecipe("minuta");
 
   if (!recipe) {
@@ -1107,6 +1168,8 @@ function buildMinutaGenerationPrompt({
     departments,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
   const budgetUnit = [context.budgetUnitCode, context.budgetUnitName]
     .filter((value): value is string => Boolean(value))
@@ -1198,19 +1261,23 @@ export function buildDocumentGenerationPrompt({
   instructions,
   organization,
   process,
+  processItems = [],
+  responsibleUserName = null,
 }: {
   departments?: StoredDepartment[];
   documentType: GeneratedDocumentType;
   instructions: string | null;
   organization: StoredOrganization;
   process: StoredProcess;
-}) {
+} & ProcessGenerationExtras) {
   if (documentType === "dfd") {
     return buildDfdGenerationPrompt({
       departments,
       instructions,
       organization,
       process,
+      processItems,
+      responsibleUserName,
     });
   }
 
@@ -1220,6 +1287,8 @@ export function buildDocumentGenerationPrompt({
       instructions,
       organization,
       process,
+      processItems,
+      responsibleUserName,
     });
   }
 
@@ -1229,6 +1298,8 @@ export function buildDocumentGenerationPrompt({
       instructions,
       organization,
       process,
+      processItems,
+      responsibleUserName,
     });
   }
 
@@ -1238,6 +1309,8 @@ export function buildDocumentGenerationPrompt({
       instructions,
       organization,
       process,
+      processItems,
+      responsibleUserName,
     });
   }
 
@@ -1246,6 +1319,8 @@ export function buildDocumentGenerationPrompt({
     instructions,
     organization,
     process,
+    processItems,
+    responsibleUserName,
   });
 }
 

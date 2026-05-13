@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import type { departments, organizations } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
@@ -11,9 +10,6 @@ import {
   assertDepartmentIdsBelongToOrganization,
   deriveConciseProcessTitle,
 } from "./processes.shared";
-
-type StoredOrganization = typeof organizations.$inferSelect;
-type StoredDepartment = typeof departments.$inferSelect;
 
 export type ExpenseRequestIntakeInput = {
   departmentIds?: string[];
@@ -161,71 +157,6 @@ async function resolveDepartmentIds({
   throw new BadRequestError("Expense request could not be matched to a department.");
 }
 
-function getResponsibleName({
-  departmentsById,
-  resolvedDepartmentIds,
-  sourceResponsibleName,
-}: {
-  departmentsById: Map<string, StoredDepartment>;
-  resolvedDepartmentIds: string[];
-  sourceResponsibleName: string | null;
-}) {
-  if (sourceResponsibleName) {
-    return sourceResponsibleName;
-  }
-
-  const firstDepartment = departmentsById.get(resolvedDepartmentIds[0] ?? "");
-
-  return firstDepartment?.responsibleName ?? "Not informed";
-}
-
-function buildSourceMetadata({
-  input,
-  organization,
-  parsed,
-}: {
-  input: ExpenseRequestIntakeInput;
-  organization: StoredOrganization;
-  parsed: ReturnType<typeof parseExpenseRequestText>;
-}) {
-  return {
-    extractedFields: {
-      budgetUnitCode: parsed.budgetUnitCode,
-      budgetUnitName: parsed.budgetUnitName,
-      issueDate: parsed.issueDate,
-      item: parsed.item,
-      object: parsed.object,
-      organizationCnpj: parsed.organizationCnpj,
-      organizationName: parsed.organizationName,
-      processType: parsed.processType,
-      requestNumber: parsed.requestNumber,
-      responsibleName: parsed.responsibleName,
-      responsibleRole: parsed.responsibleRole,
-      totalValue: parsed.totalValue,
-    },
-    source: {
-      fileName: input.fileName ?? null,
-      label: input.sourceLabel ?? null,
-    },
-    sourceFile: input.sourceFile
-      ? {
-          fileName: input.fileName ?? null,
-          contentType: input.sourceFile.contentType,
-          storageBucket: input.sourceFile.bucket,
-          storageKey: input.sourceFile.key,
-          sizeBytes: input.sourceFile.sizeBytes,
-          etag: input.sourceFile.etag,
-          uploadedAt: input.sourceFile.uploadedAt,
-        }
-      : null,
-    target: {
-      organizationCnpj: organization.cnpj,
-      organizationId: organization.id,
-    },
-    warnings: parsed.warnings,
-  };
-}
-
 export async function createProcessFromExpenseRequestText({
   actor,
   db,
@@ -245,16 +176,13 @@ export async function createProcessFromExpenseRequestText({
     budgetUnitCode: parsed.budgetUnitCode,
     budgetUnitName: parsed.budgetUnitName,
   });
-  const departmentRows = await db.query.departments.findMany({
-    where: (table, { inArray }) => inArray(table.id, resolvedDepartmentIds),
-  });
-  const departmentsById = new Map(departmentRows.map((department) => [department.id, department]));
 
   return createProcess({
     actor,
     db,
     process: {
-      type: parsed.processType,
+      procurementMethod: parsed.processType,
+      biddingModality: null,
       processNumber: parsed.sourceReference,
       externalId: parsed.requestNumber,
       issuedAt: parsed.issueDate,
@@ -265,17 +193,24 @@ export async function createProcessFromExpenseRequestText({
       }),
       object: parsed.object,
       justification: parsed.justification,
-      responsibleName: getResponsibleName({
-        departmentsById,
-        resolvedDepartmentIds,
-        sourceResponsibleName: parsed.responsibleName,
-      }),
+      responsibleName: parsed.responsibleName ?? "Não informado",
       status: "draft",
       organizationId: organization.id,
       departmentIds: resolvedDepartmentIds,
-      sourceKind: "expense_request",
-      sourceReference: parsed.sourceReference,
-      sourceMetadata: buildSourceMetadata({ input, organization, parsed }),
+      items: parsed.item.description
+        ? [
+            {
+              kind: "simple",
+              code: parsed.item.code ?? "1",
+              title: parsed.item.description,
+              description: parsed.item.description,
+              quantity: parsed.item.quantity,
+              unit: parsed.item.unit ?? "un",
+              unitValue: parsed.item.unitValue,
+              totalValue: parsed.item.totalValue ?? parsed.totalValue,
+            },
+          ]
+        : [],
     },
   });
 }
