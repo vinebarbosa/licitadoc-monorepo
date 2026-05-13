@@ -187,16 +187,14 @@ const mockProcess: ProcessData = {
       id: "doc-003",
       acronym: "TR",
       name: "Termo de Referência",
-      description:
-        "Especifica o objeto, condições e obrigações para a execução da contratação.",
+      description: "Especifica o objeto, condições e obrigações para a execução da contratação.",
       status: "ready",
     },
     {
       id: "doc-004",
       acronym: "Minuta",
       name: "Minuta do Contrato",
-      description:
-        "Estabelece as cláusulas contratuais que regerão a relação entre as partes.",
+      description: "Estabelece as cláusulas contratuais que regerão a relação entre as partes.",
       status: "error",
     },
   ],
@@ -216,12 +214,22 @@ function formatCurrency(value: number): string {
 function getStatusBadge(status: string) {
   const statusMap: Record<string, { label: string; className: string }> = {
     em_andamento: { label: "Em andamento", className: "bg-blue-50 text-blue-700 border-blue-200" },
-    concluido: { label: "Concluído", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    concluido: {
+      label: "Concluído",
+      className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    },
     cancelado: { label: "Cancelado", className: "bg-red-50 text-red-700 border-red-200" },
     rascunho: { label: "Rascunho", className: "bg-slate-50 text-slate-600 border-slate-200" },
   };
-  const config = statusMap[status] || { label: status, className: "bg-slate-50 text-slate-600 border-slate-200" };
-  return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+  const config = statusMap[status] || {
+    label: status,
+    className: "bg-slate-50 text-slate-600 border-slate-200",
+  };
+  return (
+    <Badge variant="outline" className={config.className}>
+      {config.label}
+    </Badge>
+  );
 }
 
 function getDocumentStatusConfig(status: DocumentStatus) {
@@ -237,18 +245,18 @@ function getDocumentStatusConfig(status: DocumentStatus) {
     generating: {
       label: "Gerando...",
       icon: Loader2,
-      color: "text-cyan-600",
-      bgColor: "bg-cyan-50",
-      borderColor: "border-cyan-400/30",
-      badgeClassName: "bg-cyan-50 text-cyan-700 border-cyan-200",
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
+      borderColor: "border-blue-400/30",
+      badgeClassName: "bg-blue-50 text-blue-700 border-blue-200",
     },
     error: {
       label: "Erro na geração",
       icon: XCircle,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
-      borderColor: "border-orange-400/30",
-      badgeClassName: "bg-orange-50 text-orange-700 border-orange-200",
+      color: "text-red-600",
+      bgColor: "bg-red-50",
+      borderColor: "border-red-400/30",
+      badgeClassName: "bg-red-50 text-red-700 border-red-200",
     },
     generated: {
       label: "Gerado",
@@ -307,7 +315,7 @@ function ExecutiveSummary({ process }: { process: ProcessData }) {
   const totalItems = process.items.length;
   const totalComponents = process.items.reduce(
     (acc, item) => acc + (item.components?.length || 0),
-    0
+    0,
   );
   const totalValue = process.items.reduce((acc, item) => acc + item.totalValue, 0);
 
@@ -348,7 +356,9 @@ function ExecutiveSummary({ process }: { process: ProcessData }) {
               <Scale className="h-5 w-5 text-muted-foreground/60" />
             </div>
             <div>
-              <p className="text-lg font-semibold text-foreground/80">{formatCurrency(totalValue)}</p>
+              <p className="text-lg font-semibold text-foreground/80">
+                {formatCurrency(totalValue)}
+              </p>
               <p className="text-xs text-muted-foreground/70">Valor total estimado</p>
             </div>
           </div>
@@ -414,38 +424,36 @@ function ProcessInfo({ process }: { process: ProcessData }) {
 function InstitutionalContext({ process }: { process: ProcessData }) {
   return (
     <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="text-base font-semibold">Contexto Institucional</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold text-muted-foreground">Contexto Institucional</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Building2 className="h-4 w-4 text-primary" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/60">
+            <Building2 className="h-4 w-4 text-muted-foreground/70" />
           </div>
-          <div>
-            <p className="text-sm font-medium">{process.organization}</p>
-            <p className="text-xs text-muted-foreground">Órgão responsável</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium leading-tight">{process.organization}</p>
+            <p className="text-xs text-muted-foreground/70">Órgão responsável</p>
           </div>
         </div>
 
-        <Separator />
-
-        <div className="space-y-3">
-          <p className="text-xs font-medium text-muted-foreground">
-            Unidades vinculadas ({process.departments.length})
+        <div className="space-y-2 pt-1">
+          <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-tight">
+            Unidades ({process.departments.length})
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {process.departments.map((dept) => (
               <div
                 key={dept.id}
-                className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3"
+                className="flex items-start gap-2.5 rounded-lg p-2.5 transition-colors hover:bg-muted/30"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/40 mt-0.5">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground/60" />
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{dept.name}</p>
-                  <p className="text-xs text-muted-foreground">Código: {dept.code}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-foreground/90">{dept.name}</p>
+                  <p className="text-xs text-muted-foreground/70">Código: {dept.code}</p>
                 </div>
               </div>
             ))}
@@ -460,9 +468,7 @@ function ProcessItems({ items }: { items: ProcessItem[] }) {
   const [expandedKits, setExpandedKits] = useState<string[]>([]);
 
   const toggleKit = (id: string) => {
-    setExpandedKits((prev) =>
-      prev.includes(id) ? prev.filter((k) => k !== id) : [...prev, id]
-    );
+    setExpandedKits((prev) => (prev.includes(id) ? prev.filter((k) => k !== id) : [...prev, id]));
   };
 
   return (
@@ -497,9 +503,7 @@ function ProcessItems({ items }: { items: ProcessItem[] }) {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        #{item.code}
-                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">#{item.code}</span>
                       {item.kind === "kit" && (
                         <Badge variant="outline" className="text-xs">
                           Kit
@@ -507,9 +511,7 @@ function ProcessItems({ items }: { items: ProcessItem[] }) {
                       )}
                     </div>
                     <p className="font-medium">{item.title}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {item.description}
-                    </p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
                   </div>
                 </div>
 
@@ -541,30 +543,28 @@ function ProcessItems({ items }: { items: ProcessItem[] }) {
               )}
             </div>
 
-            {item.kind === "kit" &&
-              item.components &&
-              expandedKits.includes(item.id) && (
-                <div className="border-t bg-muted/20 px-4 py-3">
-                  <div className="space-y-2">
-                    {item.components.map((comp, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-start justify-between gap-4 rounded-md bg-background p-3"
-                      >
-                        <div className="space-y-0.5">
-                          <p className="text-sm font-medium">{comp.title}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {comp.description}
-                          </p>
-                        </div>
-                        <p className="shrink-0 text-xs text-muted-foreground">
-                          {comp.quantity} {comp.unit}
+            {item.kind === "kit" && item.components && expandedKits.includes(item.id) && (
+              <div className="border-t bg-muted/20 px-4 py-3">
+                <div className="space-y-2">
+                  {item.components.map((comp, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start justify-between gap-4 rounded-md bg-background p-3"
+                    >
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">{comp.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {comp.description}
                         </p>
                       </div>
-                    ))}
-                  </div>
+                      <p className="shrink-0 text-xs text-muted-foreground">
+                        {comp.quantity} {comp.unit}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
           </div>
         ))}
       </CardContent>
@@ -577,38 +577,40 @@ function DocumentCard({ document }: { document: Document }) {
   const StatusIcon = config.icon;
 
   return (
-    <Card 
+    <Card
       className={`group relative overflow-hidden transition-all hover:border-primary/30 hover:shadow-md border ${config.borderColor}`}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${config.bgColor}`}>
-            {document.status === "generating" ? (
-              <Loader2 className={`h-5 w-5 ${config.color} animate-spin`} />
-            ) : document.status === "generated" ? (
-              <FileCheck className={`h-5 w-5 ${config.color}`} />
-            ) : document.status === "error" ? (
-              <AlertCircle className={`h-5 w-5 ${config.color}`} />
-            ) : (
-              <FileText className={`h-5 w-5 ${config.color}`} />
-            )}
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-12 w-12 items-center justify-center rounded-xl ${config.bgColor}`}
+            >
+              {document.status === "generating" ? (
+                <Loader2 className={`h-6 w-6 ${config.color} animate-spin`} />
+              ) : document.status === "generated" ? (
+                <FileCheck className={`h-6 w-6 ${config.color}`} />
+              ) : document.status === "error" ? (
+                <AlertCircle className={`h-6 w-6 ${config.color}`} />
+              ) : (
+                <FileText className={`h-6 w-6 ${config.color}`} />
+              )}
+            </div>
+            <div className="">
+              <CardTitle className="text-lg font-bold">{document.acronym}</CardTitle>
+              <CardDescription className="text-sm font-medium text-foreground/80">
+                {document.name}
+              </CardDescription>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-base font-bold">{document.acronym}</CardTitle>
-            <CardDescription className="text-xs font-medium text-foreground/70">
-              {document.name}
-            </CardDescription>
-          </div>
-          <Badge variant="outline" className={`shrink-0 text-xs ${config.badgeClassName}`}>
+          <Badge variant="outline" className={`text-xs ${config.badgeClassName}`}>
             {config.label}
           </Badge>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3 pt-0">
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {document.description}
-        </p>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground leading-relaxed">{document.description}</p>
 
         <div className="flex flex-wrap gap-2">
           <Button
@@ -657,10 +659,7 @@ function DocumentActions({ documents }: { documents: Document[] }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Central de Documentos</h2>
-          <p className="text-sm text-muted-foreground">
-            Gere e gerencie os documentos do processo
-          </p>
+          <h2 className="text-lg font-semibold">Documentos do processo</h2>
         </div>
       </div>
 
@@ -677,35 +676,35 @@ function ControlDates({ process }: { process: ProcessData }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Datas de Controle</CardTitle>
+        <CardTitle className="text-sm font-semibold text-muted-foreground">Datas de Controle</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-col items-start gap-2 rounded-lg p-2.5 transition-colors hover:bg-muted/30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted/40">
+              <Calendar className="h-4 w-4 text-muted-foreground/70" />
             </div>
             <div>
-              <p className="text-sm font-medium">{process.issueDate}</p>
-              <p className="text-xs text-muted-foreground">Data de emissão</p>
+              <p className="text-xs font-semibold text-foreground/90">{process.issueDate}</p>
+              <p className="text-xs text-muted-foreground/70">Data de emissão</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-              <Clock className="h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-col items-start gap-2 rounded-lg p-2.5 transition-colors hover:bg-muted/30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted/40">
+              <Clock className="h-4 w-4 text-muted-foreground/70" />
             </div>
             <div>
-              <p className="text-sm font-medium">{process.createdAt}</p>
-              <p className="text-xs text-muted-foreground">Criado em</p>
+              <p className="text-xs font-semibold text-foreground/90">{process.createdAt}</p>
+              <p className="text-xs text-muted-foreground/70">Criado em</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-              <RefreshCw className="h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-col items-start gap-2 rounded-lg p-2.5 transition-colors hover:bg-muted/30">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted/40">
+              <RefreshCw className="h-4 w-4 text-muted-foreground/70" />
             </div>
             <div>
-              <p className="text-sm font-medium">{process.updatedAt}</p>
-              <p className="text-xs text-muted-foreground">Última atualização</p>
+              <p className="text-xs font-semibold text-foreground/90">{process.updatedAt}</p>
+              <p className="text-xs text-muted-foreground/70">Última atualização</p>
             </div>
           </div>
         </div>
