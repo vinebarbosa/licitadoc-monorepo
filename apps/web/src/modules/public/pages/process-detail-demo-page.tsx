@@ -214,14 +214,14 @@ function formatCurrency(value: number): string {
 }
 
 function getStatusBadge(status: string) {
-  const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    em_andamento: { label: "Em andamento", variant: "default" },
-    concluido: { label: "Concluído", variant: "secondary" },
-    cancelado: { label: "Cancelado", variant: "destructive" },
-    rascunho: { label: "Rascunho", variant: "outline" },
+  const statusMap: Record<string, { label: string; className: string }> = {
+    em_andamento: { label: "Em andamento", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    concluido: { label: "Concluído", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    cancelado: { label: "Cancelado", className: "bg-red-50 text-red-700 border-red-200" },
+    rascunho: { label: "Rascunho", className: "bg-slate-50 text-slate-600 border-slate-200" },
   };
-  const config = statusMap[status] || { label: status, variant: "outline" as const };
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  const config = statusMap[status] || { label: status, className: "bg-slate-50 text-slate-600 border-slate-200" };
+  return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
 }
 
 function getDocumentStatusConfig(status: DocumentStatus) {
@@ -231,28 +231,32 @@ function getDocumentStatusConfig(status: DocumentStatus) {
       icon: FileQuestion,
       color: "text-muted-foreground",
       bgColor: "bg-muted/50",
-      badgeVariant: "outline" as const,
+      borderColor: "border-muted",
+      badgeClassName: "bg-slate-50 text-slate-600 border-slate-200",
     },
     generating: {
       label: "Gerando...",
       icon: Loader2,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
-      badgeVariant: "secondary" as const,
+      borderColor: "border-blue-200",
+      badgeClassName: "bg-blue-50 text-blue-700 border-blue-200",
     },
     error: {
       label: "Erro na geração",
       icon: XCircle,
       color: "text-red-600",
       bgColor: "bg-red-50",
-      badgeVariant: "destructive" as const,
+      borderColor: "border-red-200",
+      badgeClassName: "bg-red-50 text-red-700 border-red-200",
     },
     generated: {
       label: "Gerado",
       icon: CheckCircle2,
       color: "text-emerald-600",
       bgColor: "bg-emerald-50",
-      badgeVariant: "default" as const,
+      borderColor: "border-emerald-200",
+      badgeClassName: "bg-emerald-50 text-emerald-700 border-emerald-200",
     },
   };
   return config[status];
@@ -573,14 +577,7 @@ function DocumentCard({ document }: { document: Document }) {
   const StatusIcon = config.icon;
 
   return (
-    <Card className="group relative overflow-hidden transition-all hover:shadow-md">
-      <div className={`absolute inset-x-0 top-0 h-1 ${
-        document.status === "generated" ? "bg-emerald-500" :
-        document.status === "generating" ? "bg-blue-500" :
-        document.status === "error" ? "bg-red-500" :
-        "bg-muted"
-      }`} />
-      
+    <Card className={`group relative overflow-hidden transition-all hover:shadow-md border-2 ${config.borderColor}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${config.bgColor}`}>
@@ -594,7 +591,7 @@ function DocumentCard({ document }: { document: Document }) {
               <FileText className={`h-6 w-6 ${config.color}`} />
             )}
           </div>
-          <Badge variant={config.badgeVariant} className="text-xs">
+          <Badge variant="outline" className={`text-xs ${config.badgeClassName}`}>
             {config.label}
           </Badge>
         </div>
