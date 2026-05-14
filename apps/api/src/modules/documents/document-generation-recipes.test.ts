@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { departments, organizations, processes } from "../../db";
+import type { SerializedProcessItem } from "../processes/processes.shared";
 import { resolveDocumentGenerationRecipe } from "./document-generation-recipes";
 import {
   buildDfdGenerationContext,
@@ -86,6 +87,49 @@ function createProcessRow(
     updatedAt: new Date("2029-12-01T00:00:00.000Z"),
     ...overrides,
   };
+}
+
+function createCanonicalProcessItems(): SerializedProcessItem[] {
+  return [
+    {
+      id: "item_simple",
+      code: "0005909",
+      description: "Pote plastico com tampa para armazenamento de merenda escolar",
+      kind: "simple",
+      quantity: "550",
+      title: "Pote plastico para merenda escolar",
+      totalValue: "605.00",
+      unit: "UN",
+      unitValue: "1.10",
+    },
+    {
+      id: "item_kit",
+      code: "0005910",
+      components: [
+        {
+          id: "component_1",
+          description: "Caderno universitario 10 materias",
+          quantity: "1",
+          title: "Caderno",
+          unit: "UN",
+        },
+        {
+          id: "component_2",
+          description: "Estojo com lapis, borracha e apontador",
+          quantity: "1",
+          title: "Estojo escolar",
+          unit: "UN",
+        },
+      ],
+      description: "Kit individual de material pedagogico",
+      kind: "kit",
+      quantity: "300",
+      title: "Kit escolar pedagogico",
+      totalValue: "1500.00",
+      unit: "KIT",
+      unitValue: "5.00",
+    },
+  ];
 }
 
 function assertDfdRoleGuidance(prompt: string) {
@@ -426,7 +470,7 @@ test("buildDfdGenerationContext prefers canonical labels and preserves source me
   );
   assert.equal(contextFromSourceMetadata.organizationName, "Municipio de Pureza/RN");
   assert.equal(contextFromSourceMetadata.sourceOrganizationName, "MUNICIPIO DE PUREZA");
-  assert.equal(contextFromSourceMetadata.processType, "Servico");
+  assert.equal(contextFromSourceMetadata.processType, "inexigibilidade");
   assert.equal(contextFromSourceMetadata.requestNumber, "6");
   assert.equal(contextFromSourceMetadata.itemDescription, "Apresentacao artistica musical");
   assert.equal(contextFromSourceMetadata.itemQuantity, "1");
@@ -510,16 +554,24 @@ test("buildDfdGenerationContext normalizes reviewed SD items for prompt context"
   assert.deepEqual(context.sourceItems, [
     {
       code: "0005909",
+      components: [],
       description: "Pote plastico para merenda escolar",
+      kind: "source",
+      origin: "source",
       quantity: "550",
+      title: null,
       totalValue: "R$ 605,00",
       unit: "UN",
       unitValue: "R$ 1,10",
     },
     {
       code: "0005910",
+      components: [],
       description: "Kit com 2 unidades para atividades pedagogicas",
+      kind: "source",
+      origin: "source",
       quantity: "300",
+      title: null,
       totalValue: "R$ 1.500,00",
       unit: "KIT",
       unitValue: "R$ 5,00",
@@ -579,6 +631,111 @@ test("buildDfdGenerationContext keeps a single reviewed item on the item-list pa
   assert.match(prompt, /^- Itens da SD revisados: 1$/m);
   assert.match(prompt, /1\. 0007001 - Notebook para equipe administrativa/);
   assert.doesNotMatch(prompt, /- Descrição do item da origem: Notebook legado/);
+});
+
+test("buildDfdGenerationContext prioritizes canonical process items and total estimates", () => {
+  const context = buildDfdGenerationContext({
+    departments: [createDepartmentRow()],
+    organization: createOrganizationRow(),
+    process: createProcessRow({
+      sourceMetadata: {
+        extractedFields: {
+          estimatedValue: "R$ 999.999,99",
+          items: [
+            {
+              code: "LEGADO",
+              description: "Item legado da SD",
+            },
+          ],
+        },
+        warnings: [],
+      },
+    }),
+    processItems: createCanonicalProcessItems(),
+  });
+
+  assert.equal(context.hasSourceItems, true);
+  assert.equal(context.sourceItemsCount, 2);
+  assert.equal(context.estimate.available, true);
+  assert.equal(context.estimate.rawValue, "R$ 2.105,00");
+  assert.match(context.sourceItemsSummary ?? "", /- Itens do processo: 2/);
+  assert.match(context.sourceItemsSummary ?? "", /- Lista de itens do processo:/);
+  assert.match(
+    context.sourceItemsSummary ?? "",
+    /1\. 0005909 - Pote plastico para merenda escolar \| descrição Pote plastico com tampa para armazenamento de merenda escolar \| qtd\. 550 UN \| unitário R\$ 1,10 \| total R\$ 605,00/,
+  );
+  assert.match(
+    context.sourceItemsSummary ?? "",
+    /2\. 0005910 - Kit escolar pedagogico \| descrição Kit individual de material pedagogico \| qtd\. 300 KIT \| unitário R\$ 5,00 \| total R\$ 1\.500,00/,
+  );
+  assert.match(context.sourceItemsSummary ?? "", /Componente 1: Caderno - Caderno universitario/);
+  assert.match(context.sourceItemsSummary ?? "", /Componente 2: Estojo escolar - Estojo com lapis/);
+  assert.doesNotMatch(context.sourceItemsSummary ?? "", /Itens da SD revisados/);
+  assert.doesNotMatch(context.sourceItemsSummary ?? "", /Item legado da SD/);
+});
+
+test("buildDfdGenerationContext resolves responsible display data with fallbacks", () => {
+  const departments = [
+    createDepartmentRow({
+      responsibleName: "Responsavel do departamento",
+      responsibleRole: "Secretaria Municipal",
+    }),
+  ];
+  const organization = createOrganizationRow();
+
+  const canonicalResponsibleContext = buildDfdGenerationContext({
+    departments,
+    organization,
+    process: createProcessRow({
+      responsibleName: "Responsavel legado",
+      sourceMetadata: {
+        extractedFields: {
+          responsibleName: "Responsavel da SD",
+        },
+        warnings: [],
+      },
+    }),
+    responsibleUserName: "Usuario canônico",
+  });
+  const storedNameContext = buildDfdGenerationContext({
+    departments,
+    organization,
+    process: createProcessRow({
+      responsibleName: "Responsavel legado",
+      sourceMetadata: {
+        extractedFields: {
+          responsibleName: "Responsavel da SD",
+        },
+        warnings: [],
+      },
+    }),
+  });
+  const sourceMetadataContext = buildDfdGenerationContext({
+    departments,
+    organization,
+    process: createProcessRow({
+      responsibleName: "",
+      sourceMetadata: {
+        extractedFields: {
+          responsibleName: "Responsavel da SD",
+        },
+        warnings: [],
+      },
+    }),
+  });
+  const departmentContext = buildDfdGenerationContext({
+    departments,
+    organization,
+    process: createProcessRow({
+      responsibleName: "",
+      sourceMetadata: null,
+    }),
+  });
+
+  assert.equal(canonicalResponsibleContext.responsibleName, "Usuario canônico");
+  assert.equal(storedNameContext.responsibleName, "Responsavel legado");
+  assert.equal(sourceMetadataContext.responsibleName, "Responsavel da SD");
+  assert.equal(departmentContext.responsibleName, "Responsavel do departamento");
 });
 
 test("buildEtpGenerationContext normalizes zero estimates as unavailable", () => {
@@ -844,6 +1001,58 @@ test("buildDocumentGenerationPrompt includes reviewed SD item lists for every re
   }
 });
 
+test("buildDocumentGenerationPrompt uses neutral labels for canonical process items", () => {
+  const documentTypes = ["dfd", "etp", "tr", "minuta"] as const;
+
+  for (const documentType of documentTypes) {
+    const prompt = buildDocumentGenerationPrompt({
+      departments: [createDepartmentRow()],
+      documentType,
+      instructions: null,
+      organization: createOrganizationRow(),
+      process: createProcessRow({
+        object: "Contratacao de materiais escolares",
+      }),
+      processItems: createCanonicalProcessItems(),
+    });
+
+    assert.match(prompt, /- Itens do processo: 2/);
+    assert.match(prompt, /- Lista de itens do processo:/);
+    assert.match(prompt, /1\. 0005909 - Pote plastico para merenda escolar/);
+    assert.match(prompt, /2\. 0005910 - Kit escolar pedagogico/);
+    assert.match(prompt, /Componente 1: Caderno - Caderno universitario 10 materias \| qtd\. 1 UN/);
+    assert.match(prompt, /Componente 2: Estojo escolar - Estojo com lapis, borracha e apontador/);
+    assert.doesNotMatch(prompt, /- Itens da SD revisados:/);
+    assert.doesNotMatch(prompt, /- Lista de itens da SD:/);
+  }
+});
+
+test("buildDocumentGenerationPrompt derives ETP estimates and Minuta prices from canonical item totals", () => {
+  const etpPrompt = buildDocumentGenerationPrompt({
+    departments: [createDepartmentRow()],
+    documentType: "etp",
+    instructions: null,
+    organization: createOrganizationRow(),
+    process: createProcessRow(),
+    processItems: createCanonicalProcessItems(),
+  });
+  const minutaPrompt = buildDocumentGenerationPrompt({
+    departments: [createDepartmentRow()],
+    documentType: "minuta",
+    instructions: null,
+    organization: createOrganizationRow(),
+    process: createProcessRow(),
+    processItems: createCanonicalProcessItems(),
+  });
+
+  assert.match(etpPrompt, /- Estimativa disponível: sim/);
+  assert.match(etpPrompt, /- Valor bruto de referência: R\$ 2\.105,00/);
+  assert.match(etpPrompt, /- Valor a usar na seção de estimativa: R\$ 2\.105,00/);
+  assert.match(minutaPrompt, /- Preço disponível: sim/);
+  assert.match(minutaPrompt, /- Valor bruto de referência: R\$ 2\.105,00/);
+  assert.match(minutaPrompt, /- Valor a usar na cláusula DO PREÇO: R\$ 2\.105,00/);
+});
+
 test("buildDocumentGenerationPrompt uses legacy singular item metadata without reviewed items", () => {
   const prompt = buildDocumentGenerationPrompt({
     departments: [createDepartmentRow()],
@@ -915,7 +1124,7 @@ test("buildDocumentGenerationPrompt guides cultural DFDs without validating zero
   assert.match(prompt, /- Organização extraída da origem: MUNICIPIO DE PUREZA/);
   assert.match(prompt, /- Descrição do item da origem: apresentacao artistica musical/);
   assert.match(prompt, /- Quantidade do item da origem: 1/);
-  assert.match(prompt, /- Valor total\/estimado extraído da origem: 0,00/);
+  assert.match(prompt, /- Valor total\/estimado de referência: 0,00/);
   assert.match(prompt, /- Estimativa disponível: não/);
   assert.match(prompt, /Valor ausente ou informado como zero/i);
   assert.match(prompt, /não declare compatibilidade com preços de mercado/i);
@@ -1000,7 +1209,7 @@ test("buildDocumentGenerationPrompt guides goods acquisition DFDs with quantity 
   assert.match(prompt, /especificação mínima, quantidade e unidade quando fornecidas, entrega/i);
   assert.match(prompt, /- Descrição do item da origem: materiais de expediente/);
   assert.match(prompt, /- Quantidade do item da origem: 500/);
-  assert.match(prompt, /- Valor total\/estimado extraído da origem: R\$ 12\.000,00/);
+  assert.match(prompt, /- Valor total\/estimado de referência: R\$ 12\.000,00/);
   assert.match(prompt, /- Estimativa disponível: sim/);
   assert.match(prompt, /- Valor a usar como referência no DFD: R\$ 12\.000,00/);
   assertDfdRoleGuidance(prompt);
@@ -1128,7 +1337,7 @@ test("buildDocumentGenerationPrompt uses the canonical ETP recipe and safe estim
   assert.match(prompt, /- Perfil de análise inferido para o ETP: apresentacao_artistica/);
   assert.match(prompt, /- Número da solicitação: 6/);
   assert.match(prompt, /- Estimativa disponível: não/);
-  assert.match(prompt, /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(prompt, /- Valor bruto de referência: R\$ 0,00/);
   assert.match(prompt, /- Valor a usar na seção de estimativa: não informado/);
   assert.match(prompt, /Use o perfil de análise inferido apenas para ajustar a ênfase técnica/);
   assert.match(prompt, /Preserve a consistência entre objeto, município, organização/);
@@ -1207,7 +1416,7 @@ test("buildDocumentGenerationPrompt uses the canonical TR recipe and obligation 
   assert.match(prompt, /- Tipo de documento: TR/);
   assert.match(prompt, /- Tipo de contratação inferido para obrigações: apresentacao_artistica/);
   assert.match(prompt, /- Estimativa disponível: não/);
-  assert.match(prompt, /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(prompt, /- Valor bruto de referência: R\$ 0,00/);
   assert.match(prompt, /- Valor a usar na seção de valor estimado: não informado/);
   assert.match(prompt, /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
   assert.match(prompt, /Tipo: prestacao_servicos_gerais/);
@@ -1340,7 +1549,7 @@ test("buildDocumentGenerationPrompt uses the canonical Minuta recipe, placeholde
   assert.match(prompt, /- Número da minuta\/contrato: XXX\/2026/);
   assert.match(prompt, /- Contratada: \[CONTRATADA\]/);
   assert.match(prompt, /- Preço disponível: não/);
-  assert.match(prompt, /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(prompt, /- Valor bruto de referência: R\$ 0,00/);
   assert.match(prompt, /- Valor a usar na cláusula DO PREÇO: R\$ XX\.XXX,XX/);
   assert.match(prompt, /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
   assert.match(prompt, /Cláusulas FIXED do template:/);

@@ -10,13 +10,23 @@ export type StoredDocument = typeof documents.$inferSelect;
 export type StoredDepartment = typeof departments.$inferSelect;
 export type StoredOrganization = typeof organizations.$inferSelect;
 export type StoredProcess = typeof processes.$inferSelect;
+export type SourceItemComponentForGeneration = {
+  title: string | null;
+  description: string | null;
+  quantity: string | null;
+  unit: string | null;
+};
 export type SourceItemForGeneration = {
+  origin: "canonical" | "source";
+  kind: "simple" | "kit" | "source";
   code: string | null;
+  title: string | null;
   description: string | null;
   quantity: string | null;
   unit: string | null;
   unitValue: string | null;
   totalValue: string | null;
+  components: SourceItemComponentForGeneration[];
 };
 type ProcessGenerationExtras = {
   processItems?: SerializedProcessItem[];
@@ -197,14 +207,30 @@ function getExtractedValue(process: StoredProcess, fieldPath: string) {
 }
 
 function getCanonicalProcessItems(processItems: SerializedProcessItem[] = []): SourceItemForGeneration[] {
-  return processItems.map((item) => ({
-    code: item.code,
-    description: firstText(item.description, item.title),
-    quantity: item.quantity,
-    totalValue: item.totalValue,
-    unit: item.unit,
-    unitValue: item.unitValue,
-  }));
+  return processItems.map((item) => {
+    const components =
+      item.kind === "kit"
+        ? item.components.map((component) => ({
+            description: component.description,
+            quantity: component.quantity,
+            title: component.title,
+            unit: component.unit,
+          }))
+        : [];
+
+    return {
+      code: item.code,
+      components,
+      description: item.description,
+      kind: item.kind,
+      origin: "canonical",
+      quantity: item.quantity,
+      title: item.title,
+      totalValue: item.totalValue,
+      unit: item.unit,
+      unitValue: item.unitValue,
+    };
+  });
 }
 
 function getReviewedSourceItems(
@@ -235,12 +261,16 @@ function getReviewedSourceItems(
           getNullableScalarText(item.itemCode),
           getNullableScalarText(item.codigo),
         ),
+        components: [],
         description: firstText(
           getNullableScalarText(item.description),
           getNullableScalarText(item.itemDescription),
           getNullableScalarText(item.descricao),
         ),
+        kind: "source" as const,
+        origin: "source" as const,
         quantity: firstText(getNullableScalarText(item.quantity), getNullableScalarText(item.quantidade)),
+        title: null,
         totalValue: firstText(
           getNullableScalarText(item.totalValue),
           getNullableScalarText(item.valorTotal),
@@ -251,7 +281,15 @@ function getReviewedSourceItems(
           getNullableScalarText(item.valorUnitario),
         ),
       };
-      const hasMeaningfulValue = Object.values(normalized).some((value) => value !== null);
+      const hasMeaningfulValue = [
+        normalized.code,
+        normalized.description,
+        normalized.quantity,
+        normalized.title,
+        normalized.totalValue,
+        normalized.unit,
+        normalized.unitValue,
+      ].some((value) => value !== null);
 
       return hasMeaningfulValue ? normalized : null;
     })
@@ -266,21 +304,86 @@ function compactSourceItemDescription(value: string | null) {
   return value.length > 240 ? `${value.slice(0, 237).trimEnd()}...` : value;
 }
 
+function formatCurrencyBr(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    currency: "BRL",
+    style: "currency",
+  })
+    .format(value)
+    .replace(/\u00a0/g, " ");
+}
+
+function getCanonicalItemsEstimatedTotal(items: SourceItemForGeneration[]) {
+  let estimatedTotal = 0;
+  let hasTotal = false;
+
+  for (const item of items) {
+    if (item.origin !== "canonical" || !item.totalValue) {
+      continue;
+    }
+
+    const amount = normalizeMonetaryNumber(item.totalValue);
+
+    if (amount !== null) {
+      estimatedTotal += amount;
+      hasTotal = true;
+    }
+  }
+
+  return hasTotal ? formatCurrencyBr(estimatedTotal) : null;
+}
+
+function formatSourceItemComponentLine(
+  component: SourceItemComponentForGeneration,
+  index: number,
+) {
+  const identity = [component.title, compactSourceItemDescription(component.description)]
+    .filter((value): value is string => Boolean(value))
+    .join(" - ");
+  const quantity = [component.quantity, component.unit]
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+
+  return `    - Componente ${index + 1}: ${identity || "componente sem descrição"}${
+    quantity ? ` | qtd. ${quantity}` : ""
+  }`;
+}
+
+function formatSourceItemMoney(item: SourceItemForGeneration, value: string) {
+  if (item.origin !== "canonical") {
+    return value;
+  }
+
+  const amount = normalizeMonetaryNumber(value);
+
+  return amount === null ? value : formatCurrencyBr(amount);
+}
+
 function formatSourceItemLine(item: SourceItemForGeneration, index: number) {
-  const identity = [item.code, compactSourceItemDescription(item.description)]
+  const compactDescription = compactSourceItemDescription(item.description);
+  const identity = [item.code, compactSourceItemDescription(firstText(item.title, item.description))]
     .filter((value): value is string => Boolean(value))
     .join(" - ");
   const details = [
+    item.title && compactDescription && item.title !== compactDescription
+      ? `descrição ${compactDescription}`
+      : null,
     [item.quantity, item.unit].filter((value): value is string => Boolean(value)).join(" ")
       ? `qtd. ${[item.quantity, item.unit].filter((value): value is string => Boolean(value)).join(" ")}`
       : null,
-    item.unitValue ? `unitário ${item.unitValue}` : null,
-    item.totalValue ? `total ${item.totalValue}` : null,
+    item.unitValue ? `unitário ${formatSourceItemMoney(item, item.unitValue)}` : null,
+    item.totalValue ? `total ${formatSourceItemMoney(item, item.totalValue)}` : null,
   ].filter((value): value is string => Boolean(value));
 
-  return `  ${index + 1}. ${identity || "item sem descrição"}${
+  const itemLine = `  ${index + 1}. ${identity || "item sem descrição"}${
     details.length > 0 ? ` | ${details.join(" | ")}` : ""
   }`;
+
+  if (item.kind !== "kit" || item.components.length === 0) {
+    return itemLine;
+  }
+
+  return [itemLine, ...item.components.map(formatSourceItemComponentLine)].join("\n");
 }
 
 function formatSourceItemsSummary(items: SourceItemForGeneration[]) {
@@ -288,16 +391,26 @@ function formatSourceItemsSummary(items: SourceItemForGeneration[]) {
     return null;
   }
 
+  const usesCanonicalItems = items.some((item) => item.origin === "canonical");
+  const countLabel = usesCanonicalItems ? "Itens do processo" : "Itens da SD revisados";
+  const listLabel = usesCanonicalItems ? "Lista de itens do processo" : "Lista de itens da SD";
+
   return [
-    `- Itens da SD revisados: ${items.length}`,
-    "- Lista de itens da SD:",
+    `- ${countLabel}: ${items.length}`,
+    `- ${listLabel}:`,
     ...items.map(formatSourceItemLine),
   ].join("\n");
 }
 
 function getSourceItemsEvidenceText(items: SourceItemForGeneration[]) {
   return items
-    .flatMap((item) => [item.code, item.description].filter((value): value is string => Boolean(value)))
+    .flatMap((item) => [
+      item.code,
+      item.title,
+      item.description,
+      ...item.components.flatMap((component) => [component.title, component.description]),
+    ])
+    .filter((value): value is string => Boolean(value))
     .join(" ");
 }
 
@@ -517,7 +630,9 @@ export function buildDfdGenerationContext({
   const sourceOrganizationName = getExtractedTextField(process, "organizationName");
   const sourceItems = getReviewedSourceItems(process, processItems);
   const hasSourceItems = sourceItems.length > 0;
+  const canonicalItemsEstimate = getCanonicalItemsEstimatedTotal(sourceItems);
   const rawEstimate = firstText(
+    canonicalItemsEstimate,
     getExtractedValue(process, "totalValue"),
     getExtractedValue(process, "estimatedValue"),
     getExtractedValue(process, "estimateValue"),
@@ -867,7 +982,7 @@ function buildDfdGenerationPrompt({
     `- CNPJ da organização: ${toDisplayText(context.organizationCnpj)}`,
     `- Município/UF: ${organization.city}/${organization.state}`,
     ...sourceItemPromptLines(context, "origem"),
-    `- Valor total/estimado extraído da origem: ${toDisplayText(context.estimate.rawValue)}`,
+    `- Valor total/estimado de referência: ${toDisplayText(context.estimate.rawValue)}`,
     `- Estimativa disponível: ${context.estimate.available ? "sim" : "não"}`,
     `- Valor a usar como referência no DFD: ${context.estimate.displayValue}`,
     `- Orientação sobre valor: ${context.estimate.guidance}`,
@@ -1029,7 +1144,7 @@ function buildEtpGenerationPrompt({
     `- Município/UF: ${organization.city}/${organization.state}`,
     ...sourceItemPromptLines(context, "SD"),
     `- Estimativa disponível: ${context.estimate.available ? "sim" : "não"}`,
-    `- Valor bruto extraído da origem: ${context.estimate.rawValue ?? "não informado"}`,
+    `- Valor bruto de referência: ${context.estimate.rawValue ?? "não informado"}`,
     `- Valor a usar na seção de estimativa: ${context.estimate.displayValue}`,
     `- Orientação para estimativa: ${context.estimate.guidance}`,
     `- Referência da origem: ${toDisplayText(context.sourceReference)}`,
@@ -1111,7 +1226,7 @@ function buildTrGenerationPrompt({
     `- Município/UF: ${organization.city}/${organization.state}`,
     ...sourceItemPromptLines(context, "SD"),
     `- Estimativa disponível: ${context.estimate.available ? "sim" : "não"}`,
-    `- Valor bruto extraído da origem: ${context.estimate.rawValue ?? "não informado"}`,
+    `- Valor bruto de referência: ${context.estimate.rawValue ?? "não informado"}`,
     `- Valor a usar na seção de valor estimado: ${context.estimate.displayValue}`,
     `- Orientação para valor estimado: ${context.estimate.guidance}`,
     `- Referência da origem: ${toDisplayText(context.sourceReference)}`,
@@ -1212,7 +1327,7 @@ function buildMinutaGenerationPrompt({
     `- CPF do representante legal: ${context.contractorRepresentativeCpf ?? "[CPF DO REPRESENTANTE]"}`,
     ...sourceItemPromptLines(context, "SD"),
     `- Preço disponível: ${context.price.available ? "sim" : "não"}`,
-    `- Valor bruto extraído da origem: ${context.price.rawValue ?? "não informado"}`,
+    `- Valor bruto de referência: ${context.price.rawValue ?? "não informado"}`,
     `- Valor a usar na cláusula DO PREÇO: ${context.price.displayValue}`,
     `- Orientação para preço: ${context.price.guidance}`,
     `- Referência da origem: ${toDisplayText(context.sourceReference)}`,

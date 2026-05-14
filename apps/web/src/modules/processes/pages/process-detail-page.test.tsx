@@ -32,6 +32,7 @@ describe("ProcessDetailPage", () => {
     });
 
     expect(screen.getByText("Contratação de Serviços de TI")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Voltar" })).toHaveAttribute("href", "/app/processos");
     expect(screen.getByText("PE-2024-045")).toBeInTheDocument();
     expect(screen.getByText("Licitação")).toBeInTheDocument();
     expect(screen.getByText("Pregão")).toBeInTheDocument();

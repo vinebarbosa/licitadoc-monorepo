@@ -43,6 +43,24 @@ async function loadProcessDepartments({
     .filter((department): department is NonNullable<typeof department> => department !== null);
 }
 
+async function loadResponsibleUserName({
+  db,
+  responsibleUserId,
+}: {
+  db: FastifyInstance["db"];
+  responsibleUserId: string | null;
+}) {
+  if (!responsibleUserId) {
+    return null;
+  }
+
+  const user = await db.query.users.findFirst({
+    where: (table, { eq: equals }) => equals(table.id, responsibleUserId),
+  });
+
+  return user?.name ?? null;
+}
+
 export async function createDocument({ actor, db, document, scheduleGeneration }: Input) {
   const process = await db.query.processes.findFirst({
     where: (table, { eq: equals }) => equals(table.id, document.processId),
@@ -69,6 +87,10 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
     db,
     processId: process.id,
   });
+  const responsibleUserName = await loadResponsibleUserName({
+    db,
+    responsibleUserId: process.responsibleUserId,
+  });
 
   const prompt = buildDocumentGenerationPrompt({
     departments,
@@ -77,7 +99,9 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
     organization,
     process,
     processItems,
+    responsibleUserName,
   });
+  const responsibleDisplayName = responsibleUserName ?? process.responsibleName;
 
   const { createdDocument, generationRunId } = await db.transaction(async (tx) => {
     const [createdDocument] = await tx
@@ -90,7 +114,7 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
         status: "generating",
         draftContent: null,
         storageKey: null,
-        responsibles: [process.responsibleName],
+        responsibles: [responsibleDisplayName],
       })
       .returning();
 

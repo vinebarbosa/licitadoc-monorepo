@@ -1,6 +1,5 @@
 import {
   AlertCircle,
-  ArrowLeft,
   Building2,
   Calendar,
   ChevronDown,
@@ -32,6 +31,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/ui/empty";
+import { PageBackLink } from "@/shared/ui/page-back";
 import { Progress } from "@/shared/ui/progress";
 import { Separator } from "@/shared/ui/separator";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -216,13 +216,7 @@ function ProcessHeader({ process }: { process: ProcessDetailResponse }) {
 
   return (
     <div className="space-y-4">
-      <Link
-        to="/app/processos"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Voltar
-      </Link>
+      <PageBackLink to="/app/processos" />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">

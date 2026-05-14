@@ -1,12 +1,4 @@
-import {
-  ArrowLeft,
-  ArrowRight,
-  ClipboardList,
-  FileSearch,
-  Loader2,
-  Scale,
-  ScrollText,
-} from "lucide-react";
+import { ArrowRight, ClipboardList, FileSearch, Loader2, Scale, ScrollText } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -16,6 +8,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { PageBackLink } from "@/shared/ui/page-back";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { useDocumentCreate, useProcessesPicker } from "../api/documents";
 import type { DocumentType } from "../model/documents";
@@ -148,15 +141,9 @@ export function DocumentCreatePageUI() {
   return (
     <main className="flex-1 overflow-auto p-6">
       <div className="mx-auto max-w-4xl space-y-6">
-        <div className="flex items-start gap-4">
-          <Link
-            to="/app/documentos"
-            className="mt-0.5 -ml-2 rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title="Voltar para Documentos"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div className="flex-1">
+        <div className="space-y-4">
+          <PageBackLink to="/app/documentos" />
+          <div>
             <h1 className="text-2xl font-semibold tracking-tight">Novo Documento</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Selecione o tipo de documento que deseja criar

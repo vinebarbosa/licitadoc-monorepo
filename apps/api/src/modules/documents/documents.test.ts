@@ -7,7 +7,10 @@ import {
   documents,
   type organizations,
   processDepartments,
+  processItemComponents,
+  processItems,
   type processes,
+  type users,
 } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
@@ -117,6 +120,24 @@ function createDepartmentRow(
   };
 }
 
+function createUserRow(overrides: Partial<typeof users.$inferSelect> = {}): typeof users.$inferSelect {
+  return {
+    id: "user_responsible",
+    name: "Usuario Responsavel",
+    email: "responsavel@example.com",
+    emailVerified: true,
+    image: null,
+    role: "member",
+    organizationId: ORGANIZATION_ID,
+    onboardingStatus: "complete",
+    temporaryPasswordCreatedAt: null,
+    temporaryPasswordExpiresAt: null,
+    createdAt: new Date("2029-12-01T00:00:00.000Z"),
+    updatedAt: new Date("2029-12-01T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
 function createDocumentRow(
   overrides: Partial<typeof documents.$inferSelect> = {},
 ): typeof documents.$inferSelect {
@@ -150,7 +171,10 @@ function createDb({
   departments = [createDepartmentRow()],
   organization = createOrganizationRow(),
   processDepartmentIds = [DEPARTMENT_ID],
+  processItemComponentRows = [],
+  processItemRows = [],
   process = createProcessRow(),
+  responsibleUser = createUserRow(),
   onDocumentInsert,
   onDocumentUpdate,
   onGenerationRunUpdate,
@@ -159,7 +183,10 @@ function createDb({
   departments?: Array<typeof departmentsTable.$inferSelect>;
   organization?: typeof organizations.$inferSelect | null;
   processDepartmentIds?: string[];
+  processItemComponentRows?: Array<typeof processItemComponents.$inferSelect>;
+  processItemRows?: Array<typeof processItems.$inferSelect>;
   process?: typeof processes.$inferSelect | null;
+  responsibleUser?: typeof users.$inferSelect | null;
   onDocumentInsert?: (values: Record<string, unknown>) => void;
   onDocumentUpdate?: (values: Record<string, unknown>) => void;
   onGenerationRunUpdate?: (values: Record<string, unknown>) => void;
@@ -263,13 +290,28 @@ function createDb({
       processes: {
         findFirst: async () => process,
       },
+      users: {
+        findFirst: async () => responsibleUser,
+      },
     },
     select: () => ({
       from: (table: unknown) => {
-        assert.equal(table, processDepartments);
+        if (table === processDepartments) {
+          return {
+            where: async () => processDepartmentIds.map((departmentId) => ({ departmentId })),
+          };
+        }
+
+        if (table === processItems) {
+          return {
+            where: async () => processItemRows,
+          };
+        }
+
+        assert.equal(table, processItemComponents);
 
         return {
-          where: async () => processDepartmentIds.map((departmentId) => ({ departmentId })),
+          where: async () => processItemComponentRows,
         };
       },
     }),
@@ -349,6 +391,51 @@ test("createDocument returns a generating draft before provider completion", asy
   assert.equal(generationRun?.status, "generating");
   assert.equal(generationRun?.requestMetadata.documentType, "dfd");
   assert.match(String(generationRun?.requestMetadata.prompt), /## Modelo Markdown canônico/);
+});
+
+test("createDocument uses responsible user display name when available", async () => {
+  let insertedDocument: Record<string, unknown> | undefined;
+  const db = createDb({
+    onDocumentInsert: (values) => {
+      insertedDocument = values;
+    },
+    process: createProcessRow({
+      responsibleName: "Nome legado",
+      responsibleUserId: "user_responsible",
+    }),
+    responsibleUser: createUserRow({
+      id: "user_responsible",
+      name: "Responsavel Canônico",
+    }),
+  });
+
+  await createPendingDocument({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+      instructions: null,
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: "Conteudo gerado do DFD",
+      responseMetadata: {},
+    })),
+  });
+
+  const generationRun = db.getCurrentGenerationRun();
+
+  assert.deepEqual(insertedDocument?.responsibles, ["Responsavel Canônico"]);
+  assert.match(
+    String(generationRun?.requestMetadata.prompt),
+    /Responsável pela solicitação: Responsavel Canônico/,
+  );
 });
 
 test("createDocument generates and persists a completed draft", async () => {
@@ -469,7 +556,7 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
     /- Perfil de análise inferido para o ETP: apresentacao_artistica/,
   );
   assert.match(receivedPrompt ?? "", /- Estimativa disponível: não/);
-  assert.match(receivedPrompt ?? "", /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto de referência: R\$ 0,00/);
   assert.match(receivedPrompt ?? "", /não simule pesquisa de mercado/i);
   assert.match(
     receivedPrompt ?? "",
@@ -551,7 +638,7 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
     /- Tipo de contratação inferido para obrigações: apresentacao_artistica/,
   );
   assert.match(receivedPrompt ?? "", /- Estimativa disponível: não/);
-  assert.match(receivedPrompt ?? "", /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto de referência: R\$ 0,00/);
   assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
   assert.match(receivedPrompt ?? "", /não invente valores/i);
   assert.match(receivedPrompt ?? "", /Manter consistencia operacional com o ETP\./);
@@ -1853,7 +1940,7 @@ test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED c
     /- Tipo de contratação inferido para obrigações: apresentacao_artistica/,
   );
   assert.match(receivedPrompt ?? "", /- Preço disponível: não/);
-  assert.match(receivedPrompt ?? "", /- Valor bruto extraído da origem: R\$ 0,00/);
+  assert.match(receivedPrompt ?? "", /- Valor bruto de referência: R\$ 0,00/);
   assert.match(receivedPrompt ?? "", /- Valor a usar na cláusula DO PREÇO: R\$ XX\.XXX,XX/);
   assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
   assert.match(receivedPrompt ?? "", /Cláusulas FIXED do template:/);

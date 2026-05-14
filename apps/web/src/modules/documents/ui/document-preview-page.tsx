@@ -22,6 +22,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/ui/empty";
+import { PageBackButton } from "@/shared/ui/page-back";
 import { Separator } from "@/shared/ui/separator";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Textarea } from "@/shared/ui/textarea";
@@ -118,10 +119,7 @@ function DocumentPreviewActions({ canPrint = false }: { canPrint?: boolean }) {
       data-document-preview-actions
     >
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" type="button" onClick={handleBack}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
+        <PageBackButton onClick={handleBack} />
       </div>
 
       <div className="flex gap-2">

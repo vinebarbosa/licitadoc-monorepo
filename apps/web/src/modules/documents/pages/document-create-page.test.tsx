@@ -43,6 +43,11 @@ describe("DocumentCreatePage", () => {
       renderDocumentCreatePage();
 
       expect(screen.getByRole("heading", { name: "Novo Documento" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Voltar" })).toHaveAttribute(
+        "href",
+        "/app/documentos",
+      );
+      expect(screen.queryByTitle("Voltar para Documentos")).not.toBeInTheDocument();
       expect(
         screen.getByText("Selecione o tipo de documento que deseja criar"),
       ).toBeInTheDocument();
