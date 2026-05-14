@@ -3581,6 +3581,311 @@
         }
       }
     },
+    "/api/organizations/me": {
+      "get": {
+        "summary": "Get current organization",
+        "tags": [
+          "Organizations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "officialName": {
+                      "type": "string"
+                    },
+                    "cnpj": {
+                      "type": "string"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "zipCode": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": "string"
+                    },
+                    "institutionalEmail": {
+                      "type": "string",
+                      "format": "email",
+                      "example": "contato@example.gov.br"
+                    },
+                    "website": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "logoUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "authorityName": {
+                      "type": "string"
+                    },
+                    "authorityRole": {
+                      "type": "string"
+                    },
+                    "isActive": {
+                      "type": "boolean"
+                    },
+                    "createdByUserId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "slug",
+                    "officialName",
+                    "cnpj",
+                    "city",
+                    "state",
+                    "address",
+                    "zipCode",
+                    "phone",
+                    "institutionalEmail",
+                    "website",
+                    "logoUrl",
+                    "authorityName",
+                    "authorityRole",
+                    "isActive",
+                    "createdByUserId",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "validation_error"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "const": "bad_request"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "anyOf": [
+                            {},
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "message",
+                        "details"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "unauthorized"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "forbidden"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "not_found"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message",
+                    "details"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "const": "internal_server_error"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/organizations/{organizationId}": {
       "get": {
         "summary": "Get organization",
@@ -8796,6 +9101,24 @@
                     "updatedAt": {
                       "type": "string"
                     },
+                    "organization": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "123e4567-e89b-12d3-a456-426614174000"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
                     "departments": {
                       "type": "array",
                       "items": {
@@ -8961,6 +9284,7 @@
                     "summary",
                     "createdAt",
                     "updatedAt",
+                    "organization",
                     "departments",
                     "documents",
                     "detailUpdatedAt"
@@ -9018,6 +9342,10 @@
                     },
                     "createdAt": "2026-01-15T10:30:00.000Z",
                     "updatedAt": "2026-01-15T10:30:00.000Z",
+                    "organization": {
+                      "id": "123e4567-e89b-12d3-a456-426614174000",
+                      "name": "Prefeitura Municipal de Educacao"
+                    },
                     "departments": [
                       {
                         "id": "123e4567-e89b-12d3-a456-426614174000",

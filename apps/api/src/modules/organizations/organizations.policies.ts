@@ -40,6 +40,18 @@ export function canReadOrganization(actor: Actor, organizationId: string) {
   throw new ForbiddenError("You do not have permission to read this organization.");
 }
 
+export function canReadCurrentOrganization(actor: Actor) {
+  if (actor.role !== "organization_owner" && actor.role !== "member") {
+    throw new ForbiddenError("You do not have permission to read the current organization.");
+  }
+
+  if (!actor.organizationId) {
+    throw new BadRequestError("You do not belong to an organization.");
+  }
+
+  return actor.organizationId;
+}
+
 export function canReadStoredOrganization(
   actor: Actor,
   organization: Pick<StoredOrganization, "id">,

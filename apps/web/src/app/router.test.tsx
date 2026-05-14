@@ -187,6 +187,29 @@ describe("appRoutes", () => {
     expect(screen.getByText("Documentos do Processo")).toBeInTheDocument();
   });
 
+  it("renders the protected process edit route for authenticated users", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json(authenticatedSessionResponse);
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app/processo/process-1/editar"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Editar Processo" })).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByRole("link", { name: /Processos/ })[0]).toHaveAttribute(
+      "href",
+      "/app/processos",
+    );
+  });
+
   it("renders the protected document preview route for authenticated users", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
@@ -251,6 +274,21 @@ describe("appRoutes", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/entrar");
       expect(router.state.location.search).toBe("?redirectTo=%2Fapp%2Fprocesso%2Fprocess-1");
+    });
+  });
+
+  it("redirects visitors away from the protected process edit route", async () => {
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app/processo/process-1/editar"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/entrar");
+      expect(router.state.location.search).toBe(
+        "?redirectTo=%2Fapp%2Fprocesso%2Fprocess-1%2Feditar",
+      );
     });
   });
 

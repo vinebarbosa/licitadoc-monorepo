@@ -297,6 +297,15 @@ export const getOrganizationSchema = {
   },
 } satisfies AppRouteSchema;
 
+export const getCurrentOrganizationSchema = {
+  tags: ["Organizations"],
+  summary: "Get current organization",
+  response: {
+    200: organizationSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
 export const updateOrganizationSchema = {
   tags: ["Organizations"],
   summary: "Update organization",

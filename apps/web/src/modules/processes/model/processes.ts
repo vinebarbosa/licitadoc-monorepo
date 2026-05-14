@@ -211,7 +211,7 @@ export const processDetailDocumentStatusConfig: Record<
     iconName: "clock-3",
   },
   pendente: {
-    label: "Pendente",
+    label: "Não gerado",
     className: "bg-muted text-muted-foreground border-muted",
     icon: Clock3,
     iconName: "clock-3",

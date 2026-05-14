@@ -27,6 +27,14 @@ export async function getProcess({ actor, db, processId }: Input) {
 
   canReadStoredProcess(actor, process);
 
+  const organization = await db.query.organizations.findFirst({
+    where: (table, { eq }) => eq(table.id, process.organizationId),
+  });
+
+  if (!organization) {
+    throw new NotFoundError("Organization not found.");
+  }
+
   const departmentIds = await getProcessDepartmentIds({
     db,
     processId,
@@ -52,5 +60,6 @@ export async function getProcess({ actor, db, processId }: Input) {
     departments,
     documents,
     items,
+    organization,
   });
 }

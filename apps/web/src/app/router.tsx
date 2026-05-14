@@ -10,8 +10,8 @@ import {
 } from "@/modules/auth";
 import { DocumentCreatePage, DocumentPreviewPage, DocumentsPage } from "@/modules/documents";
 import { OwnerOrganizationOnboardingPage, OwnerProfileOnboardingPage } from "@/modules/onboarding";
-import { ProcessCreatePage, ProcessDetailPage, ProcessesPage } from "@/modules/processes";
-import { LandingPage, ProcessCreateDemoPage } from "@/modules/public";
+import { ProcessCreatePage, ProcessDetailPage, ProcessEditPage, ProcessesPage } from "@/modules/processes";
+import { LandingPage, ProcessCreateDemoPage, ProcessDetailDemoPage } from "@/modules/public";
 import { NotFoundPage, UnauthorizedPage } from "@/modules/system";
 import { AdminUsersPage, OwnerMembersPage } from "@/modules/users";
 import { AppLayout } from "@/shared/layouts/app-layout";
@@ -102,6 +102,10 @@ export const appRoutes: RouteObject[] = [
         element: <ProcessCreateDemoPage />,
       },
       {
+        path: "demo/processo/:processId",
+        element: <ProcessDetailDemoPage />,
+      },
+      {
         path: "entrar",
         element: <SignInPage />,
       },
@@ -174,6 +178,17 @@ export const appRoutes: RouteObject[] = [
                 { label: "Central de Trabalho", href: "/app" },
                 { label: "Processos", href: "/app/processos" },
                 { label: "Detalhe do Processo" },
+              ],
+            },
+          },
+          {
+            path: "processo/:processId/editar",
+            element: <ProcessEditPage />,
+            handle: {
+              breadcrumbs: [
+                { label: "Central de Trabalho", href: "/app" },
+                { label: "Processos", href: "/app/processos" },
+                { label: "Editar Processo" },
               ],
             },
           },

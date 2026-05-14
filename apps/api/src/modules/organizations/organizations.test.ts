@@ -6,6 +6,7 @@ import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
 import { createOrganization } from "./create-organization";
+import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
 import {
@@ -238,6 +239,62 @@ test("getOrganization rejects organization owners reading another organization",
         },
         db,
         organizationId: "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228",
+      }),
+    ForbiddenError,
+  );
+});
+
+test("getCurrentOrganization returns the stored detail for members in an organization", async () => {
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow(),
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getCurrentOrganization({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+    },
+    db,
+  });
+
+  assert.equal(response.id, "4fd5b7df-e2e5-4876-b4c3-b35306c6e733");
+  assert.equal(response.name, "Prefeitura de Exemplo");
+});
+
+test("getCurrentOrganization rejects actors without organization", async () => {
+  const db = {} as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      getCurrentOrganization({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: null,
+        },
+        db,
+      }),
+    BadRequestError,
+  );
+});
+
+test("getCurrentOrganization rejects admins without a current organization", async () => {
+  const db = {} as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      getCurrentOrganization({
+        actor: {
+          id: "admin_user",
+          role: "admin",
+          organizationId: null,
+        },
+        db,
       }),
     ForbiddenError,
   );

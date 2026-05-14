@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   authenticatedSessionResponse,
+  currentOrganizationResponse,
   departmentsListResponse,
   organizationsListResponse,
 } from "@/test/msw/fixtures";
@@ -108,6 +109,9 @@ describe("ProcessCreatePage", () => {
       http.get("http://localhost:3333/api/auth/get-session", () =>
         HttpResponse.json(authenticatedSessionResponse),
       ),
+      http.get("http://localhost:3333/api/organizations/me", () =>
+        HttpResponse.json(currentOrganizationResponse),
+      ),
       http.get("http://localhost:3333/api/organizations/", () =>
         HttpResponse.json(organizationsListResponse),
       ),
@@ -120,8 +124,14 @@ describe("ProcessCreatePage", () => {
   it("submits reviewed process data with the canonical API payload", async () => {
     let requestBody: unknown = null;
     let usersRequestCount = 0;
+    let currentOrganizationRequestCount = 0;
 
     server.use(
+      http.get("http://localhost:3333/api/organizations/me", () => {
+        currentOrganizationRequestCount += 1;
+
+        return HttpResponse.json(currentOrganizationResponse);
+      }),
       http.get("http://localhost:3333/api/users/", () => {
         usersRequestCount += 1;
 
@@ -157,6 +167,7 @@ describe("ProcessCreatePage", () => {
     });
     expect(screen.getByText("Detalhe criado")).toBeInTheDocument();
     expect(usersRequestCount).toBe(0);
+    expect(currentOrganizationRequestCount).toBeGreaterThan(0);
   });
 
   it("submits simple items as structured canonical data", async () => {
@@ -290,6 +301,8 @@ describe("ProcessCreatePage", () => {
   });
 
   it("shows organization selection for admin sessions", async () => {
+    let currentOrganizationRequestCount = 0;
+
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () =>
         HttpResponse.json({
@@ -301,6 +314,11 @@ describe("ProcessCreatePage", () => {
           },
         }),
       ),
+      http.get("http://localhost:3333/api/organizations/me", () => {
+        currentOrganizationRequestCount += 1;
+
+        return HttpResponse.json(currentOrganizationResponse);
+      }),
     );
 
     renderCreatePage();
@@ -311,6 +329,28 @@ describe("ProcessCreatePage", () => {
     expect(await screen.findByLabelText(/Organização/i)).toHaveTextContent(
       "Prefeitura de Sao Paulo",
     );
+    expect(currentOrganizationRequestCount).toBe(0);
+  });
+
+  it("shows the reference-data alert when current organization loading fails for non-admin", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/organizations/me", () =>
+        HttpResponse.json(
+          {
+            error: "not_found",
+            message: "Organization not found.",
+            details: null,
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    renderCreatePage();
+
+    expect(
+      await screen.findByText("Não foi possível carregar os dados de referência"),
+    ).toBeInTheDocument();
   });
 
   it("shows required field validation before advancing from the data step", async () => {

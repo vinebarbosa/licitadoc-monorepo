@@ -1,18 +1,11 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { toast } from "sonner";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ProcessDetailPage } from "@/modules/processes";
-import {
-  processDetailItemsSourceMetadata,
-  processDetailLegacyItemSourceMetadata,
-  processDetailResponse,
-} from "@/test/msw/fixtures";
+import { processDetailResponse } from "@/test/msw/fixtures";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
-
-vi.mock("sonner", () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
 function renderProcessDetailPage(initialEntry = "/app/processo/process-1") {
   return renderWithProviders(
@@ -25,7 +18,7 @@ function renderProcessDetailPage(initialEntry = "/app/processo/process-1") {
 }
 
 describe("ProcessDetailPage", () => {
-  it("renders the migrated detail layout with process summary and document cards", async () => {
+  it("renders the validated detail layout with API-backed process sections", async () => {
     server.use(
       http.get("http://localhost:3333/api/processes/:processId", () =>
         HttpResponse.json(processDetailResponse),
@@ -40,10 +33,12 @@ describe("ProcessDetailPage", () => {
 
     expect(screen.getByText("Contratação de Serviços de TI")).toBeInTheDocument();
     expect(screen.getByText("PE-2024-045")).toBeInTheDocument();
-    expect(screen.getByText("Pregao Eletronico")).toBeInTheDocument();
-    expect(screen.getByText("06.001 - Secretaria de Educacao")).toBeInTheDocument();
+    expect(screen.getByText("Licitação")).toBeInTheDocument();
+    expect(screen.getByText("Pregão")).toBeInTheDocument();
     expect(screen.getByText("Maria Costa")).toBeInTheDocument();
-    expect(screen.getByText("R$ 450.000,00")).toBeInTheDocument();
+    expect(screen.getByText("Prefeitura Municipal de Exemplo")).toBeInTheDocument();
+    expect(screen.getByText("Secretaria de Educacao")).toBeInTheDocument();
+    expect(screen.getAllByText("R$ 25,00")).toHaveLength(2);
     expect(screen.getByText("Documentos do Processo")).toBeInTheDocument();
     expect(screen.getByText("Documento de Formalização de Demanda")).toBeInTheDocument();
     expect(screen.getByText("Estudo Técnico Preliminar")).toBeInTheDocument();
@@ -51,13 +46,10 @@ describe("ProcessDetailPage", () => {
     expect(screen.getByText("Minuta do Contrato")).toBeInTheDocument();
   });
 
-  it("renders solicitation items below justification with values and components", async () => {
+  it("renders native solicitation items below justification with expandable kit components", async () => {
     server.use(
       http.get("http://localhost:3333/api/processes/:processId", () =>
-        HttpResponse.json({
-          ...processDetailResponse,
-          sourceMetadata: processDetailItemsSourceMetadata,
-        }),
+        HttpResponse.json(processDetailResponse),
       ),
     );
 
@@ -69,58 +61,30 @@ describe("ProcessDetailPage", () => {
     expect(
       justificationLabel.compareDocumentPosition(itemSection) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(within(itemSection).getByText("3 itens")).toBeInTheDocument();
+    expect(within(itemSection).getByText("2 itens")).toBeInTheDocument();
+    expect(within(itemSection).getByText("Pote plástico")).toBeInTheDocument();
     expect(within(itemSection).getByText("Pote plástico com tampa")).toBeInTheDocument();
-    expect(
-      within(itemSection).getByText("Pote plástico de no mínimo 1L com tampa e trava lateral."),
-    ).toBeInTheDocument();
-    expect(within(itemSection).getAllByText("Qtd.")).toHaveLength(4);
-    expect(within(itemSection).getAllByText("500")).toHaveLength(2);
-    expect(within(itemSection).getAllByText("unidade")).toHaveLength(3);
-    expect(within(itemSection).getByText("R$ 8,50")).toBeInTheDocument();
-    expect(within(itemSection).getByText("R$ 4.250,00")).toBeInTheDocument();
-    expect(within(itemSection).getByText("Componentes")).toBeInTheDocument();
-    expect(within(itemSection).getByText("Embalagem personalizada")).toBeInTheDocument();
-    expect(within(itemSection).getByText("Cartão comemorativo")).toBeInTheDocument();
-    expect(
-      within(itemSection).getByText(/descrição longa para validar quebra de linha/i),
-    ).toBeInTheDocument();
+    expect(within(itemSection).getByText("#0005909")).toBeInTheDocument();
+    expect(within(itemSection).getAllByText("R$ 25,00")).toHaveLength(1);
+    expect(within(itemSection).getByText("#KIT-001")).toBeInTheDocument();
+    expect(within(itemSection).getByText("Kit escolar")).toBeInTheDocument();
+
+    fireEvent.click(within(itemSection).getByRole("button", { name: "Ver 1 componentes" }));
+
+    expect(within(itemSection).getByText("Caderno brochura")).toBeInTheDocument();
+    expect(within(itemSection).getByText("Caderno 96 folhas")).toBeInTheDocument();
   });
 
-  it("renders legacy singular item metadata and skips incorrect missing-field placeholders", async () => {
+  it("does not render the solicitation item section when the API has no items", async () => {
     server.use(
       http.get("http://localhost:3333/api/processes/:processId", () =>
         HttpResponse.json({
           ...processDetailResponse,
-          sourceMetadata: processDetailLegacyItemSourceMetadata,
-        }),
-      ),
-    );
-
-    renderProcessDetailPage();
-
-    const itemSection = await screen.findByRole("region", { name: "Itens da Solicitação" });
-
-    expect(within(itemSection).getByText("1 item")).toBeInTheDocument();
-    expect(within(itemSection).getByText("LEG-1")).toBeInTheDocument();
-    expect(
-      within(itemSection).getByText("Item legado extraído em formato singular"),
-    ).toBeInTheDocument();
-    expect(within(itemSection).getByText("10")).toBeInTheDocument();
-    expect(within(itemSection).getByText("caixa")).toBeInTheDocument();
-    expect(within(itemSection).queryByText(/undefined|null|NaN/)).not.toBeInTheDocument();
-  });
-
-  it("does not render the solicitation item section when metadata has no usable items", async () => {
-    server.use(
-      http.get("http://localhost:3333/api/processes/:processId", () =>
-        HttpResponse.json({
-          ...processDetailResponse,
-          sourceMetadata: {
-            extractedFields: {
-              items: [{ quantity: "2" }, null],
-              item: { unit: "caixa" },
-            },
+          items: [],
+          summary: {
+            itemCount: 0,
+            componentCount: 0,
+            estimatedTotalValue: null,
           },
         }),
       ),
@@ -135,7 +99,7 @@ describe("ProcessDetailPage", () => {
     expect(screen.queryByRole("region", { name: "Itens da Solicitação" })).not.toBeInTheDocument();
   });
 
-  it("renders completed, in-editing, pending, and error document card states with action links", async () => {
+  it("renders document card states with generation and preview actions", async () => {
     server.use(
       http.get("http://localhost:3333/api/processes/:processId", () =>
         HttpResponse.json(processDetailResponse),
@@ -165,7 +129,7 @@ describe("ProcessDetailPage", () => {
     expect(within(etpCard as HTMLElement).getByText("Em edicao")).toBeInTheDocument();
     expect((etpCard as HTMLElement).querySelector('[data-status-icon="clock-3"]')).not.toBeNull();
     expect(within(etpCard as HTMLElement).getByText("75%")).toBeInTheDocument();
-    expect(within(trCard as HTMLElement).getByText("Pendente")).toBeInTheDocument();
+    expect(within(trCard as HTMLElement).getByText("Não gerado")).toBeInTheDocument();
     expect((trCard as HTMLElement).querySelector('[data-status-icon="clock-3"]')).not.toBeNull();
     expect(within(minutaCard as HTMLElement).getByText("Erro")).toBeInTheDocument();
     expect(
@@ -175,39 +139,20 @@ describe("ProcessDetailPage", () => {
       "href",
       "/app/documento/novo?tipo=tr&processo=process-1",
     );
-    expect(within(trCard as HTMLElement).queryByRole("link", { name: "Criar" })).toBeNull();
+    expect(
+      within(trCard as HTMLElement)
+        .getByRole("link", { name: "Gerar" })
+        .querySelector('[data-action-icon="file-plus-2"]'),
+    ).not.toBeNull();
     expect(
       within(dfdCard as HTMLElement).getByRole("link", { name: "Gerar novamente" }),
     ).toHaveAttribute("href", "/app/documento/novo?tipo=dfd&processo=process-1");
-    expect(within(dfdCard as HTMLElement).getByRole("link", { name: "Editar" })).toHaveAttribute(
-      "href",
-      "/app/documento/document-1",
-    );
     expect(
       within(dfdCard as HTMLElement).getByRole("link", { name: "Visualizar" }),
     ).toHaveAttribute("href", "/app/documento/document-1/preview");
-    expect(within(etpCard as HTMLElement).getByRole("link", { name: "Editar" })).toHaveAttribute(
-      "href",
-      "/app/documento/document-2",
-    );
-    expect(
-      within(etpCard as HTMLElement).getByRole("link", { name: "Visualizar" }),
-    ).toHaveAttribute("href", "/app/documento/document-2/preview");
-
-    const dfdOverflowTrigger = within(dfdCard as HTMLElement).getByRole("button", {
-      name: "Mais ações",
-    });
-
-    fireEvent.pointerDown(dfdOverflowTrigger);
-
-    const duplicateItem = await screen.findByRole("menuitem", { name: "Duplicar" });
-
-    expect(duplicateItem).not.toHaveAttribute("aria-disabled", "true");
-    expect(duplicateItem.querySelector('[data-action-icon="copy"]')).not.toBeNull();
-
-    fireEvent.click(duplicateItem);
-
-    expect(toast.info).toHaveBeenCalledWith("Duplicação de documentos ainda não está disponível.");
+    expect(within(dfdCard as HTMLElement).queryByRole("link", { name: "Editar" })).toBeNull();
+    expect(within(dfdCard as HTMLElement).queryByRole("button", { name: "Mais ações" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Duplicar" })).toBeNull();
   });
 
   it("shows a loading state before rendering an API failure", async () => {

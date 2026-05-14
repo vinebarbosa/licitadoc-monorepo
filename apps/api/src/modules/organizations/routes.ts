@@ -1,10 +1,12 @@
 import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
 import { getSessionUser } from "../../shared/auth/get-session-user";
 import { createOrganization } from "./create-organization";
+import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
 import {
   createOrganizationSchema,
+  getCurrentOrganizationSchema,
   getOrganizationSchema,
   getOrganizationsSchema,
   updateOrganizationSchema,
@@ -44,6 +46,18 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
         page: request.query.page,
         pageSize: request.query.pageSize,
       });
+    },
+  );
+
+  app.get(
+    "/me",
+    {
+      schema: getCurrentOrganizationSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+
+      return getCurrentOrganization({ actor, db: app.db });
     },
   );
 

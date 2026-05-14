@@ -8,6 +8,7 @@ export const registerCorsPlugin = fp(async (app) => {
 
   await app.register(cors, {
     origin: origins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     credentials: true,
   });
 });

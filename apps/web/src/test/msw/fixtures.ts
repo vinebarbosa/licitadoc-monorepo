@@ -55,6 +55,8 @@ export const organizationsListResponse = {
   totalPages: 1,
 };
 
+export const currentOrganizationResponse = organizationsListResponse.items[0];
+
 export const departmentsListResponse = {
   items: [
     {
@@ -277,6 +279,8 @@ export const processCreateResponse = {
 export const processDetailResponse = {
   id: "process-1",
   organizationId: "organization-1",
+  procurementMethod: "licitacao",
+  biddingModality: "pregao",
   type: "pregao-eletronico",
   processNumber: "PE-2024-045",
   externalId: null,
@@ -290,8 +294,50 @@ export const processDetailResponse = {
   sourceReference: null,
   sourceMetadata: null,
   departmentIds: ["department-1"],
+  items: [
+    {
+      id: "process-item-1",
+      kind: "simple",
+      code: "0005909",
+      title: "Pote plástico",
+      description: "Pote plástico com tampa",
+      quantity: "2",
+      unit: "UN",
+      unitValue: "12,50",
+      totalValue: "25.00",
+    },
+    {
+      id: "process-item-2",
+      kind: "kit",
+      code: "KIT-001",
+      title: "Kit escolar",
+      description: null,
+      quantity: "100",
+      unit: "KIT",
+      unitValue: null,
+      totalValue: null,
+      components: [
+        {
+          id: "process-item-2-component-1",
+          title: "Caderno brochura",
+          description: "Caderno 96 folhas",
+          quantity: "2",
+          unit: "UN",
+        },
+      ],
+    },
+  ],
+  summary: {
+    itemCount: 2,
+    componentCount: 1,
+    estimatedTotalValue: "25.00",
+  },
   createdAt: "2024-03-15T00:00:00.000Z",
   updatedAt: "2024-03-28T00:00:00.000Z",
+  organization: {
+    id: "organization-1",
+    name: "Prefeitura Municipal de Exemplo",
+  },
   departments: [
     {
       id: "department-1",

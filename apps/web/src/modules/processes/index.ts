@@ -8,4 +8,5 @@ export {
 } from "./model/processes";
 export { ProcessCreatePage } from "./pages/process-create-page";
 export { ProcessDetailPage } from "./pages/process-detail-page";
+export { ProcessEditPage } from "./pages/process-edit-page";
 export { ProcessesPage } from "./pages/processes-page";

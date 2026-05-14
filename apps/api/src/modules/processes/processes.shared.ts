@@ -4,6 +4,7 @@ import type { Actor } from "../../authorization/actor";
 import {
   departments,
   type documents,
+  type organizations,
   processDepartments,
   processes,
   processItemComponents,
@@ -16,6 +17,7 @@ import type { CreateProcessInput } from "./processes.schemas";
 
 export type StoredProcess = typeof processes.$inferSelect;
 export type StoredDepartment = typeof departments.$inferSelect;
+export type StoredOrganization = typeof organizations.$inferSelect;
 export type StoredProcessItem = typeof processItems.$inferSelect;
 export type StoredProcessItemComponent = typeof processItemComponents.$inferSelect;
 type StoredProcessDocument = Pick<
@@ -73,6 +75,11 @@ export type ProcessDetailDepartment = {
   budgetUnitCode: string | null;
   organizationId: string;
   label: string;
+};
+
+export type ProcessDetailOrganization = {
+  id: string;
+  name: string;
 };
 
 export type ProcessDetailDocumentStatus = "concluido" | "em_edicao" | "pendente" | "erro";
@@ -448,6 +455,15 @@ function serializeProcessDetailDepartment(department: StoredDepartment): Process
   };
 }
 
+function serializeProcessDetailOrganization(
+  organization: StoredOrganization,
+): ProcessDetailOrganization {
+  return {
+    id: organization.id,
+    name: organization.name,
+  };
+}
+
 function mapProcessDetailDocumentStatus(
   status: StoredProcessDocument["status"],
 ): ProcessDetailDocumentStatus {
@@ -552,11 +568,13 @@ export function serializeProcessDetail(
     departments,
     documents,
     items = [],
+    organization,
   }: {
     departmentIds: string[];
     departments: StoredDepartment[];
     documents: StoredProcessDocument[];
     items?: SerializedProcessItem[];
+    organization: StoredOrganization;
   },
 ) {
   const serializedDepartments = [...departments]
@@ -565,12 +583,14 @@ export function serializeProcessDetail(
   const serializedDocuments = serializeProcessDetailDocuments(documents);
   const detailUpdatedAt = [
     process.updatedAt,
+    organization.updatedAt,
     ...departments.map((department) => department.updatedAt),
     ...documents.map((document) => document.updatedAt),
   ].reduce((latest, current) => (current > latest ? current : latest), process.updatedAt);
 
   return {
     ...serializeProcess(process, departmentIds, items),
+    organization: serializeProcessDetailOrganization(organization),
     departments: serializedDepartments,
     documents: serializedDocuments,
     detailUpdatedAt: detailUpdatedAt.toISOString(),

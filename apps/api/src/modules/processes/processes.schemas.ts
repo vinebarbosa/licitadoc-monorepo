@@ -293,6 +293,11 @@ const processDetailDepartmentSchema = z.object({
   label: z.string(),
 });
 
+const processDetailOrganizationSchema = z.object({
+  id: openApiUuidSchema(),
+  name: z.string(),
+});
+
 const processDetailDocumentStatusSchema = z.enum(["concluido", "em_edicao", "pendente", "erro"]);
 
 const processDetailDocumentActionsSchema = z.object({
@@ -321,6 +326,10 @@ const processDetailExample = {
   summary: OPENAPI_EXAMPLE_PROCESS_SUMMARY,
   createdAt: OPENAPI_EXAMPLE_DATE_TIME,
   updatedAt: OPENAPI_EXAMPLE_DATE_TIME,
+  organization: {
+    id: OPENAPI_EXAMPLE_UUID,
+    name: "Prefeitura Municipal de Educacao",
+  },
   departments: [
     {
       id: OPENAPI_EXAMPLE_UUID,
@@ -352,6 +361,7 @@ const processDetailExample = {
 
 const processDetailSchema = withOpenApiExample(
   processSchema.extend({
+    organization: processDetailOrganizationSchema,
     departments: z.array(processDetailDepartmentSchema),
     documents: z.array(processDetailDocumentCardSchema),
     detailUpdatedAt: z.string(),

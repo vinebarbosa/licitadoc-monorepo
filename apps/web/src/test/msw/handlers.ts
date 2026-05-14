@@ -10,6 +10,7 @@ import {
   failedDocumentDetailResponse,
   generatingDocumentDetailResponse,
   healthOkResponse,
+  currentOrganizationResponse,
   organizationsListResponse,
   processCreateResponse,
   processDetailResponse,
@@ -42,6 +43,9 @@ export const handlers = [
   http.get("http://localhost:3333/api/organizations/", () => {
     return HttpResponse.json(organizationsListResponse);
   }),
+  http.get("http://localhost:3333/api/organizations/me", () => {
+    return HttpResponse.json(currentOrganizationResponse);
+  }),
   http.get("http://localhost:3333/api/departments/", () => {
     return HttpResponse.json(departmentsListResponse);
   }),
@@ -72,6 +76,27 @@ export const handlers = [
     }
 
     return HttpResponse.json(processCreateResponse, { status: 201 });
+  }),
+  http.patch("http://localhost:3333/api/processes/:processId", async ({ params, request }) => {
+    const body = (await request.json().catch(() => null)) as { processNumber?: string } | null;
+
+    if (body?.processNumber === "PROC-CONFLICT") {
+      return HttpResponse.json(
+        {
+          error: "conflict",
+          message: "Process number already exists.",
+          details: null,
+        },
+        { status: 409 },
+      );
+    }
+
+    return HttpResponse.json({
+      ...processDetailResponse,
+      ...body,
+      id: String(params.processId ?? processDetailResponse.id),
+      detailUpdatedAt: "2024-04-01T00:00:00.000Z",
+    });
   }),
   http.get("http://localhost:3333/api/documents/", () => {
     return HttpResponse.json(documentsListResponse);

@@ -7,6 +7,8 @@ import {
   type organizations,
   processDepartments,
   processes,
+  processItemComponents,
+  processItems,
 } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
@@ -310,6 +312,44 @@ function createDocumentRow(
     draftContent: null,
     storageKey: "documents/processo/documento.pdf",
     responsibles: ["Ana Souza"],
+    createdAt: new Date("2029-12-01T00:00:00.000Z"),
+    updatedAt: new Date("2029-12-01T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function createProcessItemRow(
+  overrides: Partial<typeof processItems.$inferSelect> = {},
+): typeof processItems.$inferSelect {
+  return {
+    id: "9a9a9a9a-e2e5-4876-b4c3-b35306c6e733",
+    processId: PROCESS_ID,
+    position: 0,
+    kind: "simple",
+    code: "0005909",
+    title: "Pote plastico",
+    description: "Pote plastico com tampa",
+    quantity: "500",
+    unit: "unidade",
+    unitValue: "900.00",
+    totalValue: "450000.00",
+    createdAt: new Date("2029-12-01T00:00:00.000Z"),
+    updatedAt: new Date("2029-12-01T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function createProcessItemComponentRow(
+  overrides: Partial<typeof processItemComponents.$inferSelect> = {},
+): typeof processItemComponents.$inferSelect {
+  return {
+    id: "9b9b9b9b-e2e5-4876-b4c3-b35306c6e733",
+    itemId: "9a9a9a9a-e2e5-4876-b4c3-b35306c6e733",
+    position: 0,
+    title: "Embalagem personalizada",
+    description: "Embalagem com identificacao visual",
+    quantity: "1",
+    unit: "unidade",
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
     updatedAt: new Date("2029-12-01T00:00:00.000Z"),
     ...overrides,
@@ -1654,6 +1694,9 @@ test("getProcess allows admins and rejects members outside organization", async 
               "Contratacao de empresa especializada para prestacao de servicos tecnicos de assessoria e suporte em Recursos Humanos, de execucao indireta",
           }),
       },
+      organizations: {
+        findFirst: async () => createOrganizationRow({ id: OTHER_ORGANIZATION_ID }),
+      },
       departments: {
         findMany: async () => [],
       },
@@ -1679,6 +1722,10 @@ test("getProcess allows admins and rejects members outside organization", async 
   });
 
   assert.equal(response.organizationId, OTHER_ORGANIZATION_ID);
+  assert.deepEqual(response.organization, {
+    id: OTHER_ORGANIZATION_ID,
+    name: "Prefeitura de Exemplo",
+  });
   assert.equal(
     response.title,
     "Prestacao de servicos tecnicos de assessoria e suporte em Recursos Humanos",
@@ -1825,6 +1872,9 @@ test("getProcess returns enriched detail data and keeps base fields compatible",
       processes: {
         findFirst: async () => process,
       },
+      organizations: {
+        findFirst: async () => createOrganizationRow(),
+      },
       departments: {
         findMany: async () => departmentRows,
       },
@@ -1833,11 +1883,28 @@ test("getProcess returns enriched detail data and keeps base fields compatible",
       },
     },
     select: () => ({
-      from: () => ({
-        where: async () => [
-          { departmentId: DEPARTMENT_ID },
-          { departmentId: SECOND_DEPARTMENT_ID },
-        ],
+      from: (table: unknown) => ({
+        where: async () => {
+          if (table === processDepartments) {
+            return [{ departmentId: DEPARTMENT_ID }, { departmentId: SECOND_DEPARTMENT_ID }];
+          }
+
+          if (table === processItems) {
+            return [
+              createProcessItemRow({
+                id: "9a9a9a9a-e2e5-4876-b4c3-b35306c6e733",
+                kind: "kit",
+                title: "Kit de boas-vindas",
+              }),
+            ];
+          }
+
+          if (table === processItemComponents) {
+            return [createProcessItemComponentRow()];
+          }
+
+          return [];
+        },
       }),
     }),
   } as unknown as FastifyInstance["db"];
@@ -1854,7 +1921,35 @@ test("getProcess returns enriched detail data and keeps base fields compatible",
 
   assert.equal(response.processNumber, process.processNumber);
   assert.equal(response.status, process.status);
+  assert.deepEqual(response.organization, {
+    id: ORGANIZATION_ID,
+    name: "Prefeitura de Exemplo",
+  });
   assert.equal(response.summary.estimatedTotalValue, "450000.00");
+  assert.equal(response.summary.itemCount, 1);
+  assert.equal(response.summary.componentCount, 1);
+  assert.deepEqual(response.items, [
+    {
+      id: "9a9a9a9a-e2e5-4876-b4c3-b35306c6e733",
+      kind: "kit",
+      code: "0005909",
+      title: "Kit de boas-vindas",
+      description: "Pote plastico com tampa",
+      quantity: "500",
+      unit: "unidade",
+      unitValue: "900.00",
+      totalValue: "450000.00",
+      components: [
+        {
+          id: "9b9b9b9b-e2e5-4876-b4c3-b35306c6e733",
+          title: "Embalagem personalizada",
+          description: "Embalagem com identificacao visual",
+          quantity: "1",
+          unit: "unidade",
+        },
+      ],
+    },
+  ]);
   assert.deepEqual(response.departmentIds, [SECOND_DEPARTMENT_ID, DEPARTMENT_ID]);
   assert.deepEqual(response.departments, [
     {
