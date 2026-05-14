@@ -11,7 +11,14 @@ import {
 import { DocumentCreatePage, DocumentPreviewPage, DocumentsPage } from "@/modules/documents";
 import { OwnerOrganizationOnboardingPage, OwnerProfileOnboardingPage } from "@/modules/onboarding";
 import { ProcessCreatePage, ProcessDetailPage, ProcessesPage } from "@/modules/processes";
-import { LandingPage, ProcessCreateDemoPage, ProcessDetailDemoPage } from "@/modules/public";
+import {
+  LandingPage,
+  ProcessCreateDemoPage,
+  ProcessDetailDemoPage,
+  OnboardingCompleteProfilePage,
+  OnboardingOrganizationPage,
+  OnboardingCompletePage,
+} from "@/modules/public";
 import { NotFoundPage, UnauthorizedPage } from "@/modules/system";
 import { AdminUsersPage, OwnerMembersPage } from "@/modules/users";
 import { AppLayout } from "@/shared/layouts/app-layout";
@@ -104,6 +111,18 @@ export const appRoutes: RouteObject[] = [
       {
         path: "demo/processo/:processId",
         element: <ProcessDetailDemoPage />,
+      },
+      {
+        path: "demo/onboarding/perfil",
+        element: <OnboardingCompleteProfilePage />,
+      },
+      {
+        path: "demo/onboarding/organizacao",
+        element: <OnboardingOrganizationPage />,
+      },
+      {
+        path: "demo/onboarding/concluido",
+        element: <OnboardingCompletePage />,
       },
       {
         path: "entrar",
