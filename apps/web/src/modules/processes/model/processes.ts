@@ -153,25 +153,25 @@ export type ProcessesFilters = {
 export const PROCESSES_PAGE_SIZE = 10;
 
 export const statusOptions: Array<{ value: ProcessStatus; label: string }> = [
-  { value: "em_edicao", label: "Em edicao" },
-  { value: "em_revisao", label: "Em revisao" },
+  { value: "em_edicao", label: "Em edição" },
+  { value: "em_revisao", label: "Em revisão" },
   { value: "finalizado", label: "Finalizado" },
   { value: "erro", label: "Com erro" },
 ];
 
 export const processTypeOptions = [
-  { value: "pregao-eletronico", label: "Pregao Eletronico" },
-  { value: "concorrencia", label: "Concorrencia" },
-  { value: "tomada-de-precos", label: "Tomada de Precos" },
+  { value: "pregao-eletronico", label: "Pregão Eletrônico" },
+  { value: "concorrencia", label: "Concorrência" },
+  { value: "tomada-de-precos", label: "Tomada de Preços" },
   { value: "inexigibilidade", label: "Inexigibilidade" },
-  { value: "pregao", label: "Pregao" },
+  { value: "pregao", label: "Pregão" },
 ] as const;
 
 export const processCreationStatusOptions: Array<{ value: ProcessCreationStatus; label: string }> =
   [
     { value: "draft", label: "Rascunho" },
-    { value: "em_edicao", label: "Em edicao" },
-    { value: "em_revisao", label: "Em revisao" },
+    { value: "em_edicao", label: "Em edição" },
+    { value: "em_revisao", label: "Em revisão" },
     { value: "finalizado", label: "Finalizado" },
   ];
 
@@ -181,11 +181,11 @@ export const statusConfig: Record<ProcessStatus, { label: string; className: str
     className: "bg-success/15 text-success border-success/30",
   },
   em_edicao: {
-    label: "Em edicao",
+    label: "Em edição",
     className: "bg-pending/15 text-pending border-pending/30",
   },
   em_revisao: {
-    label: "Em revisao",
+    label: "Em revisão",
     className: "bg-warning/15 text-warning-foreground border-warning/30",
   },
   erro: {
@@ -199,13 +199,13 @@ export const processDetailDocumentStatusConfig: Record<
   { label: string; className: string; icon: LucideIcon; iconName: string }
 > = {
   concluido: {
-    label: "Concluido",
+    label: "Concluído",
     className: "bg-success/15 text-success border-success/30",
     icon: CheckCircle2,
     iconName: "check-circle-2",
   },
   em_edicao: {
-    label: "Em edicao",
+    label: "Em edição",
     className: "bg-pending/15 text-pending border-pending/30",
     icon: Clock3,
     iconName: "clock-3",
@@ -225,7 +225,7 @@ export const processDetailDocumentStatusConfig: Record<
 };
 
 const statusFallbackConfig = {
-  label: "Em edicao",
+  label: "Em edição",
   className: statusConfig.em_edicao.className,
 };
 
@@ -294,7 +294,7 @@ export function formatProcessListDate(dateString: string) {
 
 export function formatProcessDetailDate(dateString: string | null) {
   if (!dateString) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   return formatProcessListDate(dateString);
@@ -439,7 +439,7 @@ export function getProcessDetailDepartmentLabel(
 
 export function getProcessEstimatedValueLabel(estimatedValue: string | null) {
   if (!estimatedValue) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   const trimmedValue = estimatedValue.trim();
@@ -659,7 +659,7 @@ export function validateProcessCreationForm(
   const errors: ProcessCreationFormErrors = {};
 
   if (actor.role === "admin" && !values.organizationId.trim()) {
-    errors.organizationId = "Selecione a organizacao.";
+    errors.organizationId = "Selecione a organização.";
   }
 
   if (!values.type.trim()) {
@@ -997,7 +997,7 @@ export function getProcessCreateErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return "Nao foi possivel criar o processo.";
+  return "Não foi possível criar o processo.";
 }
 
 export function getProcessDetailErrorMessage(error: unknown) {
@@ -1024,7 +1024,7 @@ export function getProcessDetailErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return "Nao foi possivel carregar o processo.";
+  return "Não foi possível carregar o processo.";
 }
 
 export function applyExtractionToFormValues(

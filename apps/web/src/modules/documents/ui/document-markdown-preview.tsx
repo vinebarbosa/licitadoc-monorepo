@@ -3,7 +3,10 @@ import { isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/shared/lib/utils";
-import { institutionalDocumentSelectors, institutionalDocumentTheme } from "./institutional-document-theme";
+import {
+  institutionalDocumentSelectors,
+  institutionalDocumentTheme,
+} from "./institutional-document-theme";
 
 const SAFE_PROTOCOLS = ["http:", "https:", "mailto:"];
 const ADMINISTRATIVE_FIELD_LABELS = [
@@ -70,11 +73,9 @@ function isSignatureHeading(children: ReactNode) {
   return /\b(fecho|assinatura)\b/i.test(getPlainText(children));
 }
 
-const components: ComponentProps<typeof ReactMarkdown>["components"] = {
+const components: NonNullable<ComponentProps<typeof ReactMarkdown>["components"]> = {
   h1: ({ children }) => (
-    <h1 className={institutionalDocumentTheme.mainTitleClassName}>
-      {children}
-    </h1>
+    <h1 className={institutionalDocumentTheme.mainTitleClassName}>{children}</h1>
   ),
   h2: ({ children }) => {
     const signatureHeading = isSignatureHeading(children);
@@ -115,19 +116,9 @@ const components: ComponentProps<typeof ReactMarkdown>["components"] = {
   h6: ({ children }) => (
     <h6 className={institutionalDocumentTheme.subtitleClassName}>{children}</h6>
   ),
-  p: ({ children }) => (
-    <p className={institutionalDocumentTheme.paragraphClassName}>
-      {children}
-    </p>
-  ),
-  ul: ({ children }) => (
-    <ul className={institutionalDocumentTheme.listClassName}>{children}</ul>
-  ),
-  ol: ({ children }) => (
-    <ol className={institutionalDocumentTheme.listClassName}>
-      {children}
-    </ol>
-  ),
+  p: ({ children }) => <p className={institutionalDocumentTheme.paragraphClassName}>{children}</p>,
+  ul: ({ children }) => <ul className={institutionalDocumentTheme.listClassName}>{children}</ul>,
+  ol: ({ children }) => <ol className={institutionalDocumentTheme.listClassName}>{children}</ol>,
   li: ({ children }) => {
     const administrativeField = getAdministrativeFieldParts(getPlainText(children));
 
@@ -151,30 +142,16 @@ const components: ComponentProps<typeof ReactMarkdown>["components"] = {
     return <li className={institutionalDocumentTheme.listItemClassName}>{children}</li>;
   },
   blockquote: ({ children }) => (
-    <blockquote className={institutionalDocumentTheme.blockquoteClassName}>
-      {children}
-    </blockquote>
+    <blockquote className={institutionalDocumentTheme.blockquoteClassName}>{children}</blockquote>
   ),
   code: ({ children, className }) => {
     const isBlock = className?.includes("language-");
     if (isBlock) {
-      return (
-        <code className={institutionalDocumentTheme.blockCodeClassName}>
-          {children}
-        </code>
-      );
+      return <code className={institutionalDocumentTheme.blockCodeClassName}>{children}</code>;
     }
-    return (
-      <code className={institutionalDocumentTheme.inlineCodeClassName}>
-        {children}
-      </code>
-    );
+    return <code className={institutionalDocumentTheme.inlineCodeClassName}>{children}</code>;
   },
-  pre: ({ children }) => (
-    <pre className={institutionalDocumentTheme.preClassName}>
-      {children}
-    </pre>
-  ),
+  pre: ({ children }) => <pre className={institutionalDocumentTheme.preClassName}>{children}</pre>,
   a: ({ href, children }) => {
     const safe = isSafeHref(href);
     if (!safe) {
@@ -196,19 +173,13 @@ const components: ComponentProps<typeof ReactMarkdown>["components"] = {
   hr: () => <hr className={institutionalDocumentTheme.horizontalRuleClassName} />,
   table: ({ children }) => (
     <div className={institutionalDocumentTheme.tableWrapperClassName}>
-      <table className={institutionalDocumentTheme.tableClassName}>
-        {children}
-      </table>
+      <table className={institutionalDocumentTheme.tableClassName}>{children}</table>
     </div>
   ),
   thead: ({ children }) => <thead>{children}</thead>,
   tbody: ({ children }) => <tbody>{children}</tbody>,
   tr: ({ children }) => <tr>{children}</tr>,
-  th: ({ children }) => (
-    <th>
-      {children}
-    </th>
-  ),
+  th: ({ children }) => <th>{children}</th>,
   td: ({ children }) => <td>{children}</td>,
 };
 

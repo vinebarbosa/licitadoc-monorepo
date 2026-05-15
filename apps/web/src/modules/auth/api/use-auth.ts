@@ -35,7 +35,7 @@ export function getOnboardingRedirectTarget(
   role?: AuthRole | null,
 ) {
   if (status === "pending_profile") {
-    return role === "member" ? null : "/onboarding/perfil";
+    return "/onboarding/perfil";
   }
 
   if (status === "pending_organization") {

@@ -430,7 +430,7 @@ describe("appRoutes", () => {
     });
   });
 
-  it("renders a blocking onboarding modal for member with pending_profile inside the app", async () => {
+  it("redirects member with pending_profile to the onboarding profile page", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
         return HttpResponse.json({
@@ -451,13 +451,12 @@ describe("appRoutes", () => {
     renderWithProviders(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/app");
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Complete seu cadastro" })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/onboarding/perfil");
+      expect(screen.getByRole("heading", { name: /Bem-vindo ao LicitaDoc/ })).toBeInTheDocument();
     });
   });
 
-  it("keeps legacy member onboarding route in the app with the blocking modal", async () => {
+  it("redirects the legacy member onboarding route to the shared onboarding page", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
         return HttpResponse.json({
@@ -478,9 +477,8 @@ describe("appRoutes", () => {
     renderWithProviders(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/app");
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Complete seu cadastro" })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/onboarding/perfil");
+      expect(screen.getByRole("heading", { name: /Bem-vindo ao LicitaDoc/ })).toBeInTheDocument();
     });
   });
 
@@ -509,7 +507,7 @@ describe("appRoutes", () => {
     });
   });
 
-  it("signs in as invited member and opens the blocking onboarding modal", async () => {
+  it("signs in as invited member and sends them to the onboarding flow", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
         return HttpResponse.json(null);
@@ -546,9 +544,33 @@ describe("appRoutes", () => {
     fireEvent.click(screen.getByRole("button", { name: /Entrar/ }));
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/app");
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Complete seu cadastro" })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/onboarding/perfil");
+      expect(screen.getByRole("heading", { name: /Bem-vindo ao LicitaDoc/ })).toBeInTheDocument();
+    });
+  });
+
+  it("renders the onboarding completion route for completed users", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "member",
+            onboardingStatus: "complete",
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/onboarding/concluido"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /Tudo pronto/ })).toBeInTheDocument();
     });
   });
 

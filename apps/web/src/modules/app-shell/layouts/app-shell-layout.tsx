@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Outlet, useMatches } from "react-router-dom";
-import { MemberOnboardingModal } from "@/modules/onboarding";
 import { SidebarInset, SidebarProvider } from "@/shared/ui/sidebar";
 import { AppHeader } from "../components/app-header";
 import { AppSidebar } from "../components/app-sidebar";
@@ -50,7 +49,6 @@ export function AppShellLayout() {
           />
           <Outlet />
         </SidebarInset>
-        <MemberOnboardingModal />
       </SidebarProvider>
     </AppShellHeaderContext.Provider>
   );

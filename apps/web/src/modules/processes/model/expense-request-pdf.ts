@@ -294,14 +294,14 @@ function toPdfError(error: unknown) {
     "name" in error &&
     error.name === "PasswordException"
   ) {
-    return new ExpenseRequestPdfError("PDF protegido por senha nao e suportado.", "read_failed");
+    return new ExpenseRequestPdfError("PDF protegido por senha não é suportado.", "read_failed");
   }
 
   if (error instanceof ExpenseRequestPdfError) {
     return error;
   }
 
-  return new ExpenseRequestPdfError("Nao foi possivel ler o PDF selecionado.", "read_failed");
+  return new ExpenseRequestPdfError("Não foi possível ler o PDF selecionado.", "read_failed");
 }
 
 export async function extractTextFromExpenseRequestPdf(
@@ -347,7 +347,7 @@ export async function extractTextFromExpenseRequestPdf(
     const text = pages.join("\n").trim();
 
     if (!cleanText(text)) {
-      throw new ExpenseRequestPdfError("O PDF nao contem texto selecionavel.", "empty_text");
+      throw new ExpenseRequestPdfError("O PDF não contém texto selecionável.", "empty_text");
     }
 
     return text;
@@ -360,10 +360,10 @@ export async function extractTextFromExpenseRequestPdf(
 
 export function parseTopDownExpenseRequestText(
   text: string,
-  fileName = "Solicitacao de Despesa.pdf",
+  fileName = "Solicitação de Despesa.pdf",
 ): ExpenseRequestExtractionResult {
   if (!cleanText(text)) {
-    throw new ExpenseRequestPdfError("O texto da Solicitacao de Despesa esta vazio.", "empty_text");
+    throw new ExpenseRequestPdfError("O texto da Solicitação de Despesa está vazio.", "empty_text");
   }
 
   const lines = getLines(text);
@@ -376,7 +376,7 @@ export function parseTopDownExpenseRequestText(
     !normalizedText.includes("unidade orcamentaria")
   ) {
     throw new ExpenseRequestPdfError(
-      "O PDF nao parece ser uma Solicitacao de Despesa TopDown.",
+      "O PDF não parece ser uma Solicitação de Despesa TopDown.",
       "unrecognized_sd",
     );
   }
@@ -454,7 +454,7 @@ export function parseTopDownExpenseRequestText(
 
   if (!requestNumber || !issueDate || !processType || !object || !justification) {
     throw new ExpenseRequestPdfError(
-      "A Solicitacao de Despesa foi lida, mas campos obrigatorios nao foram encontrados.",
+      "A Solicitação de Despesa foi lida, mas campos obrigatórios não foram encontrados.",
       "missing_required_fields",
     );
   }

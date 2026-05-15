@@ -140,11 +140,19 @@ function setScrollMetrics(
 }
 
 function mockDocumentTextSelection(selectedText: string, container: HTMLElement) {
+  const clonedRange = {
+    selectNodeContents: vi.fn(),
+    setEnd: vi.fn(),
+    setStart: vi.fn(),
+    toString: () => "",
+  };
+
   return vi.spyOn(window, "getSelection").mockReturnValue({
     rangeCount: 1,
     toString: () => selectedText,
     getRangeAt: () =>
       ({
+        cloneRange: () => clonedRange,
         commonAncestorContainer: container,
         getBoundingClientRect: () =>
           ({
@@ -160,6 +168,15 @@ function mockDocumentTextSelection(selectedText: string, container: HTMLElement)
           }) as DOMRect,
       }) as unknown as Range,
   } as unknown as Selection);
+}
+
+function createDeferred<T = void>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
 }
 
 describe("DocumentPreviewPage", () => {
@@ -234,6 +251,7 @@ describe("DocumentPreviewPage", () => {
 
           expect(body.selectedText).toBe(selectedText);
           expect(body.instruction).toBe("deixe mais formal");
+          expect(body).not.toHaveProperty("details");
           expect(body.selectionContext?.prefix).toContain("## 1. Objeto");
 
           return HttpResponse.json({
@@ -1409,6 +1427,144 @@ Secretaria Municipal`,
       expect(await screen.findByText(replacementText)).toBeInTheDocument();
     }
 
+    it("shows a gray skeleton over the selected text while generating a suggestion", async () => {
+      const suggestionDeferred = createDeferred();
+
+      server.use(
+        http.get("http://localhost:3333/api/documents/:documentId", () =>
+          HttpResponse.json(documentDetailResponse),
+        ),
+        http.post(
+          "http://localhost:3333/api/documents/:documentId/adjustments/suggestions",
+          async () => {
+            await suggestionDeferred.promise;
+
+            return HttpResponse.json({
+              selectedText,
+              replacementText,
+              sourceContentHash: "sha256:current",
+              sourceTarget,
+            });
+          },
+        ),
+      );
+
+      renderDocumentPreviewPage();
+
+      const sheet = await screen.findByTestId("document-preview-sheet");
+      const documentBody = sheet.querySelector("[data-document-body]");
+      expect(documentBody).not.toBeNull();
+      mockDocumentTextSelection(selectedText, documentBody as HTMLElement);
+
+      fireEvent.mouseUp(sheet);
+      expect(await screen.findByText("Ajustar texto")).toBeInTheDocument();
+
+      fireEvent.change(
+        screen.getByPlaceholderText("Ex.: deixe mais objetivo, mantendo o tom formal"),
+        { target: { value: "reformule" } },
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Gerar ajuste" }));
+
+      await waitFor(() => {
+        expect(document.querySelector("[data-document-adjustment-skeleton]")).toHaveTextContent(
+          selectedText,
+        );
+      });
+
+      suggestionDeferred.resolve();
+
+      expect(await screen.findByText(replacementText)).toBeInTheDocument();
+      expect(document.querySelector("[data-document-adjustment-skeleton]")).toBeNull();
+    });
+
+    it("clears the pending skeleton when the adjustment panel is dismissed", async () => {
+      const suggestionDeferred = createDeferred();
+
+      server.use(
+        http.get("http://localhost:3333/api/documents/:documentId", () =>
+          HttpResponse.json(documentDetailResponse),
+        ),
+        http.post(
+          "http://localhost:3333/api/documents/:documentId/adjustments/suggestions",
+          async () => {
+            await suggestionDeferred.promise;
+
+            return HttpResponse.json({
+              selectedText,
+              replacementText,
+              sourceContentHash: "sha256:current",
+              sourceTarget,
+            });
+          },
+        ),
+      );
+
+      renderDocumentPreviewPage();
+
+      const sheet = await screen.findByTestId("document-preview-sheet");
+      const documentBody = sheet.querySelector("[data-document-body]");
+      expect(documentBody).not.toBeNull();
+      mockDocumentTextSelection(selectedText, documentBody as HTMLElement);
+
+      fireEvent.mouseUp(sheet);
+      expect(await screen.findByText("Ajustar texto")).toBeInTheDocument();
+
+      fireEvent.change(
+        screen.getByPlaceholderText("Ex.: deixe mais objetivo, mantendo o tom formal"),
+        { target: { value: "reformule" } },
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Gerar ajuste" }));
+
+      await waitFor(() => {
+        expect(document.querySelector("[data-document-adjustment-skeleton]")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+
+      expect(document.querySelector("[data-document-adjustment-skeleton]")).toBeNull();
+      expect(screen.queryByText("Ajustar texto")).not.toBeInTheDocument();
+
+      suggestionDeferred.resolve();
+    });
+
+    it("keeps the skeleton while applying and renders returned persisted content", async () => {
+      const applyDeferred = createDeferred<Response>();
+      const updatedDraftContent = documentDetailResponse.draftContent.replace(
+        selectedText,
+        replacementText,
+      );
+
+      setupDocumentAndSuggestion();
+      server.use(
+        http.post("http://localhost:3333/api/documents/:documentId/adjustments/apply", async () => {
+          await applyDeferred.promise;
+
+          return HttpResponse.json({
+            ...documentDetailResponse,
+            draftContent: updatedDraftContent,
+          });
+        }),
+      );
+
+      await renderAndOpenAdjustmentPanel();
+
+      fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+
+      await waitFor(() => {
+        expect(document.querySelector("[data-document-adjustment-skeleton]")).toHaveTextContent(
+          selectedText,
+        );
+      });
+
+      applyDeferred.resolve(new Response());
+
+      await waitFor(() => {
+        expect(screen.queryByText("Ajustar texto")).not.toBeInTheDocument();
+      });
+      expect(document.querySelector("[data-document-adjustment-skeleton]")).toBeNull();
+      expect(screen.getByText(replacementText)).toBeInTheDocument();
+    });
+
     it("4.4 apply 409 conflict shows error message, keeps panel open, and does not call success toast", async () => {
       setupDocumentAndSuggestion();
       server.use(
@@ -1431,6 +1587,7 @@ Secretaria Municipal`,
       });
 
       expect(screen.getByText("Ajustar texto")).toBeInTheDocument();
+      expect(document.querySelector("[data-document-adjustment-skeleton]")).toBeNull();
       expect(toast.success).not.toHaveBeenCalled();
     });
 

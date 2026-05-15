@@ -124,7 +124,7 @@ export function getDocumentTypeLabel(type: string): string {
 
 export function getDocumentResponsibleLabel(responsibles: string[]): string {
   if (responsibles.length === 0) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   return responsibles.join(", ");

@@ -7,9 +7,9 @@ import {
   documents,
   type organizations,
   processDepartments,
+  type processes,
   processItemComponents,
   processItems,
-  type processes,
   type users,
 } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
@@ -120,7 +120,9 @@ function createDepartmentRow(
   };
 }
 
-function createUserRow(overrides: Partial<typeof users.$inferSelect> = {}): typeof users.$inferSelect {
+function createUserRow(
+  overrides: Partial<typeof users.$inferSelect> = {},
+): typeof users.$inferSelect {
   return {
     id: "user_responsible",
     name: "Usuario Responsavel",
@@ -562,7 +564,10 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
     receivedPrompt ?? "",
     /perfil de análise inferido apenas para ajustar a ênfase técnica/i,
   );
-  assert.match(receivedPrompt ?? "", /Preserve a consistência entre objeto, município, organização/);
+  assert.match(
+    receivedPrompt ?? "",
+    /Preserve a consistência entre objeto, município, organização/,
+  );
   assert.match(receivedPrompt ?? "", /Não misture informações de DFD, TR, minuta/);
   assert.match(receivedPrompt ?? "", /Lei nº 14\.133\/2021 e a boas práticas do TCU/);
   assert.match(receivedPrompt ?? "", /Manter consistencia com o DFD\./);
@@ -1052,6 +1057,229 @@ test("suggestDocumentTextAdjustment resolves rendered list-field selection via m
   assert.equal(applyResponse.draftContent, lastUpdatedDocument.draftContent);
 });
 
+test("suggestDocumentTextAdjustment resolves rendered multi-line administrative fields", async () => {
+  let updateCallCount = 0;
+  let lastUpdatedDocument: Record<string, unknown> | undefined;
+  const sourceText = [
+    "- **Unidade Orçamentária:** 06.001 - Secretaria Municipal de Educação, Cultura, Esporte e Lazer",
+    "- **Número da Solicitação:** não informado",
+    "- **Data de Emissão:** não informada",
+  ].join("\n");
+  const draftContent = [
+    "## 1. DADOS DA SOLICITAÇÃO",
+    "",
+    sourceText,
+    "",
+    "## 2. CONTEXTO E NECESSIDADE DA DEMANDA",
+    "",
+    "Texto final.",
+  ].join("\n");
+  const renderedSelection = [
+    "Unidade Orçamentária: 06.001 - Secretaria Municipal de Educação, Cultura, Esporte e Lazer",
+    "Número da Solicitação: não informado",
+    "Data de Emissão: não informada",
+  ].join(" ");
+  const replacementText =
+    "A solicitação está vinculada à unidade orçamentária 06.001 - Secretaria Municipal de Educação, Cultura, Esporte e Lazer, sem número ou data de emissão informados.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+    onDocumentUpdate: (values) => {
+      updateCallCount += 1;
+      lastUpdatedDocument = values;
+    },
+  });
+
+  const suggestion = await suggestDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      selectedText: renderedSelection,
+      instruction: "Deixe em forma de parágrafo.",
+      selectionContext: {
+        prefix: "1. DADOS DA SOLICITAÇÃO\n\n",
+        suffix: "\n\n2. CONTEXTO E NECESSIDADE DA DEMANDA",
+      },
+    },
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: replacementText,
+      responseMetadata: {},
+    })),
+  });
+
+  const expectedSourceStart = draftContent.indexOf(sourceText);
+  assert.equal(suggestion.sourceTarget.sourceText, sourceText);
+  assert.equal(suggestion.sourceTarget.start, expectedSourceStart);
+  assert.equal(suggestion.sourceTarget.end, expectedSourceStart + sourceText.length);
+  assert.equal(updateCallCount, 0, "suggestion must not persist any update");
+
+  const applyResponse = await applyDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      sourceTarget: suggestion.sourceTarget,
+      replacementText: suggestion.replacementText,
+      sourceContentHash: suggestion.sourceContentHash,
+    },
+  });
+
+  if (!lastUpdatedDocument) {
+    throw new Error("Expected document to be updated by applyDocumentTextAdjustment");
+  }
+  assert.ok(String(lastUpdatedDocument.draftContent).includes(replacementText));
+  assert.ok(!String(lastUpdatedDocument.draftContent).includes("- **Unidade Orçamentária:**"));
+  assert.equal(applyResponse.draftContent, lastUpdatedDocument.draftContent);
+});
+
+test("suggestDocumentTextAdjustment preserves heading structure for readability rewrites", async () => {
+  let receivedPrompt = "";
+  const sourceText = [
+    "## 2. CONTEXTO E NECESSIDADE DA DEMANDA",
+    "",
+    "O Município de Pureza realizará evento tradicional para ampliar o acesso da população à cultura e ao lazer.",
+  ].join("\n");
+  const draftContent = [
+    "# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)",
+    "",
+    sourceText,
+    "",
+    "## 3. OBJETO DA CONTRATAÇÃO",
+    "",
+    "O objeto consiste na contratação de apresentação artística.",
+  ].join("\n");
+  const renderedSelection = [
+    "2. CONTEXTO E NECESSIDADE DA DEMANDA",
+    "",
+    "O Município de Pureza realizará evento tradicional para ampliar o acesso da população à cultura e ao lazer.",
+  ].join("\n");
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  const suggestion = await suggestDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      selectedText: renderedSelection,
+      instruction: "Deixe mais legível para a população.",
+    },
+    textGeneration: createTextGenerationProvider(async (input) => {
+      receivedPrompt = input.prompt;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: "2. CONTEXTO E NECESSIDADE DA DEMANDA O Município de Pureza vai realizar um evento tradicional para facilitar o acesso da população à cultura e ao lazer.",
+        responseMetadata: {},
+      };
+    }),
+  });
+
+  const expectedSourceStart = draftContent.indexOf(sourceText);
+  assert.equal(suggestion.sourceTarget.sourceText, sourceText);
+  assert.equal(suggestion.sourceTarget.start, expectedSourceStart);
+  assert.equal(suggestion.sourceTarget.end, expectedSourceStart + sourceText.length);
+  assert.match(receivedPrompt, /Trecho selecionado em Markdown original/);
+  assert.match(receivedPrompt, /## 2\. CONTEXTO E NECESSIDADE DA DEMANDA/);
+  assert.equal(
+    suggestion.replacementText,
+    [
+      "## 2. CONTEXTO E NECESSIDADE DA DEMANDA",
+      "",
+      "O Município de Pureza vai realizar um evento tradicional para facilitar o acesso da população à cultura e ao lazer.",
+    ].join("\n"),
+  );
+});
+
+test("suggestDocumentTextAdjustment resolves uppercase rendered paragraph with heading context", async () => {
+  let receivedPrompt = "";
+  const heading = "## 2. CONTEXTO E NECESSIDADE DA DEMANDA";
+  const sourceText =
+    "O Município de Pureza/RN realizará, de 13 a 17 de fevereiro de 2026, o Carnaval de Pureza 2026, evento tradicional do calendário oficial da cidade e importante momento cultural e social para a população local e região. A contratação é necessária para organizar uma programação artística variada e contínua, que garanta o acesso à cultura e o lazer da população, além de valorizar a identidade regional durante as celebrações. Caso essa demanda não seja atendida, a estrutura de animação do Carnaval será interrompida, o que afetará o calendário oficial, o bem-estar da população e a movimentação esperada da economia municipal durante o período festivo.";
+  const draftContent = [
+    "# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)",
+    "",
+    "Unidade Orçamentária: 06.001 - Secretaria Municipal de Educação, Cultura, Esporte e Lazer.",
+    "",
+    heading,
+    "",
+    sourceText,
+    "",
+    "## 3. OBJETO DA CONTRATAÇÃO",
+    "",
+    "O objeto consiste na contratação de apresentação artística musical.",
+  ].join("\n");
+  const replacementText =
+    "O Município de Pureza/RN realizará o Carnaval de Pureza 2026 entre 13 e 17 de fevereiro de 2026. A contratação busca garantir uma programação artística contínua, ampliar o acesso da população à cultura e ao lazer e fortalecer a identidade regional durante as celebrações.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  const suggestion = await suggestDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      selectedText: sourceText.toLocaleUpperCase("pt-BR"),
+      instruction: "isso aqui tem que ser um parágrafo",
+      selectionContext: {
+        prefix:
+          "Secretaria Municipal de Educação, Cultura, Esporte e Lazer.\n2. CONTEXTO E NECESSIDADE DA DEMANDA ",
+        suffix:
+          "\n3. OBJETO DA CONTRATAÇÃO\nO objeto consiste na contratação de apresentação artística musical.",
+      },
+    },
+    textGeneration: createTextGenerationProvider(async (input) => {
+      receivedPrompt = input.prompt;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: `\`\`\`markdown\n${replacementText}\n\`\`\``,
+        responseMetadata: {},
+      };
+    }),
+  });
+
+  const expectedSourceStart = draftContent.indexOf(sourceText);
+  assert.equal(suggestion.sourceTarget.sourceText, sourceText);
+  assert.equal(suggestion.sourceTarget.start, expectedSourceStart);
+  assert.equal(suggestion.sourceTarget.end, expectedSourceStart + sourceText.length);
+  assert.equal(suggestion.replacementText, replacementText);
+  assert.match(receivedPrompt, /Formato do alvo: paragraph/);
+  assert.match(receivedPrompt, /Título anterior\/de contexto: 2\. CONTEXTO E NECESSIDADE/);
+  assert.doesNotMatch(suggestion.replacementText, /^##/);
+});
+
 test("suggestDocumentTextAdjustment resolves wrapped rendered paragraph selections", async () => {
   let updateCallCount = 0;
   let lastUpdatedDocument: Record<string, unknown> | undefined;
@@ -1123,6 +1351,107 @@ test("suggestDocumentTextAdjustment resolves wrapped rendered paragraph selectio
   assert.equal(applyResponse.draftContent, lastUpdatedDocument.draftContent);
 });
 
+test("suggestDocumentTextAdjustment uses rendered context to disambiguate markdown selections", async () => {
+  let providerCallCount = 0;
+  const draftContent = [
+    "## Primeiro trecho",
+    "",
+    "**Trecho igual**",
+    "",
+    "## Segundo trecho",
+    "",
+    "**Trecho igual**",
+  ].join("\n");
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  const suggestion = await suggestDocumentTextAdjustment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      selectedText: "Trecho igual",
+      instruction: "Deixe mais claro.",
+      selectionContext: {
+        prefix: "Primeiro trecho\n\n",
+        suffix: "\n\nSegundo trecho",
+      },
+    },
+    textGeneration: createTextGenerationProvider(async () => {
+      providerCallCount += 1;
+
+      return {
+        providerKey: "stub",
+        model: "stub-model",
+        text: "Trecho igual ajustado.",
+        responseMetadata: {},
+      };
+    }),
+  });
+
+  const expectedSourceText = "**Trecho igual**";
+  const expectedStart = draftContent.indexOf(expectedSourceText);
+
+  assert.equal(providerCallCount, 1);
+  assert.deepEqual(suggestion.sourceTarget, {
+    start: expectedStart + 2,
+    end: expectedStart + expectedSourceText.length - 2,
+    sourceText: "Trecho igual",
+  });
+});
+
+test("suggestDocumentTextAdjustment rejects unsafe provider output outside selected paragraph", async () => {
+  const sourceText = "Texto do parágrafo selecionado.";
+  const draftContent = [
+    "## 1. CONTEXTO",
+    "",
+    sourceText,
+    "",
+    "## 2. OBJETO",
+    "",
+    "Texto do objeto.",
+  ].join("\n");
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      suggestDocumentTextAdjustment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          selectedText: sourceText,
+          instruction: "Deixe mais claro.",
+        },
+        textGeneration: createTextGenerationProvider(async () => ({
+          providerKey: "stub",
+          model: "stub-model",
+          text: "Texto ajustado.\n\n## 2. OBJETO\n\nTexto do objeto reescrito.",
+          responseMetadata: {},
+        })),
+      }),
+    BadRequestError,
+  );
+  assert.equal(db.getCurrentDocument().draftContent, draftContent);
+});
+
 test("suggestDocumentTextAdjustment rejects ambiguous and unresolvable selections without calling provider", async () => {
   let providerCallCount = 0;
   const draftContent = "Trecho repetido aqui.\n\nOutro conteudo.\n\nTrecho repetido aqui.\n\nFim.";
@@ -1156,7 +1485,11 @@ test("suggestDocumentTextAdjustment rejects ambiguous and unresolvable selection
         input: { selectedText: "Trecho repetido aqui.", instruction: "Ajuste." },
         textGeneration,
       }),
-    ConflictError,
+    (error) => {
+      assert.ok(error instanceof ConflictError);
+      assert.deepEqual(error.details, { candidateCount: 2, reason: "ambiguous" });
+      return true;
+    },
   );
   assert.equal(providerCallCount, 0, "provider must not be called for ambiguous selection");
 
@@ -1174,10 +1507,55 @@ test("suggestDocumentTextAdjustment rejects ambiguous and unresolvable selection
         input: { selectedText: "Trecho inexistente no documento.", instruction: "Ajuste." },
         textGeneration,
       }),
-    ConflictError,
+    (error) => {
+      assert.ok(error instanceof ConflictError);
+      assert.deepEqual(error.details, { reason: "no_match" });
+      return true;
+    },
   );
   assert.equal(providerCallCount, 0, "provider must not be called for unresolvable selection");
   assert.equal(db.getCurrentDocument().draftContent, draftContent);
+});
+
+test("suggestDocumentTextAdjustment reports context mismatch diagnostics", async () => {
+  const draftContent = "Introdução.\n\nTrecho alvo.\n\nFim.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      suggestDocumentTextAdjustment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          selectedText: "Trecho alvo.",
+          instruction: "Ajuste.",
+          selectionContext: {
+            prefix: "Contexto incompatível.",
+          },
+        },
+        textGeneration: createTextGenerationProvider(async () => ({
+          providerKey: "stub",
+          model: "stub-model",
+          text: "Nunca deve chamar.",
+          responseMetadata: {},
+        })),
+      }),
+    (error) => {
+      assert.ok(error instanceof ConflictError);
+      assert.deepEqual(error.details, { candidateCount: 1, reason: "context_mismatch" });
+      return true;
+    },
+  );
 });
 
 test("createDocument persists failed state when the provider fails", async () => {

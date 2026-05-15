@@ -158,7 +158,7 @@ describe("SignInPage", () => {
     });
   });
 
-  it("keeps invited members in the app so the shell can render the blocking modal", async () => {
+  it("sends invited members to the shared onboarding profile step", async () => {
     mockSuccessfulMemberSignIn("pending_profile");
 
     renderSignInPage("/entrar?redirectTo=%2Fapp");
@@ -166,7 +166,7 @@ describe("SignInPage", () => {
     submitSignInForm();
 
     await waitFor(() => {
-      expect(navigateMock).toHaveBeenCalledWith("/app", { replace: true });
+      expect(navigateMock).toHaveBeenCalledWith("/onboarding/perfil", { replace: true });
     });
   });
 

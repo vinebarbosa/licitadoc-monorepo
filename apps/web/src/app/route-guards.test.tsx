@@ -94,7 +94,7 @@ describe("RequireSession", () => {
     expect(router.state.location.pathname).toBe("/onboarding/perfil");
   });
 
-  it("keeps pending members on completed app routes so the shell modal can block usage", async () => {
+  it("redirects pending members to the shared onboarding profile route", async () => {
     const router = createMemoryRouter(
       [
         {
@@ -116,9 +116,9 @@ describe("RequireSession", () => {
     renderWithProviders(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Central")).toBeInTheDocument();
+      expect(screen.getByText("Complete seu perfil")).toBeInTheDocument();
     });
-    expect(router.state.location.pathname).toBe("/app");
+    expect(router.state.location.pathname).toBe("/onboarding/perfil");
   });
 
   it("keeps onboarding users on the expected step", async () => {

@@ -12,6 +12,7 @@ import {
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAppShellHeader } from "@/modules/app-shell";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import {
@@ -42,11 +43,19 @@ import {
 } from "./institutional-document-theme";
 
 type DocumentTextSelection = {
+  rects: DocumentSelectionRect[];
   selectionContext?: {
     prefix?: string;
     suffix?: string;
   };
   selectedText: string;
+};
+
+type DocumentSelectionRect = {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
 };
 
 type DocumentTextAdjustmentSuggestion = {
@@ -518,6 +527,79 @@ function getSelectionContext(draftContent: string, selectedText: string) {
   };
 }
 
+function getRangeTextContext({ body, range }: { body: HTMLElement; range: Range }) {
+  const prefixRange = range.cloneRange();
+  prefixRange.selectNodeContents(body);
+  prefixRange.setEnd(range.startContainer, range.startOffset);
+
+  const suffixRange = range.cloneRange();
+  suffixRange.selectNodeContents(body);
+  suffixRange.setStart(range.endContainer, range.endOffset);
+
+  const prefix = prefixRange.toString().slice(-500);
+  const suffix = suffixRange.toString().slice(0, 500);
+
+  return prefix || suffix ? { prefix, suffix } : undefined;
+}
+
+function getRangeSelectionRects({
+  range,
+  root,
+}: {
+  range: Range;
+  root: HTMLElement;
+}): DocumentSelectionRect[] {
+  const rootRect = root.getBoundingClientRect();
+  const rects =
+    typeof range.getClientRects === "function"
+      ? Array.from(range.getClientRects())
+      : [range.getBoundingClientRect()];
+  const visibleRects = rects.length > 0 ? rects : [range.getBoundingClientRect()];
+
+  return visibleRects
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .map((rect) => ({
+      height: rect.height,
+      left: rect.left - rootRect.left,
+      top: rect.top - rootRect.top,
+      width: rect.width,
+    }));
+}
+
+function DocumentAdjustmentSkeletonOverlay({
+  rects,
+  selectedText,
+}: {
+  rects: DocumentSelectionRect[];
+  selectedText: string;
+}) {
+  if (rects.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-10"
+      data-document-adjustment-skeleton
+    >
+      <span className="sr-only">{selectedText}</span>
+      {rects.map((rect) => (
+        <span
+          key={`${rect.left}:${rect.top}:${rect.width}:${rect.height}`}
+          className="absolute rounded bg-muted/90 shadow-[0_0_0_2px_hsl(var(--muted))] motion-safe:animate-pulse"
+          style={{
+            height: Math.max(rect.height, 10),
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function DocumentTextAdjustmentPanel({
   errorMessage,
   instruction,
@@ -596,7 +678,12 @@ function DocumentTextAdjustmentPanel({
             <Button type="button" variant="outline" size="sm" onClick={onDismiss}>
               Cancelar
             </Button>
-            <Button type="button" size="sm" onClick={onSubmit} disabled={isSuggesting}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onSubmit}
+              disabled={isSuggesting || isApplying}
+            >
               {isSuggesting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles />}
               Gerar ajuste
             </Button>
@@ -608,15 +695,22 @@ function DocumentTextAdjustmentPanel({
 }
 
 function DocumentSheet({
+  adjustmentSkeletonSelection = null,
   draftContent,
   isGenerating = false,
   liveWritingEndpointRef,
   onTextSelection,
 }: {
+  adjustmentSkeletonSelection?: DocumentTextSelection | null;
   draftContent: string;
   isGenerating?: boolean;
   liveWritingEndpointRef?: RefObject<HTMLDivElement | null>;
-  onTextSelection?: (selection: { rect: DOMRect; selectedText: string }) => void;
+  onTextSelection?: (selection: {
+    rect: DOMRect;
+    rects: DocumentSelectionRect[];
+    selectedText: string;
+    selectionContext?: DocumentTextSelection["selectionContext"];
+  }) => void;
 }) {
   const bodyRef = useRef<HTMLElement | null>(null);
   const handleTextSelection = useCallback(() => {
@@ -632,6 +726,8 @@ function DocumentSheet({
     }
 
     const range = selection.getRangeAt(0);
+    const sheetElement = bodyRef.current.closest("[data-document-sheet]");
+    const overlayRoot = sheetElement instanceof HTMLElement ? sheetElement : bodyRef.current;
 
     if (
       !bodyRef.current.contains(range.commonAncestorContainer) ||
@@ -642,13 +738,17 @@ function DocumentSheet({
 
     onTextSelection({
       rect: range.getBoundingClientRect(),
+      rects: getRangeSelectionRects({ range, root: overlayRoot }),
+      selectionContext: getRangeTextContext({ body: bodyRef.current, range }),
       selectedText,
     });
   }, [onTextSelection]);
 
   return (
     <section
-      className={getInstitutionalDocumentOutputClassName(institutionalDocumentTheme.sheetClassName)}
+      className={getInstitutionalDocumentOutputClassName(
+        cn(institutionalDocumentTheme.sheetClassName, "relative"),
+      )}
       style={institutionalDocumentThemeTokens}
       data-institutional-document-output
       data-institutional-document-no-branding="true"
@@ -676,6 +776,12 @@ function DocumentSheet({
           </div>
         ) : null}
         <DocumentMarkdownPreview content={draftContent} />
+        {adjustmentSkeletonSelection ? (
+          <DocumentAdjustmentSkeletonOverlay
+            rects={adjustmentSkeletonSelection.rects}
+            selectedText={adjustmentSkeletonSelection.selectedText}
+          />
+        ) : null}
         {isGenerating ? (
           <div
             ref={liveWritingEndpointRef}
@@ -724,6 +830,8 @@ export function DocumentPreviewPageUI() {
   const [adjustmentSuggestion, setAdjustmentSuggestion] =
     useState<DocumentTextAdjustmentSuggestion | null>(null);
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
+  const isAdjustmentPending = suggestionMutation.isPending || applyAdjustmentMutation.isPending;
+  const adjustmentSkeletonSelection = isAdjustmentPending ? textSelection : null;
   const isLiveWritingVisible = document?.status === "generating" && Boolean(liveDraftContent);
   const { handleScroll, scrollContainerRef } = useLiveWritingAutoFollow({
     enabled: isLiveWritingVisible,
@@ -737,14 +845,24 @@ export function DocumentPreviewPageUI() {
     setAdjustmentError(null);
   }, []);
   const handleDocumentTextSelection = useCallback(
-    ({ selectedText }: { rect: DOMRect; selectedText: string }) => {
+    ({
+      selectedText,
+      rects,
+      selectionContext,
+    }: {
+      rect: DOMRect;
+      rects: DocumentSelectionRect[];
+      selectedText: string;
+      selectionContext?: DocumentTextSelection["selectionContext"];
+    }) => {
       if (!canAdjustDocumentText || !draftContent) {
         return;
       }
 
       setTextSelection({
+        rects,
         selectedText,
-        selectionContext: getSelectionContext(draftContent, selectedText),
+        selectionContext: selectionContext ?? getSelectionContext(draftContent, selectedText),
       });
       setAdjustmentInstruction("");
       setAdjustmentSuggestion(null);
@@ -753,7 +871,7 @@ export function DocumentPreviewPageUI() {
     [canAdjustDocumentText, draftContent],
   );
   const handleSuggestAdjustment = useCallback(() => {
-    if (!textSelection) {
+    if (!textSelection || suggestionMutation.isPending || applyAdjustmentMutation.isPending) {
       return;
     }
 
@@ -765,6 +883,7 @@ export function DocumentPreviewPageUI() {
     }
 
     setAdjustmentError(null);
+    setAdjustmentSuggestion(null);
     suggestionMutation.mutate(
       {
         documentId,
@@ -785,9 +904,15 @@ export function DocumentPreviewPageUI() {
         },
       },
     );
-  }, [adjustmentInstruction, documentId, suggestionMutation, textSelection]);
+  }, [
+    adjustmentInstruction,
+    applyAdjustmentMutation.isPending,
+    documentId,
+    suggestionMutation,
+    textSelection,
+  ]);
   const handleApplyAdjustment = useCallback(() => {
-    if (!adjustmentSuggestion) {
+    if (!adjustmentSuggestion || applyAdjustmentMutation.isPending) {
       return;
     }
 
@@ -915,6 +1040,7 @@ export function DocumentPreviewPageUI() {
           ) : draftContent ? (
             <>
               <DocumentSheet
+                adjustmentSkeletonSelection={adjustmentSkeletonSelection}
                 draftContent={draftContent}
                 onTextSelection={canAdjustDocumentText ? handleDocumentTextSelection : undefined}
               />

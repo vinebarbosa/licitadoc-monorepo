@@ -123,11 +123,11 @@ describe("ProcessDetailPage", () => {
     expect(trCard).not.toBeNull();
     expect(minutaCard).not.toBeNull();
 
-    expect(within(dfdCard as HTMLElement).getByText("Concluido")).toBeInTheDocument();
+    expect(within(dfdCard as HTMLElement).getByText("Concluído")).toBeInTheDocument();
     expect(
       (dfdCard as HTMLElement).querySelector('[data-status-icon="check-circle-2"]'),
     ).not.toBeNull();
-    expect(within(etpCard as HTMLElement).getByText("Em edicao")).toBeInTheDocument();
+    expect(within(etpCard as HTMLElement).getByText("Em edição")).toBeInTheDocument();
     expect((etpCard as HTMLElement).querySelector('[data-status-icon="clock-3"]')).not.toBeNull();
     expect(within(etpCard as HTMLElement).getByText("75%")).toBeInTheDocument();
     expect(within(trCard as HTMLElement).getByText("Não gerado")).toBeInTheDocument();

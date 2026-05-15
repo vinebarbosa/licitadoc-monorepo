@@ -49,7 +49,7 @@ describe("processes model helpers", () => {
       pageSize: 10,
       search: "material",
       status: "em_revisao",
-      type: "pregao-eletronico",
+      procurementMethod: "pregao-eletronico",
     });
   });
 
@@ -73,8 +73,8 @@ describe("processes model helpers", () => {
 
   it("formats labels and dates for the listing", () => {
     expect(getProcessStatusConfig("finalizado").label).toBe("Finalizado");
-    expect(getProcessStatusConfig("desconhecido").label).toBe("Em edicao");
-    expect(getProcessTypeLabel("pregao-eletronico")).toBe("Pregao Eletronico");
+    expect(getProcessStatusConfig("desconhecido").label).toBe("Em edição");
+    expect(getProcessTypeLabel("pregao-eletronico")).toBe("Pregão Eletrônico");
     expect(formatProcessListDate("2024-03-28T12:00:00.000Z")).toMatch(/28/);
   });
 
@@ -86,9 +86,9 @@ describe("processes model helpers", () => {
         >,
       } as never),
     ).toBe("06.001 - Educacao, 07.001 - Cultura");
-    expect(getProcessEstimatedValueLabel(null)).toBe("Nao informado");
+    expect(getProcessEstimatedValueLabel(null)).toBe("Não informado");
     expect(getProcessEstimatedValueLabel("450000")).toContain("R$");
-    expect(getProcessDetailDocumentStatusConfig("concluido").label).toBe("Concluido");
+    expect(getProcessDetailDocumentStatusConfig("concluido").label).toBe("Concluído");
     expect(
       getProcessDetailDocumentActionLinks("process-1", {
         type: "dfd",
@@ -122,35 +122,31 @@ describe("processes model helpers", () => {
     expect(getProcessDetailBreadcrumbs({ processNumber: "PE-2024-045" } as never)[2]?.label).toBe(
       "PE-2024-045",
     );
-    expect(formatProcessDetailDate(null)).toBe("Nao informado");
+    expect(formatProcessDetailDate(null)).toBe("Não informado");
   });
 
   it("normalizes process detail items from array, components, and legacy singular metadata", () => {
     const items = getProcessDetailItems({
-      sourceMetadata: {
-        extractedFields: {
-          items: [
+      items: [
+        {
+          code: "1",
+          description: "  Pote plástico   com tampa  ",
+          quantity: 500,
+          unit: "unidade",
+          unitValue: "R$ 8,50",
+          totalValue: "R$ 4.250,00",
+          components: [
             {
-              code: "1",
-              description: "  Pote plástico   com tampa  ",
-              quantity: 500,
+              title: "Tampa",
+              quantity: "1",
               unit: "unidade",
-              unitValue: "R$ 8,50",
-              totalValue: "R$ 4.250,00",
-              components: [
-                {
-                  title: "Tampa",
-                  quantity: "1",
-                  unit: "unidade",
-                },
-              ],
-            },
-            {
-              quantity: "sem descricao",
             },
           ],
         },
-      },
+        {
+          quantity: "sem descricao",
+        },
+      ],
     } as never);
 
     expect(items).toHaveLength(1);
@@ -175,14 +171,12 @@ describe("processes model helpers", () => {
 
     expect(
       getProcessDetailItems({
-        sourceMetadata: {
-          extractedFields: {
-            item: {
-              code: "LEG-1",
-              description: "Item legado",
-            },
+        items: [
+          {
+            code: "LEG-1",
+            description: "Item legado",
           },
-        },
+        ],
       } as never),
     ).toMatchObject([{ code: "LEG-1", title: "Item legado" }]);
   });
@@ -250,7 +244,8 @@ describe("processes model helpers", () => {
         organizationId: "organization-1",
       }),
     ).toEqual({
-      type: "pregao",
+      procurementMethod: "pregao",
+      biddingModality: null,
       processNumber: "PROC-1",
       externalId: "EXT-1",
       issuedAt: "2026-01-08T00:00:00.000Z",
@@ -260,9 +255,7 @@ describe("processes model helpers", () => {
       responsibleName: "Maria",
       status: "draft",
       departmentIds: ["department-1"],
-      sourceKind: null,
-      sourceReference: null,
-      sourceMetadata: null,
+      items: [],
     });
   });
 

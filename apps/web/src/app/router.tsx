@@ -9,9 +9,25 @@ import {
   useAuthSession,
 } from "@/modules/auth";
 import { DocumentCreatePage, DocumentPreviewPage, DocumentsPage } from "@/modules/documents";
-import { OwnerOrganizationOnboardingPage, OwnerProfileOnboardingPage } from "@/modules/onboarding";
-import { ProcessCreatePage, ProcessDetailPage, ProcessEditPage, ProcessesPage } from "@/modules/processes";
-import { LandingPage, ProcessCreateDemoPage, ProcessDetailDemoPage } from "@/modules/public";
+import {
+  OnboardingCompletePage as RealOnboardingCompletePage,
+  OwnerOrganizationOnboardingPage,
+  OwnerProfileOnboardingPage,
+} from "@/modules/onboarding";
+import {
+  ProcessCreatePage,
+  ProcessDetailPage,
+  ProcessEditPage,
+  ProcessesPage,
+} from "@/modules/processes";
+import {
+  LandingPage,
+  OnboardingCompletePage,
+  OnboardingCompleteProfilePage,
+  OnboardingOrganizationPage,
+  ProcessCreateDemoPage,
+  ProcessDetailDemoPage,
+} from "@/modules/public";
 import { NotFoundPage, UnauthorizedPage } from "@/modules/system";
 import { AdminUsersPage, OwnerMembersPage } from "@/modules/users";
 import { AppLayout } from "@/shared/layouts/app-layout";
@@ -62,11 +78,15 @@ function OwnerOnlyRoute() {
 }
 
 function OwnerProfileOnboardingRoute() {
-  const { isAuthenticated, isLoading, onboardingStatus } = useAuthSession();
+  const { isAuthenticated, isLoading, onboardingStatus, role } = useAuthSession();
 
   return (
     <RequireSession isAuthenticated={isAuthenticated} isLoading={isLoading}>
-      <RequireOnboardingStep onboardingStatus={onboardingStatus} expectedStatus="pending_profile">
+      <RequireOnboardingStep
+        onboardingStatus={onboardingStatus}
+        expectedStatus="pending_profile"
+        role={role}
+      >
         <OwnerProfileOnboardingPage />
       </RequireOnboardingStep>
     </RequireSession>
@@ -74,16 +94,29 @@ function OwnerProfileOnboardingRoute() {
 }
 
 function OwnerOrganizationOnboardingRoute() {
-  const { isAuthenticated, isLoading, onboardingStatus } = useAuthSession();
+  const { isAuthenticated, isLoading, onboardingStatus, role } = useAuthSession();
 
   return (
     <RequireSession isAuthenticated={isAuthenticated} isLoading={isLoading}>
       <RequireOnboardingStep
         onboardingStatus={onboardingStatus}
         expectedStatus="pending_organization"
+        role={role}
       >
         <OwnerOrganizationOnboardingPage />
       </RequireOnboardingStep>
+    </RequireSession>
+  );
+}
+
+function OnboardingCompleteRoute() {
+  const { isAuthenticated, isLoading, onboardingStatus, role } = useAuthSession();
+
+  return (
+    <RequireSession isAuthenticated={isAuthenticated} isLoading={isLoading}>
+      <RequireCompletedOnboarding onboardingStatus={onboardingStatus} role={role}>
+        <RealOnboardingCompletePage />
+      </RequireCompletedOnboarding>
     </RequireSession>
   );
 }
@@ -104,6 +137,18 @@ export const appRoutes: RouteObject[] = [
       {
         path: "demo/processo/:processId",
         element: <ProcessDetailDemoPage />,
+      },
+      {
+        path: "demo/onboarding/perfil",
+        element: <OnboardingCompleteProfilePage />,
+      },
+      {
+        path: "demo/onboarding/organizacao",
+        element: <OnboardingOrganizationPage />,
+      },
+      {
+        path: "demo/onboarding/concluido",
+        element: <OnboardingCompletePage />,
       },
       {
         path: "entrar",
@@ -130,8 +175,12 @@ export const appRoutes: RouteObject[] = [
         element: <OwnerOrganizationOnboardingRoute />,
       },
       {
+        path: "onboarding/concluido",
+        element: <OnboardingCompleteRoute />,
+      },
+      {
         path: "onboarding/membro/perfil",
-        element: <Navigate to="/app" replace />,
+        element: <Navigate to="/onboarding/perfil" replace />,
       },
       {
         path: "app/admin/usuarios",

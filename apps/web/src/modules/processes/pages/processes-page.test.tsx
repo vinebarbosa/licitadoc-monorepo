@@ -12,6 +12,7 @@ const processesResponse = {
       id: "process-1",
       organizationId: "organization-1",
       type: "pregao-eletronico",
+      procurementMethod: "pregao-eletronico",
       processNumber: "PE-2024-045",
       externalId: null,
       issuedAt: "2024-03-01T00:00:00.000Z",
@@ -71,8 +72,8 @@ describe("ProcessesPage", () => {
     expect(await screen.findByText("PE-2024-045")).toBeInTheDocument();
     expect(screen.getByText("Serviços de TI")).toBeInTheDocument();
     expect(screen.queryByText("Contratação de Serviços de TI")).not.toBeInTheDocument();
-    expect(screen.getByText("Em edicao")).toBeInTheDocument();
-    expect(screen.getByText("Pregao Eletronico")).toBeInTheDocument();
+    expect(screen.getByText("Em edição")).toBeInTheDocument();
+    expect(screen.getByText("Pregão Eletrônico")).toBeInTheDocument();
     expect(screen.getByText("Maria Costa")).toBeInTheDocument();
     expect(screen.getByLabelText("Documentos completos: 2 de 4")).toBeInTheDocument();
     expect(screen.getByText("2/4")).toBeInTheDocument();
@@ -91,7 +92,7 @@ describe("ProcessesPage", () => {
           pageSize: url.searchParams.get("pageSize") ?? "",
           search: url.searchParams.get("search") ?? "",
           status: url.searchParams.get("status") ?? "",
-          type: url.searchParams.get("type") ?? "",
+          procurementMethod: url.searchParams.get("procurementMethod") ?? "",
         });
 
         return HttpResponse.json(processesResponse);
@@ -112,7 +113,7 @@ describe("ProcessesPage", () => {
         pageSize: "10",
         search: "servicos",
         status: "em_edicao",
-        type: "pregao-eletronico",
+        procurementMethod: "pregao-eletronico",
       });
     });
   });

@@ -200,7 +200,7 @@ describe("expense request PDF helpers", () => {
     ).rejects.toThrow("vazio");
     await expect(
       extractTextFromExpenseRequestPdf(createPdfFile(), createLoader("   ")),
-    ).rejects.toThrow("texto selecionavel");
+    ).rejects.toThrow("texto selecionável");
   });
 
   it("parses TopDown text into editable process suggestions", () => {
@@ -332,7 +332,7 @@ describe("expense request PDF helpers", () => {
         `,
         "SD.pdf",
       ),
-    ).toThrow("campos obrigatorios");
+    ).toThrow("campos obrigatórios");
   });
 
   it("replaces previous PDF suggestions while preserving dirty user edits", () => {

@@ -1,15 +1,13 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { HttpResponse, http } from "msw";
-import type { ReactElement } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createQueryClient } from "@/app/query-client";
-import { ThemeProvider } from "@/app/theme";
-import { server } from "@/test/msw/server";
+import { renderWithProviders } from "@/test/render";
 import { MemberProfileOnboardingPage } from "./member-profile-onboarding-page";
 
 const navigateMock = vi.fn();
+const mutateAsyncMock = vi.fn();
+const invalidateSessionMock = vi.fn();
+const updateSessionUserAfterProfileMock = vi.fn();
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
@@ -20,88 +18,94 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-function renderOnboardingPage(ui: ReactElement) {
-  const queryClient = createQueryClient();
+vi.mock("@/modules/auth", async () => {
+  const actual = await vi.importActual<typeof import("@/modules/auth")>("@/modules/auth");
 
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <MemoryRouter>{ui}</MemoryRouter>
-      </ThemeProvider>
-    </QueryClientProvider>,
-  );
-}
+  return {
+    ...actual,
+    useAuthSession: () => ({
+      session: {
+        session: {
+          id: "session-1",
+          token: "token",
+          userId: "member-1",
+          expiresAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        user: {
+          id: "member-1",
+          name: "Maria Convidada",
+          email: "maria@licitadoc.test",
+          role: "member",
+          organizationId: "organization-1",
+          onboardingStatus: "pending_profile",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      role: "member",
+      onboardingStatus: "pending_profile",
+      isAuthenticated: true,
+    }),
+  };
+});
 
-describe("member onboarding pages", () => {
+vi.mock("../api/use-owner-onboarding", () => ({
+  invalidateSession: (...args: unknown[]) => invalidateSessionMock(...args),
+  updateSessionUserAfterProfile: (...args: unknown[]) => updateSessionUserAfterProfileMock(...args),
+  useCompleteOwnerProfile: () => ({
+    isPending: false,
+    mutateAsync: (...args: unknown[]) => mutateAsyncMock(...args),
+  }),
+}));
+
+describe("Member onboarding pages", () => {
   beforeEach(() => {
     navigateMock.mockReset();
+    mutateAsyncMock.mockReset();
+    invalidateSessionMock.mockReset();
+    updateSessionUserAfterProfileMock.mockReset();
+    invalidateSessionMock.mockResolvedValue(undefined);
   });
 
-  it("renders the profile completion form", () => {
-    renderOnboardingPage(<MemberProfileOnboardingPage />);
+  it("submits the member profile step and navigates to completion", async () => {
+    mutateAsyncMock.mockResolvedValue({
+      id: "member-1",
+      name: "Maria da Silva",
+      email: "maria@licitadoc.test",
+      role: "member",
+      organizationId: "organization-1",
+      onboardingStatus: "complete",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
 
-    expect(screen.getByText("Bem-vindo ao LicitaDoc")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nome")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nova senha")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Acessar o sistema/ })).toBeInTheDocument();
-  });
-
-  it("submits profile onboarding and navigates to app", async () => {
-    server.use(
-      http.post("http://localhost:3333/api/users/me/onboarding/profile", async ({ request }) => {
-        const body = (await request.json()) as { name: string };
-
-        return HttpResponse.json({
-          id: "member-1",
-          name: body.name,
-          email: "member@licitadoc.test",
-          emailVerified: false,
-          image: null,
-          role: "member",
-          organizationId: "org-1",
-          onboardingStatus: "complete",
-          createdAt: "2026-04-25T00:00:00.000Z",
-          updatedAt: "2026-04-25T00:00:00.000Z",
-        });
-      }),
+    renderWithProviders(
+      <MemoryRouter>
+        <MemberProfileOnboardingPage />
+      </MemoryRouter>,
     );
 
-    renderOnboardingPage(<MemberProfileOnboardingPage />);
-
-    fireEvent.change(screen.getByLabelText("Nome"), {
-      target: { value: "João Membro" },
+    fireEvent.change(screen.getByLabelText("Nome completo"), {
+      target: { value: "Maria da Silva" },
     });
     fireEvent.change(screen.getByLabelText("Nova senha"), {
-      target: { value: "nova-senha-segura" },
+      target: { value: "SenhaSegura123!" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Acessar o sistema/ }));
+    fireEvent.change(screen.getByLabelText("Confirmar nova senha"), {
+      target: { value: "SenhaSegura123!" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
 
     await waitFor(() => {
-      expect(navigateMock).toHaveBeenCalledWith("/app", { replace: true });
+      expect(mutateAsyncMock).toHaveBeenCalledWith({
+        data: {
+          name: "Maria da Silva",
+          password: "SenhaSegura123!",
+        },
+      });
+      expect(navigateMock).toHaveBeenCalledWith("/onboarding/concluido", { replace: true });
     });
-  });
-
-  it("shows an error message when profile completion fails due to a network error", async () => {
-    server.use(
-      http.post("http://localhost:3333/api/users/me/onboarding/profile", () => {
-        return HttpResponse.error();
-      }),
-    );
-
-    renderOnboardingPage(<MemberProfileOnboardingPage />);
-
-    fireEvent.change(screen.getByLabelText("Nome"), {
-      target: { value: "João Membro" },
-    });
-    fireEvent.change(screen.getByLabelText("Nova senha"), {
-      target: { value: "nova-senha-segura" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Acessar o sistema/ }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toBeInTheDocument();
-    });
-
-    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

@@ -452,7 +452,7 @@ export function AdminUsersPageContent() {
       setInviteDialogOpen(false);
       setInviteForm({ email: "", organizationId: "none" });
     } catch {
-      toast.error("Nao foi possivel criar o convite.");
+      toast.error("Não foi possível criar o convite.");
     }
   }
 
@@ -466,11 +466,11 @@ export function AdminUsersPageContent() {
         userId: selectedUser.id,
         data: toUpdateUserPayload(editForm),
       });
-      toast.success("Usuario atualizado com sucesso.");
+      toast.success("Usuário atualizado com sucesso.");
       setEditDialogOpen(false);
       setSelectedUser(null);
     } catch {
-      toast.error("Nao foi possivel atualizar o usuario.");
+      toast.error("Não foi possível atualizar o usuário.");
     }
   }
 
@@ -481,11 +481,11 @@ export function AdminUsersPageContent() {
 
     try {
       await deleteUser.mutateAsync({ userId: selectedUser.id });
-      toast.success("Usuario removido com sucesso.");
+      toast.success("Usuário removido com sucesso.");
       setDeleteDialogOpen(false);
       setSelectedUser(null);
     } catch {
-      toast.error("Nao foi possivel remover o usuario.");
+      toast.error("Não foi possível remover o usuário.");
     }
   }
 

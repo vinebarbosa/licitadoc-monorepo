@@ -274,7 +274,7 @@ export function ProcessesListingPage() {
                         {getProcessTypeLabel(process.procurementMethod ?? "")}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {process.responsibleName ?? "Nao informado"}
+                        {process.responsibleName ?? "Não informado"}
                       </TableCell>
                       <TableCell>
                         <fieldset
