@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Outlet, useMatches } from "react-router-dom";
+import { ContextualHelpWidget } from "@/modules/help";
 import { SidebarInset, SidebarProvider } from "@/shared/ui/sidebar";
 import { AppHeader } from "../components/app-header";
 import { AppSidebar } from "../components/app-sidebar";
@@ -48,6 +49,7 @@ export function AppShellLayout() {
             title={headerHandle?.title}
           />
           <Outlet />
+          <ContextualHelpWidget />
         </SidebarInset>
       </SidebarProvider>
     </AppShellHeaderContext.Provider>

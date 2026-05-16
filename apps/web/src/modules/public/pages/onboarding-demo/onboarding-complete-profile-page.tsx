@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  ProfileOnboardingView,
-  type ProfileFormData,
-} from "@/modules/onboarding/ui/onboarding-views";
+import { type ProfileFormData, ProfileOnboardingView } from "@/modules/onboarding";
 
 const demoUser = {
   email: "maria.santos@prefeitura.sp.gov.br",

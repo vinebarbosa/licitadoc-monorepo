@@ -5,6 +5,7 @@ import {
   FileSearch,
   FileText,
   FolderKanban,
+  Headphones,
   HelpCircle,
   LayoutGrid,
   LogOut,
@@ -73,7 +74,10 @@ const documentTypes = [
   },
 ];
 
-const adminNavItems = [{ title: "Usuários", url: "/admin/usuarios", icon: Users }];
+const adminNavItems = [
+  { title: "Usuários", url: "/admin/usuarios", icon: Users },
+  { title: "Chamados", url: "/admin/chamados", icon: Headphones },
+];
 
 const ownerNavItems = [{ title: "Membros", url: "/app/membros", icon: Users }];
 

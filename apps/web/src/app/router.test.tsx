@@ -313,6 +313,27 @@ describe("appRoutes", () => {
     });
   });
 
+  it("redirects non-admin users away from the admin support tickets route", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json(authenticatedSessionResponse);
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/admin/chamados"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/nao-autorizado");
+      expect(
+        screen.getByRole("heading", { name: "Você não tem permissão para esta área" }),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("redirects non-owner users away from the owner members route", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
@@ -404,6 +425,31 @@ describe("appRoutes", () => {
     });
   });
 
+  it("renders the admin support tickets route for admin sessions", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "admin",
+            organizationId: null,
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/admin/chamados"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Chamados de suporte" })).toBeInTheDocument();
+    });
+  });
+
   it("redirects the deprecated app-scoped admin users route to the canonical route", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
@@ -427,6 +473,32 @@ describe("appRoutes", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/admin/usuarios");
       expect(screen.getByRole("heading", { name: "Usuários do Sistema" })).toBeInTheDocument();
+    });
+  });
+
+  it("redirects the deprecated app-scoped admin support tickets route to the canonical route", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "admin",
+            organizationId: null,
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app/admin/chamados"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/admin/chamados");
+      expect(screen.getByRole("heading", { name: "Chamados de suporte" })).toBeInTheDocument();
     });
   });
 

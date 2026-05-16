@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { CompletionOnboardingView } from "@/modules/onboarding/ui/onboarding-views";
+import { CompletionOnboardingView } from "@/modules/onboarding";
 
 const demoOrgAdmin = {
   fullName: "Maria da Silva Santos",

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { RouteObject } from "react-router-dom";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppHomePage, AppShellLayout } from "@/modules/app-shell";
@@ -10,9 +11,9 @@ import {
 } from "@/modules/auth";
 import { DocumentCreatePage, DocumentPreviewPage, DocumentsPage } from "@/modules/documents";
 import {
-  OnboardingCompletePage as RealOnboardingCompletePage,
   OwnerOrganizationOnboardingPage,
   OwnerProfileOnboardingPage,
+  OnboardingCompletePage as RealOnboardingCompletePage,
 } from "@/modules/onboarding";
 import {
   ProcessCreatePage,
@@ -28,6 +29,7 @@ import {
   ProcessCreateDemoPage,
   ProcessDetailDemoPage,
 } from "@/modules/public";
+import { AdminSupportTicketsPage } from "@/modules/support";
 import { NotFoundPage, UnauthorizedPage } from "@/modules/system";
 import { AdminUsersPage, OwnerMembersPage } from "@/modules/users";
 import { AppLayout } from "@/shared/layouts/app-layout";
@@ -45,7 +47,7 @@ function ProtectedAppRoute() {
   );
 }
 
-function AdminOnlyRoute() {
+function AdminOnlyRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, onboardingStatus, role } = useAuthSession();
 
   return (
@@ -55,7 +57,7 @@ function AdminOnlyRoute() {
       isAuthorized={hasRequiredRole(role, ["admin"])}
     >
       <RequireCompletedOnboarding onboardingStatus={onboardingStatus} role={role}>
-        <AdminUsersPage />
+        {children}
       </RequireCompletedOnboarding>
     </RequireSession>
   );
@@ -187,6 +189,10 @@ export const appRoutes: RouteObject[] = [
         element: <Navigate to="/admin/usuarios" replace />,
       },
       {
+        path: "app/admin/chamados",
+        element: <Navigate to="/admin/chamados" replace />,
+      },
+      {
         path: "app",
         element: <ProtectedAppRoute />,
         children: [
@@ -281,9 +287,24 @@ export const appRoutes: RouteObject[] = [
         children: [
           {
             path: "usuarios",
-            element: <AdminOnlyRoute />,
+            element: (
+              <AdminOnlyRoute>
+                <AdminUsersPage />
+              </AdminOnlyRoute>
+            ),
             handle: {
               breadcrumbs: [{ label: "Admin", href: "/app" }, { label: "Usuários" }],
+            },
+          },
+          {
+            path: "chamados",
+            element: (
+              <AdminOnlyRoute>
+                <AdminSupportTicketsPage />
+              </AdminOnlyRoute>
+            ),
+            handle: {
+              breadcrumbs: [{ label: "Admin", href: "/app" }, { label: "Chamados" }],
             },
           },
         ],

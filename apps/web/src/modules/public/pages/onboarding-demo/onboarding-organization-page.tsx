@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  createEmptyOrganizationFormData,
-  OrganizationOnboardingView,
-} from "@/modules/onboarding/ui/onboarding-views";
+import { createEmptyOrganizationFormData, OrganizationOnboardingView } from "@/modules/onboarding";
 
 const demoUser = {
   email: "maria.santos@prefeitura.sp.gov.br",
