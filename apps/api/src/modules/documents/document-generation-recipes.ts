@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { GeneratedDocumentType } from "../../shared/text-generation/types";
 
 export type DocumentGenerationRecipe = {
@@ -9,8 +10,12 @@ export type DocumentGenerationRecipe = {
 };
 
 function readRecipeAsset(fileName: string) {
+  const moduleDirectory = dirname(fileURLToPath(import.meta.url));
   const candidatePaths = [
+    resolve(moduleDirectory, "recipes", fileName),
+    resolve(process.cwd(), "dist/modules/documents/recipes", fileName),
     resolve(process.cwd(), "src/modules/documents/recipes", fileName),
+    resolve(process.cwd(), "apps/api/dist/modules/documents/recipes", fileName),
     resolve(process.cwd(), "apps/api/src/modules/documents/recipes", fileName),
   ];
 

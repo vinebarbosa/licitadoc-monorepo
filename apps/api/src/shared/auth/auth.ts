@@ -14,7 +14,9 @@ function parseTrustedOrigins(input: string) {
 export function createAuth(app: FastifyInstance) {
   return betterAuth({
     secret: app.config.BETTER_AUTH_SECRET,
-    baseURL: app.config.BETTER_AUTH_URL,
+    baseURL: {
+      allowedHosts: ["*.vercel.app"],
+    },
     basePath: "/api/auth",
     trustedOrigins: parseTrustedOrigins(app.config.CORS_ORIGIN),
     database: drizzleAdapter(app.db, {

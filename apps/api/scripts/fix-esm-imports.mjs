@@ -1,7 +1,22 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 const distDir = path.resolve("dist");
+const recipeSourceDir = path.resolve("src/modules/documents/recipes");
+const recipeTargetDir = path.resolve("dist/modules/documents/recipes");
+
+if (existsSync(recipeSourceDir)) {
+  mkdirSync(path.dirname(recipeTargetDir), { recursive: true });
+  cpSync(recipeSourceDir, recipeTargetDir, { recursive: true });
+}
 
 function listJavaScriptFiles(directory) {
   return readdirSync(directory).flatMap((entry) => {
