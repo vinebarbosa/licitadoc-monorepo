@@ -1,12 +1,21 @@
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   NoSuchBucket,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { FileStorageProvider, StoredObject, StoreObjectInput } from "./types";
+import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
+import type {
+  FileStorageProvider,
+  StoredObject,
+  StoredObjectContent,
+  StoreObjectInput,
+  StoreSupportImageInput,
+} from "./types";
 
 type S3FileStorageProviderOptions = {
   accessKeyId: string;
@@ -25,6 +34,10 @@ function sanitizeFileName(fileName: string) {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase();
+}
+
+function sanitizeKeySegment(value: string) {
+  return sanitizeFileName(value) || "unknown";
 }
 
 export class S3FileStorageProvider implements FileStorageProvider {
@@ -54,6 +67,30 @@ export class S3FileStorageProvider implements FileStorageProvider {
     );
   }
 
+  async getObject(object: Pick<StoredObject, "key">): Promise<StoredObjectContent> {
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: object.key,
+      }),
+    );
+
+    if (!response.Body) {
+      throw new Error("Stored object body is empty.");
+    }
+
+    const body =
+      response.Body instanceof Readable
+        ? response.Body
+        : Readable.from(await response.Body.transformToByteArray());
+
+    return {
+      body,
+      contentLength: response.ContentLength ?? null,
+      contentType: response.ContentType ?? null,
+    };
+  }
+
   async storeExpenseRequestPdf(input: StoreObjectInput) {
     await this.ensureBucket();
 
@@ -74,6 +111,42 @@ export class S3FileStorageProvider implements FileStorageProvider {
         ContentType: input.contentType,
         Metadata: {
           originalfilename: input.fileName,
+        },
+      }),
+    );
+
+    return {
+      bucket: this.bucket,
+      contentType: input.contentType,
+      etag: response.ETag?.replaceAll('"', "") ?? null,
+      key,
+      sizeBytes: input.buffer.byteLength,
+      uploadedAt: now.toISOString(),
+    };
+  }
+
+  async storeSupportTicketImage(input: StoreSupportImageInput) {
+    await this.ensureBucket();
+
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, "-");
+    const key = [
+      "support-ticket-images",
+      sanitizeKeySegment(input.uploadedByUserId),
+      String(now.getUTCFullYear()),
+      String(now.getUTCMonth() + 1).padStart(2, "0"),
+      `${timestamp}-${randomUUID()}-${sanitizeFileName(input.fileName) || "captura.png"}`,
+    ].join("/");
+
+    const response = await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: input.buffer,
+        ContentType: input.contentType,
+        Metadata: {
+          originalfilename: input.fileName,
+          uploadedbyuserid: input.uploadedByUserId,
         },
       }),
     );

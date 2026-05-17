@@ -9,6 +9,7 @@ import { registerDocumentRoutes } from "../modules/documents/routes";
 import { registerInviteRoutes } from "../modules/invites/routes";
 import { registerOrganizationRoutes } from "../modules/organizations/routes";
 import { registerProcessRoutes } from "../modules/processes/routes";
+import { registerSupportTicketRoutes } from "../modules/support/routes";
 import { registerUserRoutes } from "../modules/users/routes";
 import { registerAuthPlugin } from "../plugins/auth";
 import { registerCorsPlugin } from "../plugins/cors";
@@ -18,6 +19,7 @@ import { registerErrorPlugin } from "../plugins/errors";
 import { registerMailerPlugin } from "../plugins/mailer";
 import { registerMultipartPlugin } from "../plugins/multipart";
 import { registerOpenApiPlugin } from "../plugins/openapi";
+import { registerRealtimePlugin } from "../plugins/realtime";
 import { registerSecurityPlugin } from "../plugins/security";
 import { registerStoragePlugin } from "../plugins/storage";
 import { registerTextGenerationPlugin } from "../plugins/text-generation";
@@ -59,6 +61,7 @@ export async function buildApp() {
   await app.register(registerStoragePlugin);
   await app.register(registerTextGenerationPlugin);
   await app.register(registerMailerPlugin);
+  await app.register(registerRealtimePlugin);
   await app.register(registerDocumentGenerationEventsPlugin);
   await app.register(registerDocumentGenerationQueuePlugin);
   await app.register(registerOpenApiPlugin);
@@ -71,6 +74,7 @@ export async function buildApp() {
   await app.register(registerDepartmentRoutes, { prefix: "/api/departments" });
   await app.register(registerProcessRoutes, { prefix: "/api/processes" });
   await app.register(registerDocumentRoutes, { prefix: "/api/documents" });
+  await app.register(registerSupportTicketRoutes, { prefix: "/api/support-tickets" });
 
   if (isDevelopment) {
     app.addHook("onResponse", async (request, reply) => {

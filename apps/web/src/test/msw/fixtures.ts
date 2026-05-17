@@ -1,3 +1,9 @@
+import {
+  getSupportTicketQueueCounts,
+  seededSupportTickets,
+} from "@/modules/support/model/support-tickets";
+import type { SupportTicket } from "@/modules/support/model/support-tickets";
+
 export const healthOkResponse = {
   status: "ok",
 };
@@ -110,6 +116,67 @@ export const usersListResponse = {
   totalPages: 1,
 };
 
+export const supportTicketsListResponse = {
+  items: seededSupportTickets,
+  page: 1,
+  pageSize: 100,
+  total: seededSupportTickets.length,
+  totalPages: 1,
+  counts: getSupportTicketQueueCounts(seededSupportTickets),
+};
+
+export const widgetSupportTicketResponse = {
+  id: "66666666-e2e5-4876-b4c3-b35306c6e733",
+  organizationId: "organization-1",
+  protocol: "LD-SUP-2001",
+  subject: "Não consigo revisar o documento",
+  status: "open",
+  priority: "medium",
+  requester: {
+    name: "Maria Silva",
+    email: "maria@licitadoc.test",
+    organization: "Prefeitura Municipal de Sao Paulo",
+  },
+  assignee: null,
+  context: {
+    screen: "Ajuda na prévia do documento",
+    route: "/app/documento/document-1/preview",
+    source: "document",
+    entityLabel: "Revise, ajuste e imprima com segurança",
+  },
+  attachments: [
+    {
+      id: "77777777-e2e5-4876-b4c3-b35306c6e733",
+      type: "screenshot",
+      name: "captura-de-tela.png",
+      description: "Captura anexada em Ajuda na prévia do documento.",
+      messageId: "88888888-e2e5-4876-b4c3-b35306c6e733",
+    },
+  ],
+  messages: [
+    {
+      id: "88888888-e2e5-4876-b4c3-b35306c6e733",
+      role: "user",
+      authorName: "Maria Silva",
+      content: "Não consigo revisar o documento",
+      timestamp: "2026-05-16T12:50:00.000Z",
+    },
+  ],
+  createdAt: "2026-05-16T12:50:00.000Z",
+  updatedAt: "2026-05-16T12:50:00.000Z",
+  firstResponseDueAt: "2026-05-16T12:58:00.000Z",
+  unreadCount: 0,
+} satisfies SupportTicket;
+
+export const requesterSupportTicketsListResponse = {
+  items: [widgetSupportTicketResponse],
+  page: 1,
+  pageSize: 50,
+  total: 1,
+  totalPages: 1,
+  counts: getSupportTicketQueueCounts([widgetSupportTicketResponse]),
+};
+
 export const documentsListResponse = {
   items: [
     {
@@ -151,6 +218,84 @@ export const documentsListResponse = {
   ],
 };
 
+export const documentDetailJsonContent = {
+  type: "doc",
+  content: [
+    {
+      type: "heading",
+      attrs: { level: 1 },
+      content: [{ type: "text", text: "DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)" }],
+    },
+    {
+      type: "paragraph",
+      content: [
+        { type: "text", marks: [{ type: "bold" }], text: "Processo: " },
+        { type: "text", text: "PE-2024-045" },
+      ],
+    },
+    {
+      type: "heading",
+      attrs: { level: 2 },
+      content: [{ type: "text", text: "1. Objeto" }],
+    },
+    {
+      type: "paragraph",
+      content: [
+        {
+          type: "text",
+          text: "Contratacao de Servicos de TI para suporte tecnico especializado.",
+        },
+      ],
+    },
+    {
+      type: "heading",
+      attrs: { level: 2 },
+      content: [{ type: "text", text: "2. Justificativa" }],
+    },
+    {
+      type: "paragraph",
+      content: [
+        { type: "text", text: "A contratacao se justifica pela " },
+        {
+          type: "text",
+          marks: [{ type: "italic" }],
+          text: "necessidade de manutencao",
+        },
+        { type: "text", text: " dos sistemas institucionais:" },
+      ],
+    },
+    {
+      type: "bulletList",
+      content: [
+        {
+          type: "listItem",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Suporte a infraestrutura de rede" }],
+            },
+          ],
+        },
+        {
+          type: "listItem",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Manutencao de servidores" }] },
+          ],
+        },
+        {
+          type: "listItem",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Atendimento a usuarios internos" }],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 export const documentDetailResponse = {
   id: "document-1",
   name: "DFD - PE-2024-045",
@@ -188,6 +333,7 @@ A contratacao se justifica pela *necessidade de manutencao* dos sistemas institu
 > Esta estimativa foi baseada em pesquisa de mercado realizada em março de 2024.
 
 Veja detalhes em [edital PE-2024-045](https://licitadoc.test/editais/pe-2024-045).`,
+  draftContentJson: documentDetailJsonContent,
   storageKey: null,
 };
 
@@ -198,6 +344,7 @@ export const generatingDocumentDetailResponse = {
   type: "etp",
   status: "generating",
   draftContent: null,
+  draftContentJson: null,
 };
 
 export const failedDocumentDetailResponse = {
@@ -210,6 +357,7 @@ export const failedDocumentDetailResponse = {
   status: "failed",
   responsibles: ["Ana Santos"],
   draftContent: null,
+  draftContentJson: null,
 };
 
 export const emptyDocumentDetailResponse = {
@@ -219,6 +367,7 @@ export const emptyDocumentDetailResponse = {
   type: "tr",
   status: "completed",
   draftContent: "",
+  draftContentJson: null,
 };
 
 export const processesListResponse = {

@@ -3,6 +3,7 @@ import type { Actor } from "../../authorization/actor";
 import type { departments, organizations, processes } from "../../db";
 import { documents } from "../../db";
 import type { GeneratedDocumentType } from "../../shared/text-generation/types";
+import { documentTextToTiptapJson, isTiptapDocumentJson } from "../../shared/tiptap-json";
 import type { SerializedProcessItem } from "../processes/processes.shared";
 import { resolveDocumentGenerationRecipe } from "./document-generation-recipes";
 
@@ -61,9 +62,16 @@ export function serializeDocumentSummary(document: StoredDocument, process?: Sto
 }
 
 export function serializeDocumentDetail(document: StoredDocument) {
+  const draftContentJson = isTiptapDocumentJson(document.draftContentJson)
+    ? document.draftContentJson
+    : document.draftContent?.trim()
+      ? documentTextToTiptapJson(document.draftContent)
+      : null;
+
   return {
     ...serializeDocumentSummary(document),
     draftContent: document.draftContent ?? null,
+    draftContentJson,
     storageKey: document.storageKey ?? null,
     responsibles: document.responsibles,
   };
@@ -206,7 +214,9 @@ function getExtractedValue(process: StoredProcess, fieldPath: string) {
   return getNullableText(current);
 }
 
-function getCanonicalProcessItems(processItems: SerializedProcessItem[] = []): SourceItemForGeneration[] {
+function getCanonicalProcessItems(
+  processItems: SerializedProcessItem[] = [],
+): SourceItemForGeneration[] {
   return processItems.map((item) => {
     const components =
       item.kind === "kit"
@@ -269,7 +279,10 @@ function getReviewedSourceItems(
         ),
         kind: "source" as const,
         origin: "source" as const,
-        quantity: firstText(getNullableScalarText(item.quantity), getNullableScalarText(item.quantidade)),
+        quantity: firstText(
+          getNullableScalarText(item.quantity),
+          getNullableScalarText(item.quantidade),
+        ),
         title: null,
         totalValue: firstText(
           getNullableScalarText(item.totalValue),
@@ -333,10 +346,7 @@ function getCanonicalItemsEstimatedTotal(items: SourceItemForGeneration[]) {
   return hasTotal ? formatCurrencyBr(estimatedTotal) : null;
 }
 
-function formatSourceItemComponentLine(
-  component: SourceItemComponentForGeneration,
-  index: number,
-) {
+function formatSourceItemComponentLine(component: SourceItemComponentForGeneration, index: number) {
   const identity = [component.title, compactSourceItemDescription(component.description)]
     .filter((value): value is string => Boolean(value))
     .join(" - ");
@@ -361,7 +371,10 @@ function formatSourceItemMoney(item: SourceItemForGeneration, value: string) {
 
 function formatSourceItemLine(item: SourceItemForGeneration, index: number) {
   const compactDescription = compactSourceItemDescription(item.description);
-  const identity = [item.code, compactSourceItemDescription(firstText(item.title, item.description))]
+  const identity = [
+    item.code,
+    compactSourceItemDescription(firstText(item.title, item.description)),
+  ]
     .filter((value): value is string => Boolean(value))
     .join(" - ");
   const details = [

@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   Bot,
   Camera,
   CheckCheck,
@@ -19,8 +20,42 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { type ComponentType, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ComponentType,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation } from "react-router-dom";
+import { useAuthSession } from "@/modules/auth";
+import {
+  type SupportTicketRealtimeEvent,
+  uploadSupportTicketImage,
+  useRequesterSupportTicketsList,
+  useSupportTicketCreate,
+  useSupportTicketDetail,
+  useSupportTicketMessageCreate,
+  useSupportTicketRead,
+  useSupportTicketRealtime,
+  useSupportTicketTyping,
+} from "@/modules/support/api/support-tickets";
+import type {
+  PendingSupportTicketImageAttachment,
+  SupportTicket,
+  SupportTicketMessageRole,
+  SupportTicketSource,
+} from "@/modules/support/model/support-tickets";
+import {
+  formatSupportFileSize,
+  getSupportAttachmentImageUrl,
+  isAcceptedSupportImage,
+  SUPPORT_IMAGE_ACCEPT,
+  SUPPORT_IMAGE_MAX_BYTES,
+  SUPPORT_IMAGE_MAX_COUNT,
+} from "@/modules/support/model/support-tickets";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Textarea } from "@/shared/ui/textarea";
@@ -35,17 +70,13 @@ import {
   getQuickActionResponse,
 } from "../model/help-responses";
 import {
-  createSupportHistoryEntry,
-  createSupportProtocol,
-  getDeterministicSupportReply,
-  getInitialSupportReply,
   getSupportIntakeMessage,
   getSupportStatusLabel,
-  SEEDED_SUPPORT_HISTORY,
   SUPPORT_ESTIMATED_RESPONSE,
+  type SupportAttachment,
   type SupportHistoryRecord,
+  type SupportHistoryStatus,
   type SupportMessage,
-  updateSupportHistoryEntry,
 } from "../model/help-support";
 
 type HelpMessage = {
@@ -55,6 +86,27 @@ type HelpMessage = {
 };
 
 type HelpMode = "assistant" | "support-intake" | "support-chat" | "support-history";
+
+type PendingSupportImage = PendingSupportTicketImageAttachment & {
+  id: string;
+  previewUrl: string;
+};
+
+function revokePendingSupportImages(images: PendingSupportImage[]) {
+  if (typeof URL.revokeObjectURL !== "function") {
+    return;
+  }
+
+  images.forEach((image) => {
+    if (image.previewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(image.previewUrl);
+    }
+  });
+}
+
+function createPendingSupportImagePreviewUrl(file: File) {
+  return typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "";
+}
 
 const actionIcons: Record<HelpQuickActionId, ComponentType<{ className?: string }>> = {
   "generate-document": FileText,
@@ -71,44 +123,99 @@ function createMessage(role: HelpMessage["role"], content: string): HelpMessage 
   };
 }
 
-function getCurrentTimeLabel() {
-  return new Date().toLocaleTimeString("pt-BR", {
+function formatSupportTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function createSupportMessage(
-  role: SupportMessage["role"],
-  content: string,
-  status?: SupportMessage["status"],
-): SupportMessage {
-  return {
-    id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    role,
-    content,
-    time: getCurrentTimeLabel(),
-    status,
-  };
+function formatSupportHistoryTime(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function createScreenshotPreviewMessage(contextTitle: string): SupportMessage {
-  return {
-    id: `screenshot-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    role: "user",
-    content: "Captura de tela anexada",
-    time: getCurrentTimeLabel(),
-    status: "read",
-    attachment: {
-      type: "screenshot",
-      title: "Captura de tela",
-      subtitle: contextTitle,
+function getSupportSource(pathname: string): SupportTicketSource {
+  if (pathname.includes("/documento") || pathname.includes("/documentos")) {
+    return "document";
+  }
+
+  if (pathname.includes("/processo") || pathname.includes("/processos")) {
+    return "process";
+  }
+
+  return "workspace";
+}
+
+function toSupportMessageRole(role: SupportTicketMessageRole): SupportMessage["role"] {
+  return role === "support" || role === "system" ? role : "user";
+}
+
+function toSupportHistoryStatus(status: SupportTicket["status"]): SupportHistoryStatus {
+  if (status === "resolved") {
+    return "resolved";
+  }
+
+  return status === "waiting" ? "waiting" : "active";
+}
+
+function toSupportMessages(ticket: SupportTicket): SupportMessage[] {
+  const attachmentsByMessageId = ticket.attachments.reduce(
+    (groups, attachment) => {
+      if (!attachment.messageId) {
+        return groups;
+      }
+
+      const current = groups.get(attachment.messageId) ?? [];
+      current.push(attachment);
+      groups.set(attachment.messageId, current);
+
+      return groups;
     },
+    new Map<string, SupportTicket["attachments"]>(),
+  );
+
+  return ticket.messages.map((message) => {
+    const attachments = attachmentsByMessageId.get(message.id) ?? [];
+
+    return {
+      id: message.id,
+      role: toSupportMessageRole(message.role),
+      content: message.content,
+      time: formatSupportTime(message.timestamp),
+      status: message.role === "user" ? "read" : undefined,
+      attachments: attachments.map((attachment) => ({
+        type: attachment.type,
+        title: attachment.name || "Imagem anexada",
+        subtitle: attachment.description,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        url: getSupportAttachmentImageUrl(attachment),
+      })),
+    };
+  });
+}
+
+function toSupportHistoryRecord(ticket: SupportTicket): SupportHistoryRecord {
+  return {
+    id: ticket.id,
+    protocol: ticket.protocol,
+    title: ticket.subject,
+    latestPreview: ticket.messages.at(-1)?.content ?? ticket.subject,
+    timestamp: formatSupportHistoryTime(ticket.updatedAt),
+    status: toSupportHistoryStatus(ticket.status),
+    hasScreenshot: ticket.attachments.length > 0,
+    messages: toSupportMessages(ticket),
   };
 }
 
 export function ContextualHelpWidget() {
   const location = useLocation();
+  const { session } = useAuthSession();
   const context = useMemo(() => getContextualHelpContext(location.pathname), [location.pathname]);
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -120,17 +227,52 @@ export function ContextualHelpWidget() {
   const [supportIssue, setSupportIssue] = useState("");
   const [supportInputValue, setSupportInputValue] = useState("");
   const [isSupportTyping, setIsSupportTyping] = useState(false);
-  const [isScreenshotAttached, setIsScreenshotAttached] = useState(false);
-  const [supportProtocol, setSupportProtocol] = useState(() => createSupportProtocol(context.key));
-  const [activeSupportRecordId, setActiveSupportRecordId] = useState<string | null>(null);
-  const [supportHistory, setSupportHistory] =
-    useState<SupportHistoryRecord[]>(SEEDED_SUPPORT_HISTORY);
-  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const [supportIntakeImages, setSupportIntakeImages] = useState<PendingSupportImage[]>([]);
+  const [supportChatImages, setSupportChatImages] = useState<PendingSupportImage[]>([]);
+  const [supportAttachmentError, setSupportAttachmentError] = useState<string | null>(null);
+  const [isUploadingSupportImage, setIsUploadingSupportImage] = useState(false);
+  const [activeSupportTicketId, setActiveSupportTicketId] = useState<string | null>(null);
+  const [supportError, setSupportError] = useState<string | null>(null);
   const [messages, setMessages] = useState<HelpMessage[]>(() => [
     createMessage("assistant", getInitialHelpMessage(context)),
   ]);
+  const supportIntakeImageInputRef = useRef<HTMLInputElement | null>(null);
+  const supportChatImageInputRef = useRef<HTMLInputElement | null>(null);
+  const supportIntakeImagesRef = useRef<PendingSupportImage[]>([]);
+  const supportChatImagesRef = useRef<PendingSupportImage[]>([]);
   const responseTimeoutRef = useRef<number | null>(null);
-  const supportResponseTimeoutRef = useRef<number | null>(null);
+  const supportTypingStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const supportTypingIndicatorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldFetchSupportTickets = isOpen && mode !== "assistant";
+  const supportHistoryQuery = useRequesterSupportTicketsList({
+    enabled: shouldFetchSupportTickets,
+  });
+  const activeSupportTicketQuery = useSupportTicketDetail(activeSupportTicketId);
+  const createSupportTicketMutation = useSupportTicketCreate();
+  const createSupportMessageMutation = useSupportTicketMessageCreate();
+  const markSupportTicketRead = useSupportTicketRead();
+  const publishSupportTyping = useSupportTicketTyping();
+  const hasSupportHistoryItems = Array.isArray(
+    (supportHistoryQuery.data as { items?: unknown } | undefined)?.items,
+  );
+  const isSupportHistoryError =
+    supportHistoryQuery.isError || Boolean(supportHistoryQuery.data && !hasSupportHistoryItems);
+  const supportTickets = hasSupportHistoryItems ? supportHistoryQuery.data?.items ?? [] : [];
+  const activeSupportTicket =
+    activeSupportTicketQuery.data ??
+    supportTickets.find((ticket) => ticket.id === activeSupportTicketId) ??
+    null;
+  const supportHistory = useMemo(
+    () => supportTickets.map((ticket) => toSupportHistoryRecord(ticket)),
+    [supportTickets],
+  );
+  const supportMessages = useMemo(
+    () => (activeSupportTicket ? toSupportMessages(activeSupportTicket) : []),
+    [activeSupportTicket],
+  );
+  const activeSupportRecord = activeSupportTicket
+    ? toSupportHistoryRecord(activeSupportTicket)
+    : null;
 
   useEffect(() => {
     setMessages([createMessage("assistant", getInitialHelpMessage(context))]);
@@ -140,20 +282,31 @@ export function ContextualHelpWidget() {
     setMode("assistant");
     setSupportIssue("");
     setSupportInputValue("");
-    setSupportMessages([]);
     setIsSupportTyping(false);
-    setIsScreenshotAttached(false);
-    setActiveSupportRecordId(null);
-    setSupportProtocol(createSupportProtocol(context.key));
+    setSupportIntakeImages((currentImages) => {
+      revokePendingSupportImages(currentImages);
+      return [];
+    });
+    setSupportChatImages((currentImages) => {
+      revokePendingSupportImages(currentImages);
+      return [];
+    });
+    setSupportAttachmentError(null);
+    setSupportError(null);
 
     if (responseTimeoutRef.current !== null) {
       window.clearTimeout(responseTimeoutRef.current);
       responseTimeoutRef.current = null;
     }
 
-    if (supportResponseTimeoutRef.current !== null) {
-      window.clearTimeout(supportResponseTimeoutRef.current);
-      supportResponseTimeoutRef.current = null;
+    if (supportTypingStopTimeoutRef.current !== null) {
+      clearTimeout(supportTypingStopTimeoutRef.current);
+      supportTypingStopTimeoutRef.current = null;
+    }
+
+    if (supportTypingIndicatorTimeoutRef.current !== null) {
+      clearTimeout(supportTypingIndicatorTimeoutRef.current);
+      supportTypingIndicatorTimeoutRef.current = null;
     }
   }, [context]);
 
@@ -162,11 +315,30 @@ export function ContextualHelpWidget() {
       if (responseTimeoutRef.current !== null) {
         window.clearTimeout(responseTimeoutRef.current);
       }
-      if (supportResponseTimeoutRef.current !== null) {
-        window.clearTimeout(supportResponseTimeoutRef.current);
+      if (supportTypingStopTimeoutRef.current !== null) {
+        clearTimeout(supportTypingStopTimeoutRef.current);
+      }
+      if (supportTypingIndicatorTimeoutRef.current !== null) {
+        clearTimeout(supportTypingIndicatorTimeoutRef.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    supportIntakeImagesRef.current = supportIntakeImages;
+  }, [supportIntakeImages]);
+
+  useEffect(() => {
+    supportChatImagesRef.current = supportChatImages;
+  }, [supportChatImages]);
+
+  useEffect(
+    () => () => {
+      revokePendingSupportImages(supportIntakeImagesRef.current);
+      revokePendingSupportImages(supportChatImagesRef.current);
+    },
+    [],
+  );
 
   function queueAssistantResponse(content: string) {
     setIsTyping(true);
@@ -209,9 +381,16 @@ export function ContextualHelpWidget() {
       setIsTyping(false);
       setSupportIssue("");
       setSupportInputValue("");
-      setSupportMessages([]);
-      setIsScreenshotAttached(false);
-      setActiveSupportRecordId(null);
+      setSupportIntakeImages((currentImages) => {
+        revokePendingSupportImages(currentImages);
+        return [];
+      });
+      setSupportChatImages((currentImages) => {
+        revokePendingSupportImages(currentImages);
+        return [];
+      });
+      setSupportAttachmentError(null);
+      setSupportError(null);
 
       if (responseTimeoutRef.current !== null) {
         window.clearTimeout(responseTimeoutRef.current);
@@ -233,10 +412,11 @@ export function ContextualHelpWidget() {
   function returnToAssistant() {
     setMode("assistant");
     setIsSupportTyping(false);
+    setSupportError(null);
 
-    if (supportResponseTimeoutRef.current !== null) {
-      window.clearTimeout(supportResponseTimeoutRef.current);
-      supportResponseTimeoutRef.current = null;
+    if (supportTypingStopTimeoutRef.current !== null) {
+      clearTimeout(supportTypingStopTimeoutRef.current);
+      supportTypingStopTimeoutRef.current = null;
     }
   }
 
@@ -244,33 +424,137 @@ export function ContextualHelpWidget() {
     setMode("support-intake");
     setSupportIssue("");
     setSupportInputValue("");
-    setSupportMessages([]);
     setIsSupportTyping(false);
-    setIsScreenshotAttached(false);
-    setActiveSupportRecordId(null);
+    setSupportIntakeImages((currentImages) => {
+      revokePendingSupportImages(currentImages);
+      return [];
+    });
+    setSupportChatImages((currentImages) => {
+      revokePendingSupportImages(currentImages);
+      return [];
+    });
+    setSupportAttachmentError(null);
+    setSupportError(null);
 
-    if (supportResponseTimeoutRef.current !== null) {
-      window.clearTimeout(supportResponseTimeoutRef.current);
-      supportResponseTimeoutRef.current = null;
+    if (supportTypingStopTimeoutRef.current !== null) {
+      clearTimeout(supportTypingStopTimeoutRef.current);
+      supportTypingStopTimeoutRef.current = null;
     }
   }
 
   function openSupportHistory() {
     setMode("support-history");
     setIsSupportTyping(false);
+    setSupportError(null);
 
-    if (supportResponseTimeoutRef.current !== null) {
-      window.clearTimeout(supportResponseTimeoutRef.current);
-      supportResponseTimeoutRef.current = null;
+    if (supportTypingStopTimeoutRef.current !== null) {
+      clearTimeout(supportTypingStopTimeoutRef.current);
+      supportTypingStopTimeoutRef.current = null;
     }
   }
 
   function openSupportHistoryRecord(record: SupportHistoryRecord) {
-    setSupportProtocol(record.protocol);
-    setSupportMessages(record.messages);
+    setActiveSupportTicketId(record.id);
     setSupportInputValue("");
-    setActiveSupportRecordId(record.id);
+    setSupportError(null);
+    setSupportAttachmentError(null);
     setMode("support-chat");
+  }
+
+  function getSupportImageValidationError(file: File) {
+    if (!isAcceptedSupportImage(file)) {
+      return "Envie uma imagem PNG, JPEG ou WebP.";
+    }
+
+    if (file.size > SUPPORT_IMAGE_MAX_BYTES) {
+      return "A imagem precisa ter até 5 MB.";
+    }
+
+    if (file.size === 0) {
+      return "A imagem não pode estar vazia.";
+    }
+
+    return null;
+  }
+
+  async function handleSupportImageFiles(files: FileList | null, target: "intake" | "chat") {
+    const selectedFiles = Array.from(files ?? []);
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    const currentCount =
+      target === "intake" ? supportIntakeImages.length : supportChatImages.length;
+
+    if (currentCount + selectedFiles.length > SUPPORT_IMAGE_MAX_COUNT) {
+      setSupportAttachmentError(`Você pode anexar até ${SUPPORT_IMAGE_MAX_COUNT} imagens.`);
+      return;
+    }
+
+    setSupportAttachmentError(null);
+    setIsUploadingSupportImage(true);
+
+    try {
+      for (const file of selectedFiles) {
+        const validationError = getSupportImageValidationError(file);
+
+        if (validationError) {
+          setSupportAttachmentError(validationError);
+          continue;
+        }
+
+        const previewUrl = createPendingSupportImagePreviewUrl(file);
+
+        try {
+          const uploadedImage = await uploadSupportTicketImage(file);
+          const pendingImage: PendingSupportImage = {
+            ...uploadedImage,
+            id: `${target}-${uploadedImage.storageKey}`,
+            description:
+              target === "intake"
+                ? `Captura anexada em ${context.title}.`
+                : "Imagem anexada na conversa de suporte.",
+            previewUrl,
+          };
+
+          if (target === "intake") {
+            setSupportIntakeImages((currentImages) => [...currentImages, pendingImage]);
+          } else {
+            setSupportChatImages((currentImages) => [...currentImages, pendingImage]);
+          }
+        } catch {
+          revokePendingSupportImages([{ previewUrl } as PendingSupportImage]);
+          setSupportAttachmentError("Não foi possível anexar a imagem. Tente novamente.");
+        }
+      }
+    } finally {
+      setIsUploadingSupportImage(false);
+      if (target === "intake" && supportIntakeImageInputRef.current) {
+        supportIntakeImageInputRef.current.value = "";
+      }
+      if (target === "chat" && supportChatImageInputRef.current) {
+        supportChatImageInputRef.current.value = "";
+      }
+    }
+  }
+
+  function removePendingSupportImage(target: "intake" | "chat", imageId: string) {
+    const removeImage = (currentImages: PendingSupportImage[]) => {
+      const removedImage = currentImages.find((image) => image.id === imageId);
+
+      if (removedImage) {
+        URL.revokeObjectURL(removedImage.previewUrl);
+      }
+
+      return currentImages.filter((image) => image.id !== imageId);
+    };
+
+    if (target === "intake") {
+      setSupportIntakeImages(removeImage);
+    } else {
+      setSupportChatImages(removeImage);
+    }
   }
 
   function handleSupportIntakeSubmit(event: FormEvent<HTMLFormElement>) {
@@ -282,87 +566,144 @@ export function ContextualHelpWidget() {
       return;
     }
 
-    const nextProtocol = createSupportProtocol(context.key);
-
-    const nextMessages = [
-      createSupportMessage("system", `Atendimento ${nextProtocol} iniciado`),
-      ...(isScreenshotAttached ? [createScreenshotPreviewMessage(context.title)] : []),
-      createSupportMessage("user", trimmedIssue, "read"),
-      createSupportMessage("support", getInitialSupportReply(context)),
-    ];
-    const nextHistoryEntry = createSupportHistoryEntry({
-      protocol: nextProtocol,
-      issue: trimmedIssue,
-      messages: nextMessages,
-      hasScreenshot: isScreenshotAttached,
-    });
-
-    setSupportProtocol(nextProtocol);
-    setSupportMessages(nextMessages);
-    setSupportHistory((currentHistory) => [nextHistoryEntry, ...currentHistory]);
-    setActiveSupportRecordId(nextHistoryEntry.id);
-    setSupportInputValue("");
-    setMode("support-chat");
-  }
-
-  function queueSupportResponse(content: string) {
-    setIsSupportTyping(true);
-
-    if (supportResponseTimeoutRef.current !== null) {
-      window.clearTimeout(supportResponseTimeoutRef.current);
-    }
-
-    supportResponseTimeoutRef.current = window.setTimeout(() => {
-      setSupportMessages((currentMessages) => {
-        const nextMessages = [...currentMessages, createSupportMessage("support", content)];
-
-        if (activeSupportRecordId !== null) {
-          setSupportHistory((currentHistory) =>
-            updateSupportHistoryEntry(currentHistory, activeSupportRecordId, nextMessages, content),
-          );
-        }
-
-        return nextMessages;
-      });
-      setIsSupportTyping(false);
-      supportResponseTimeoutRef.current = null;
-    }, 450);
+    setSupportError(null);
+    createSupportTicketMutation.mutate(
+      {
+        data: {
+          subject: trimmedIssue,
+          content: trimmedIssue,
+          context: {
+            screen: context.title,
+            route: location.pathname || "/app",
+            source: getSupportSource(location.pathname),
+            entityLabel: context.subtitle,
+          },
+          attachments: supportIntakeImages.map(({ id, previewUrl, ...attachment }) => attachment),
+        },
+      },
+      {
+        onSuccess: (ticket) => {
+          setActiveSupportTicketId(ticket.id);
+          setSupportIssue("");
+          setSupportInputValue("");
+          setSupportIntakeImages((currentImages) => {
+            revokePendingSupportImages(currentImages);
+            return [];
+          });
+          setSupportAttachmentError(null);
+          setMode("support-chat");
+        },
+        onError: () => {
+          setSupportError("Não foi possível iniciar o atendimento. Tente novamente.");
+        },
+      },
+    );
   }
 
   function submitSupportMessage(message: string) {
     const trimmedMessage = message.trim();
 
-    if (!trimmedMessage) {
+    if ((!trimmedMessage && supportChatImages.length === 0) || !activeSupportTicket) {
       return;
     }
 
-    setSupportMessages((currentMessages) => {
-      const nextMessages = [
-        ...currentMessages,
-        createSupportMessage("user", trimmedMessage, "sent"),
-      ];
-
-      if (activeSupportRecordId !== null) {
-        setSupportHistory((currentHistory) =>
-          updateSupportHistoryEntry(
-            currentHistory,
-            activeSupportRecordId,
-            nextMessages,
-            trimmedMessage,
-          ),
-        );
-      }
-
-      return nextMessages;
-    });
-    setSupportInputValue("");
-    queueSupportResponse(getDeterministicSupportReply(trimmedMessage));
+    setSupportError(null);
+    createSupportMessageMutation.mutate(
+      {
+        ticketId: activeSupportTicket.id,
+        data: {
+          content: trimmedMessage || undefined,
+          attachments: supportChatImages.map(({ id, previewUrl, ...attachment }) => attachment),
+        },
+      },
+      {
+        onSuccess: () => {
+          setSupportInputValue("");
+          setSupportChatImages((currentImages) => {
+            revokePendingSupportImages(currentImages);
+            return [];
+          });
+          setSupportAttachmentError(null);
+        },
+        onError: () => {
+          setSupportError("Não foi possível enviar a mensagem. Tente novamente.");
+        },
+      },
+    );
   }
 
   function handleSupportChatSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     submitSupportMessage(supportInputValue);
   }
+
+  function handleSupportInputChange(value: string) {
+    setSupportInputValue(value);
+
+    if (!activeSupportTicket) {
+      return;
+    }
+
+    if (!value.trim()) {
+      publishSupportTyping.mutate({
+        ticketId: activeSupportTicket.id,
+        data: { isTyping: false },
+      });
+      return;
+    }
+
+    publishSupportTyping.mutate({
+      ticketId: activeSupportTicket.id,
+      data: { isTyping: true },
+    });
+
+    if (supportTypingStopTimeoutRef.current !== null) {
+      clearTimeout(supportTypingStopTimeoutRef.current);
+    }
+
+    supportTypingStopTimeoutRef.current = setTimeout(() => {
+      publishSupportTyping.mutate({
+        ticketId: activeSupportTicket.id,
+        data: { isTyping: false },
+      });
+    }, 1800);
+  }
+
+  const handleRealtimeTyping = useCallback(
+    (event: Extract<SupportTicketRealtimeEvent, { type: "ticket.typing" }>) => {
+      if (event.actor.id === session?.user.id) {
+        return;
+      }
+
+      if (supportTypingIndicatorTimeoutRef.current !== null) {
+        clearTimeout(supportTypingIndicatorTimeoutRef.current);
+      }
+
+      setIsSupportTyping(event.isTyping);
+
+      if (event.isTyping) {
+        supportTypingIndicatorTimeoutRef.current = setTimeout(() => {
+          setIsSupportTyping(false);
+        }, 3500);
+      }
+    },
+    [session?.user.id],
+  );
+
+  useEffect(() => {
+    if (!activeSupportTicketId) {
+      return;
+    }
+
+    markSupportTicketRead.mutate({ ticketId: activeSupportTicketId });
+  }, [activeSupportTicketId, markSupportTicketRead.mutate]);
+
+  const supportRealtime = useSupportTicketRealtime({
+    ticket: activeSupportTicket,
+    enabled: !!activeSupportTicket,
+    includeQueue: false,
+    onTyping: handleRealtimeTyping,
+  });
 
   function handleOpenToggle() {
     setIsOpen((currentValue) => !currentValue);
@@ -373,11 +714,9 @@ export function ContextualHelpWidget() {
     mode === "assistant"
       ? "Assistente disponível agora"
       : `${SUPPORT_ESTIMATED_RESPONSE} no suporte`;
-  const activeSupportRecord =
-    activeSupportRecordId === null
-      ? null
-      : (supportHistory.find((record) => record.id === activeSupportRecordId) ?? null);
-  const isActiveSupportConversation = activeSupportRecord?.status !== "resolved";
+  const isActiveSupportConversation = activeSupportRecord
+    ? activeSupportRecord.status !== "resolved"
+    : false;
 
   return (
     <div className="pointer-events-none fixed right-4 bottom-4 z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3 sm:right-6 sm:bottom-6">
@@ -629,46 +968,58 @@ export function ContextualHelpWidget() {
                       <p className="mb-2 font-medium text-muted-foreground text-xs">Anexos</p>
                       <button
                         type="button"
-                        aria-pressed={isScreenshotAttached}
-                        aria-label={
-                          isScreenshotAttached
-                            ? "Remover captura de tela"
-                            : "Anexar captura de tela"
-                        }
+                        aria-label="Anexar captura de tela"
                         className={cn(
                           "grid w-full grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-md border bg-background p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          isScreenshotAttached
+                          supportIntakeImages.length > 0
                             ? "border-primary/40 bg-primary/5"
                             : "hover:border-primary/40 hover:bg-primary/5",
                         )}
-                        onClick={() => setIsScreenshotAttached((currentValue) => !currentValue)}
+                        onClick={() => supportIntakeImageInputRef.current?.click()}
                       >
                         <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                           <Camera className="size-4" aria-hidden="true" />
                         </span>
                         <span className="min-w-0">
                           <span className="block font-medium text-sm">
-                            {isScreenshotAttached
-                              ? "Captura de tela anexada"
+                            {supportIntakeImages.length > 0
+                              ? "Captura anexada"
                               : "Anexar captura de tela"}
                           </span>
                           <span className="block text-muted-foreground text-xs">
-                            {isScreenshotAttached
-                              ? "Toque novamente para remover."
+                            {isUploadingSupportImage
+                              ? "Enviando imagem..."
                               : "Ajuda o suporte a ver o que apareceu para você."}
                           </span>
                         </span>
-                        {isScreenshotAttached ? (
+                        {supportIntakeImages.length > 0 ? (
                           <CheckCircle2 className="size-4 text-emerald-600" aria-hidden="true" />
                         ) : null}
                       </button>
-                      {isScreenshotAttached ? (
-                        <div className="mt-2 rounded-md border bg-background p-2">
-                          <SupportScreenshotPreview
-                            title="Captura de tela"
-                            subtitle={context.title}
-                          />
+                      <input
+                        ref={supportIntakeImageInputRef}
+                        type="file"
+                        accept={SUPPORT_IMAGE_ACCEPT}
+                        multiple
+                        className="sr-only"
+                        aria-label="Selecionar captura de tela"
+                        onChange={(event) => {
+                          void handleSupportImageFiles(event.target.files, "intake");
+                        }}
+                      />
+                      {supportIntakeImages.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {supportIntakeImages.map((image) => (
+                            <PendingSupportImagePreview
+                              key={image.id}
+                              image={image}
+                              onRemove={() => removePendingSupportImage("intake", image.id)}
+                            />
+                          ))}
                         </div>
+                      ) : null}
+                      {supportAttachmentError && mode === "support-intake" ? (
+                        <p className="mt-2 text-destructive text-xs">{supportAttachmentError}</p>
                       ) : null}
                     </div>
 
@@ -687,6 +1038,9 @@ export function ContextualHelpWidget() {
                         aria-label="Descrição para o suporte"
                         className="min-h-28 resize-none text-sm"
                       />
+                      {supportError ? (
+                        <p className="mt-2 text-destructive text-xs">{supportError}</p>
+                      ) : null}
                     </div>
 
                     <div className="mt-auto flex items-center gap-2">
@@ -698,8 +1052,16 @@ export function ContextualHelpWidget() {
                       >
                         Voltar
                       </Button>
-                      <Button type="submit" className="flex-1" disabled={!supportIssue.trim()}>
-                        Iniciar chat
+                      <Button
+                        type="submit"
+                        className="flex-1"
+                        disabled={
+                          !supportIssue.trim() ||
+                          createSupportTicketMutation.isPending ||
+                          isUploadingSupportImage
+                        }
+                      >
+                        {createSupportTicketMutation.isPending ? "Iniciando..." : "Iniciar chat"}
                       </Button>
                     </div>
                   </form>
@@ -743,7 +1105,33 @@ export function ContextualHelpWidget() {
                   </div>
 
                   <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-                    {supportHistory.length > 0 ? (
+                    {supportHistoryQuery.isLoading ? (
+                      <div className="flex h-full flex-col items-center justify-center rounded-md border bg-background p-5 text-center">
+                        <Clock className="size-8 text-muted-foreground" aria-hidden="true" />
+                        <h3 className="mt-3 font-semibold text-sm">Carregando atendimentos</h3>
+                        <p className="mt-1 text-muted-foreground text-xs">
+                          Buscando seus chamados mais recentes.
+                        </p>
+                      </div>
+                    ) : isSupportHistoryError ? (
+                      <div className="flex h-full flex-col items-center justify-center rounded-md border bg-background p-5 text-center">
+                        <AlertCircle className="size-8 text-destructive" aria-hidden="true" />
+                        <h3 className="mt-3 font-semibold text-sm">
+                          Não foi possível carregar
+                        </h3>
+                        <p className="mt-1 text-muted-foreground text-xs">
+                          Tente novamente para ver seus atendimentos.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="mt-4"
+                          onClick={() => supportHistoryQuery.refetch()}
+                        >
+                          Tentar novamente
+                        </Button>
+                      </div>
+                    ) : supportHistory.length > 0 ? (
                       <div className="space-y-2">
                         {supportHistory.map((record) => (
                           <SupportHistoryButton
@@ -804,18 +1192,30 @@ export function ContextualHelpWidget() {
                         <div className="flex min-w-0 items-center justify-between gap-2">
                           <h3 className="truncate font-semibold text-sm">Suporte LicitaDoc</h3>
                           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-muted-foreground text-xs">
-                            <span className="size-1.5 rounded-full bg-emerald-500" />
-                            Online agora
+                            <span
+                              className={cn(
+                                "size-1.5 rounded-full",
+                                supportRealtime.isConnected ? "bg-emerald-500" : "bg-sky-500",
+                              )}
+                            />
+                            {supportRealtime.isConnected ? "Ao vivo" : "Atendimento"}
                           </span>
                         </div>
                         <p className="mt-0.5 truncate text-muted-foreground text-xs">
-                          {supportProtocol} - {SUPPORT_ESTIMATED_RESPONSE}
+                          {activeSupportRecord?.protocol ?? "Novo atendimento"} -{" "}
+                          {SUPPORT_ESTIMATED_RESPONSE}
                         </p>
                       </div>
                     </div>
                   </div>
 
                   <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                    {activeSupportTicketQuery.isLoading && supportMessages.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground text-xs">
+                        <Clock className="mb-2 size-6" aria-hidden="true" />
+                        Carregando conversa...
+                      </div>
+                    ) : null}
                     {supportMessages.map((message) =>
                       message.role === "system" ? (
                         <div key={message.id} className="flex justify-center">
@@ -839,23 +1239,26 @@ export function ContextualHelpWidget() {
                           <div
                             className={cn(
                               "max-w-[86%] rounded-lg px-3 py-2 text-sm leading-relaxed shadow-xs",
-                              message.role === "user" && !message.attachment
+                              message.role === "user" && !message.attachments?.length
                                 ? "bg-primary text-primary-foreground"
                                 : "border bg-background",
                             )}
                           >
-                            {message.attachment?.type === "screenshot" ? (
-                              <SupportScreenshotPreview
-                                title={message.attachment.title}
-                                subtitle={message.attachment.subtitle}
-                              />
-                            ) : (
-                              <p>{message.content}</p>
-                            )}
+                            {message.content ? <p>{message.content}</p> : null}
+                            {message.attachments?.length ? (
+                              <div className={cn(message.content && "mt-2", "space-y-2")}>
+                                {message.attachments.map((attachment) => (
+                                  <SupportAttachmentPreview
+                                    key={`${message.id}-${attachment.title}-${attachment.url ?? attachment.subtitle}`}
+                                    attachment={attachment}
+                                  />
+                                ))}
+                              </div>
+                            ) : null}
                             <span
                               className={cn(
                                 "mt-1 flex items-center justify-end gap-1 text-[0.68rem]",
-                                message.role === "user" && !message.attachment
+                                message.role === "user" && !message.attachments?.length
                                   ? "text-primary-foreground/75"
                                   : "text-muted-foreground",
                               )}
@@ -880,30 +1283,81 @@ export function ContextualHelpWidget() {
                   </div>
 
                   <div className="border-t px-4 py-3">
+                    {supportError ? (
+                      <p className="mb-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-destructive text-xs">
+                        {supportError}
+                      </p>
+                    ) : null}
+                    {supportAttachmentError && mode === "support-chat" ? (
+                      <p className="mb-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-destructive text-xs">
+                        {supportAttachmentError}
+                      </p>
+                    ) : null}
                     {isActiveSupportConversation ? (
-                      <form onSubmit={handleSupportChatSubmit} className="flex items-end gap-2">
-                        <Textarea
-                          value={supportInputValue}
-                          onChange={(event) => setSupportInputValue(event.target.value)}
-                          placeholder="Escreva para o suporte..."
-                          aria-label="Mensagem para o suporte"
-                          className="min-h-10 resize-none text-sm"
-                          rows={1}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" && !event.shiftKey) {
-                              event.preventDefault();
-                              submitSupportMessage(supportInputValue);
+                      <form onSubmit={handleSupportChatSubmit} className="grid gap-2">
+                        {supportChatImages.length > 0 ? (
+                          <div className="space-y-2">
+                            {supportChatImages.map((image) => (
+                              <PendingSupportImagePreview
+                                key={image.id}
+                                image={image}
+                                compact
+                                onRemove={() => removePendingSupportImage("chat", image.id)}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                        <div className="flex items-end gap-2">
+                          <input
+                            ref={supportChatImageInputRef}
+                            type="file"
+                            accept={SUPPORT_IMAGE_ACCEPT}
+                            multiple
+                            className="sr-only"
+                            aria-label="Selecionar imagem para o suporte"
+                            onChange={(event) => {
+                              void handleSupportImageFiles(event.target.files, "chat");
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="size-10 shrink-0"
+                            aria-label="Adicionar imagem ao atendimento"
+                            disabled={isUploadingSupportImage || createSupportMessageMutation.isPending}
+                            onClick={() => supportChatImageInputRef.current?.click()}
+                          >
+                            <Camera className="size-4" aria-hidden="true" />
+                          </Button>
+                          <Textarea
+                            value={supportInputValue}
+                            onChange={(event) => handleSupportInputChange(event.target.value)}
+                            placeholder="Escreva para o suporte..."
+                            aria-label="Mensagem para o suporte"
+                            className="min-h-10 resize-none text-sm"
+                            rows={1}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault();
+                                submitSupportMessage(supportInputValue);
+                              }
+                            }}
+                          />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            aria-label="Enviar mensagem para o suporte"
+                            disabled={
+                              (!supportInputValue.trim() && supportChatImages.length === 0) ||
+                              !activeSupportTicket ||
+                              createSupportMessageMutation.isPending ||
+                              isUploadingSupportImage
                             }
-                          }}
-                        />
-                        <Button
-                          type="submit"
-                          size="icon"
-                          aria-label="Enviar mensagem para o suporte"
-                          disabled={!supportInputValue.trim()}
-                        >
-                          <Send className="size-4" aria-hidden="true" />
-                        </Button>
+                          >
+                            <Send className="size-4" aria-hidden="true" />
+                          </Button>
+                        </div>
                       </form>
                     ) : (
                       <div className="rounded-md border bg-muted/40 p-3 text-sm">
@@ -926,7 +1380,7 @@ export function ContextualHelpWidget() {
                       <CheckCircle2 className="size-3.5 text-emerald-600" aria-hidden="true" />
                       {activeSupportRecord?.status === "resolved"
                         ? "Atendimento resolvido"
-                        : "Atendimento local pronto para integração"}
+                        : "Atendimento conectado ao suporte"}
                     </p>
                   </div>
                 </div>
@@ -1036,6 +1490,66 @@ function SupportScreenshotPreview({ title, subtitle }: { title: string; subtitle
         <p className="font-medium text-foreground text-xs">{title}</p>
         <p className="truncate text-muted-foreground text-xs">{subtitle}</p>
       </div>
+    </div>
+  );
+}
+
+function SupportAttachmentPreview({ attachment }: { attachment: SupportAttachment }) {
+  if (attachment.type === "image" && attachment.url) {
+    return (
+      <div className="w-56 max-w-full">
+        <img
+          src={attachment.url}
+          alt={attachment.title}
+          className="max-h-36 w-full rounded-md border object-cover"
+        />
+        <div className="mt-2">
+          <p className="truncate font-medium text-foreground text-xs">{attachment.title}</p>
+          <p className="truncate text-muted-foreground text-xs">
+            {attachment.sizeBytes ? formatSupportFileSize(attachment.sizeBytes) : attachment.subtitle}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <SupportScreenshotPreview title={attachment.title} subtitle={attachment.subtitle} />;
+}
+
+function PendingSupportImagePreview({
+  compact = false,
+  image,
+  onRemove,
+}: {
+  compact?: boolean;
+  image: PendingSupportImage;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-background p-2 shadow-xs">
+      <img
+        src={image.previewUrl}
+        alt={image.name}
+        className={cn(
+          "shrink-0 rounded border object-cover",
+          compact ? "size-10" : "size-12",
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-xs">{image.name}</p>
+        <p className="text-muted-foreground text-[11px]">
+          {formatSupportFileSize(image.sizeBytes)}
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Remover ${image.name}`}
+        onClick={onRemove}
+      >
+        <X className="size-3.5" aria-hidden="true" />
+      </Button>
     </div>
   );
 }

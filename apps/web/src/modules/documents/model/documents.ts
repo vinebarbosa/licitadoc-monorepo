@@ -1,3 +1,4 @@
+import type { JSONContent } from "@tiptap/core";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -9,6 +10,12 @@ import {
   ScrollText,
 } from "lucide-react";
 import type { DocumentDetailResponse, DocumentsListItem } from "../api/documents";
+
+export type DocumentEditorJson = JSONContent & {
+  content?: unknown[];
+  type: "doc";
+  [key: string]: unknown;
+};
 
 export type DocumentType = "dfd" | "etp" | "tr" | "minuta";
 export type DocumentDisplayStatus = "concluido" | "em_edicao" | "pendente" | "erro";
@@ -150,6 +157,56 @@ export function getPreviewableDraftContent(content: string | null | undefined): 
   const trimmedContent = content?.trim() ?? "";
 
   return trimmedContent.length > 0 ? trimmedContent : null;
+}
+
+export function isTiptapDocumentJson(value: unknown): value is DocumentEditorJson {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as { type?: unknown }).type === "doc",
+  );
+}
+
+export function getPreviewableDraftContentJson(content: unknown): DocumentEditorJson | null {
+  return isTiptapDocumentJson(content) ? content : null;
+}
+
+export type DocumentPreviewSource =
+  | {
+      content: DocumentEditorJson;
+      kind: "json";
+      textContent: string | null;
+    }
+  | {
+      content: string;
+      kind: "text";
+      textContent: string;
+    };
+
+export function getDocumentPreviewSource(
+  document: Pick<DocumentDetailResponse, "draftContent" | "draftContentJson"> | null | undefined,
+): DocumentPreviewSource | null {
+  const jsonContent = getPreviewableDraftContentJson(document?.draftContentJson);
+  const textContent = getPreviewableDraftContent(document?.draftContent);
+
+  if (jsonContent) {
+    return {
+      content: jsonContent,
+      kind: "json",
+      textContent,
+    };
+  }
+
+  if (textContent) {
+    return {
+      content: textContent,
+      kind: "text",
+      textContent,
+    };
+  }
+
+  return null;
 }
 
 export function formatUpdatedAt(isoString: string): string {

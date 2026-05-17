@@ -1,9 +1,11 @@
-import { AlertTriangle, CheckCircle2, Clock, Eye, FileText, RefreshCw, Save } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Clock, Eye, FileText, RefreshCw, Save } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAppShellHeader } from "@/modules/app-shell";
-import { cn } from "@/shared/lib/utils";
-import { Badge } from "@/shared/ui/badge";
+import {
+  type DocumentAgentEditorContext,
+  DocumentAgentEditorExperience,
+} from "@/modules/public/pages/document-editor-demo-page";
 import { Button } from "@/shared/ui/button";
 import {
   Empty,
@@ -13,47 +15,65 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/ui/empty";
-import { PageBackButton } from "@/shared/ui/page-back";
 import { Skeleton } from "@/shared/ui/skeleton";
 import {
   getDocumentMutationErrorMessage,
   useDocumentDetail,
   useDocumentSave,
 } from "../api/documents";
+import { getDocumentJsonContentHash } from "../model/document-editor-content";
 import {
-  documentMarkdownToEditorHtml,
-  editorHtmlToDocumentMarkdown,
-  getDocumentContentHash,
-} from "../model/document-editor-content";
-import {
-  documentStatusConfig,
+  type DocumentEditorJson,
   formatUpdatedAt,
   getDocumentEditBreadcrumbs,
   getDocumentProcessLabel,
   getDocumentResponsibleLabel,
   getDocumentTypeLabel,
-  getPreviewableDraftContent,
+  isTiptapDocumentJson,
 } from "../model/documents";
-import { DocumentTiptapEditor } from "./document-tiptap-editor";
 
 type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
+type AgentSaveStatus = "saved" | "saving" | "unsaved";
+
+function stringifyEditorContent(value: DocumentEditorJson | null) {
+  return value ? JSON.stringify(value) : "";
+}
+
+function toAgentSaveStatus(state: SaveState): AgentSaveStatus {
+  if (state === "saving") {
+    return "saving";
+  }
+
+  if (state === "saved") {
+    return "saved";
+  }
+
+  return "unsaved";
+}
+
+function confirmDiscardUnsavedChanges(isDirty: boolean) {
+  if (!isDirty) {
+    return true;
+  }
+
+  return window.confirm("Existem alterações não salvas. Deseja sair mesmo assim?");
+}
 
 function DocumentEditLoadingState() {
   return (
-    <main className="flex-1 overflow-auto bg-[#f6f7f9]">
-      <div className="border-slate-200/70 border-b bg-[#f6f7f9]/90 px-4 py-4 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-start justify-between gap-4">
-          <div className="space-y-3">
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-7 w-80" />
-            <Skeleton className="h-4 w-56" />
+    <main className="min-h-screen bg-[#f6f7f9]">
+      <div className="border-slate-200/70 border-b bg-white/90 px-4 py-4 backdrop-blur-xl sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-56" />
+            <Skeleton className="h-4 w-72" />
           </div>
-          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-8 w-28" />
         </div>
       </div>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-        <Skeleton className="mx-auto mb-5 h-10 w-full max-w-[720px] rounded-full" />
-        <Skeleton className="mx-auto h-[760px] w-full max-w-[880px] rounded-sm" />
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <Skeleton className="mx-auto mb-5 h-10 w-full max-w-[760px] rounded-full" />
+        <Skeleton className="mx-auto h-[760px] w-full max-w-[900px] rounded-sm" />
       </div>
     </main>
   );
@@ -66,7 +86,7 @@ function DocumentEditUnavailableState({
   onRetry,
   title,
 }: {
-  action?: "retry" | "preview";
+  action?: "retry";
   description: string;
   icon?: "alert" | "clock" | "file";
   onRetry?: () => void;
@@ -75,7 +95,7 @@ function DocumentEditUnavailableState({
   const Icon = icon === "clock" ? Clock : icon === "file" ? FileText : AlertTriangle;
 
   return (
-    <main className="flex-1 overflow-auto bg-[#f6f7f9] p-6">
+    <main className="min-h-screen bg-[#f6f7f9] p-6">
       <div className="mx-auto max-w-4xl">
         <Empty className="py-20">
           <EmptyHeader>
@@ -102,59 +122,17 @@ function DocumentEditUnavailableState({
   );
 }
 
-function SaveStatus({ state }: { state: SaveState }) {
-  const config = {
-    saved: {
-      icon: CheckCircle2,
-      label: "Salvo",
-      className: "border-success/30 bg-success/10 text-success",
-    },
-    dirty: {
-      icon: Clock,
-      label: "Alterações não salvas",
-      className: "border-pending/30 bg-pending/10 text-pending",
-    },
-    saving: {
-      icon: RefreshCw,
-      label: "Salvando",
-      className: "border-primary/30 bg-primary/10 text-primary",
-    },
-    error: {
-      icon: AlertTriangle,
-      label: "Erro ao salvar",
-      className: "border-destructive/30 bg-destructive/10 text-destructive",
-    },
-    conflict: {
-      icon: AlertTriangle,
-      label: "Documento alterado",
-      className: "border-destructive/30 bg-destructive/10 text-destructive",
-    },
-  } satisfies Record<SaveState, { icon: typeof CheckCircle2; label: string; className: string }>;
-  const item = config[state];
-  const Icon = item.icon;
-
-  return (
-    <Badge variant="outline" className={cn("gap-1.5 rounded-md", item.className)}>
-      <Icon className={cn("h-3.5 w-3.5", state === "saving" && "animate-spin")} />
-      {item.label}
-    </Badge>
-  );
-}
-
-function confirmDiscardUnsavedChanges(isDirty: boolean) {
-  if (!isDirty) {
-    return true;
-  }
-
-  return window.confirm("Existem alterações não salvas. Deseja sair mesmo assim?");
-}
-
 export function DocumentEditPageUI() {
   const { documentId = "" } = useParams();
   const navigate = useNavigate();
   const documentQuery = useDocumentDetail(documentId);
   const document = documentQuery.data;
   const saveMutation = useDocumentSave(documentId);
+  const [editorContent, setEditorContent] = useState<DocumentEditorJson | null>(null);
+  const [savedEditorContentString, setSavedEditorContentString] = useState("");
+  const [sourceContentHash, setSourceContentHash] = useState("");
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const breadcrumbs = useMemo(
     () => ({
       breadcrumbs: getDocumentEditBreadcrumbs(document),
@@ -164,32 +142,29 @@ export function DocumentEditPageUI() {
 
   useAppShellHeader(breadcrumbs);
 
-  const [editorHtml, setEditorHtml] = useState("");
-  const [savedDraftContent, setSavedDraftContent] = useState("");
-  const [sourceContentHash, setSourceContentHash] = useState("");
-  const [saveState, setSaveState] = useState<SaveState>("saved");
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const isHydratingEditorRef = useRef(false);
-  const currentDraftContent = useMemo(() => editorHtmlToDocumentMarkdown(editorHtml), [editorHtml]);
-  const isDirty = currentDraftContent !== savedDraftContent;
-  const editableDraftContent = getPreviewableDraftContent(document?.draftContent);
-  const canEdit = document?.status === "completed" && Boolean(editableDraftContent);
+  const editorContentString = stringifyEditorContent(editorContent);
+  const isDirty = Boolean(editorContent) && editorContentString !== savedEditorContentString;
+  const editableDraftContentJson = isTiptapDocumentJson(document?.draftContentJson)
+    ? document.draftContentJson
+    : null;
+  const canEdit = document?.status === "completed" && Boolean(editableDraftContentJson);
+  const contentKey = document
+    ? `${document.id}:${document.updatedAt}:${Boolean(document.draftContentJson)}`
+    : undefined;
 
   useEffect(() => {
-    if (!canEdit || !editableDraftContent) {
+    if (!canEdit || !editableDraftContentJson) {
       return;
     }
 
-    const initialHtml = documentMarkdownToEditorHtml(editableDraftContent);
+    const nextContentString = stringifyEditorContent(editableDraftContentJson);
 
-    isHydratingEditorRef.current = true;
-    setSavedDraftContent(editorHtmlToDocumentMarkdown(initialHtml));
-    setEditorHtml(initialHtml);
+    setEditorContent(editableDraftContentJson);
+    setSavedEditorContentString(nextContentString);
     setSaveState("saved");
     setSaveError(null);
-
-    void getDocumentContentHash(editableDraftContent).then(setSourceContentHash);
-  }, [canEdit, editableDraftContent]);
+    void getDocumentJsonContentHash(editableDraftContentJson).then(setSourceContentHash);
+  }, [canEdit, editableDraftContentJson]);
 
   useEffect(() => {
     if (saveMutation.isPending) {
@@ -220,7 +195,7 @@ export function DocumentEditPageUI() {
   }, [isDirty]);
 
   const handleSave = useCallback(async () => {
-    if (!documentId || !isDirty || saveMutation.isPending || !sourceContentHash) {
+    if (!documentId || !editorContent || !isDirty || saveMutation.isPending || !sourceContentHash) {
       return;
     }
 
@@ -230,19 +205,21 @@ export function DocumentEditPageUI() {
       {
         documentId,
         data: {
-          draftContent: currentDraftContent,
+          draftContentJson: editorContent,
           sourceContentHash,
         },
       },
       {
         onSuccess: (updatedDocument) => {
-          const nextContent = updatedDocument.draftContent ?? "";
+          const nextContent = isTiptapDocumentJson(updatedDocument.draftContentJson)
+            ? updatedDocument.draftContentJson
+            : editorContent;
 
-          setSavedDraftContent(nextContent);
-          setEditorHtml(documentMarkdownToEditorHtml(nextContent));
+          setEditorContent(nextContent);
+          setSavedEditorContentString(stringifyEditorContent(nextContent));
           setSaveState("saved");
           setSaveError(null);
-          void getDocumentContentHash(nextContent).then(setSourceContentHash);
+          void getDocumentJsonContentHash(nextContent).then(setSourceContentHash);
         },
         onError: (error) => {
           const isConflict = error?.status === 409;
@@ -259,7 +236,7 @@ export function DocumentEditPageUI() {
         },
       },
     );
-  }, [currentDraftContent, documentId, isDirty, saveMutation, sourceContentHash]);
+  }, [documentId, editorContent, isDirty, saveMutation, sourceContentHash]);
 
   const handleBack = useCallback(() => {
     if (!confirmDiscardUnsavedChanges(isDirty)) {
@@ -339,66 +316,46 @@ export function DocumentEditPageUI() {
     );
   }
 
-  if (!editableDraftContent) {
+  if (!editableDraftContentJson || !editorContent) {
     return (
       <DocumentEditUnavailableState
         title="Documento sem conteúdo"
-        description="Este documento está concluído, mas ainda não possui conteúdo salvo para edição."
+        description="Este documento está concluído, mas ainda não possui conteúdo JSON salvo para edição."
         icon="file"
       />
     );
   }
 
-  const statusConfig = documentStatusConfig.concluido;
-  const StatusIcon = statusConfig.icon;
+  const editorContext: DocumentAgentEditorContext = {
+    number: getDocumentProcessLabel(document),
+    organization: "",
+    department: "",
+    responsible: getDocumentResponsibleLabel(document.responsibles),
+    modality: "Documento",
+    documentType: getDocumentTypeLabel(document.type),
+    documentName: `${document.name} · ${formatUpdatedAt(document.updatedAt)}`,
+    status: "Em edição",
+  };
 
   return (
-    <main
-      className="document-editor-focus-workspace flex-1 overflow-auto bg-[#f6f7f9]"
-      data-document-editor-workspace
-    >
-      <section
-        className="sticky top-0 z-30 border-slate-200/70 border-b bg-[#f6f7f9]/90 px-4 py-3 backdrop-blur-xl sm:px-6"
-        data-document-editor-topbar
-      >
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <PageBackButton onClick={handleBack} />
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-semibold tracking-tight">{document.name}</h1>
-              <div
-                className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs"
-                data-document-editor-metadata
-              >
-                <span>{getDocumentTypeLabel(document.type)}</span>
-                <span className="hidden text-slate-300 sm:inline">/</span>
-                <span className="inline-flex items-center gap-1">
-                  <StatusIcon className="h-3 w-3" />
-                  {statusConfig.label}
-                </span>
-                <span className="hidden text-slate-300 sm:inline">/</span>
-                <Link
-                  to={`/app/processo/${document.processId}`}
-                  className="font-medium text-primary/80 underline-offset-4 hover:text-primary hover:underline"
-                  onClick={(event) => {
-                    if (!confirmDiscardUnsavedChanges(isDirty)) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  {getDocumentProcessLabel(document)}
-                </Link>
-                <span className="hidden text-slate-300 sm:inline">/</span>
-                <span>{getDocumentResponsibleLabel(document.responsibles)}</span>
-                <span className="hidden text-slate-300 sm:inline">/</span>
-                <span>{formatUpdatedAt(document.updatedAt)}</span>
-              </div>
-            </div>
+    <main className="relative min-h-screen bg-[#f6f7f9]" data-document-editor-workspace>
+      {saveError ? (
+        <div className="fixed top-[4.75rem] left-1/2 z-[60] w-[min(720px,calc(100vw-32px))] -translate-x-1/2 rounded-lg border border-destructive/25 bg-white/95 px-4 py-3 text-sm shadow-lg backdrop-blur-xl">
+          <div className="font-medium text-destructive">
+            {saveState === "conflict" ? "Conteúdo alterado" : "Falha ao salvar"}
           </div>
+          <div className="mt-1 text-muted-foreground">{saveError}</div>
+        </div>
+      ) : null}
 
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <SaveStatus state={saveState} />
-            <Button asChild variant="ghost" size="sm" className="bg-white/60 shadow-xs">
+      <DocumentAgentEditorExperience
+        contentKey={contentKey}
+        headerActions={
+          <div className="flex items-center gap-1.5">
+            <Button type="button" variant="ghost" size="sm" onClick={handleBack}>
+              Voltar
+            </Button>
+            <Button asChild variant="ghost" size="sm">
               <Link
                 to={`/app/documento/${documentId}/preview`}
                 onClick={(event) => {
@@ -414,7 +371,6 @@ export function DocumentEditPageUI() {
             <Button
               type="button"
               size="sm"
-              className="shadow-xs"
               disabled={!isDirty || saveMutation.isPending || !sourceContentHash}
               onClick={() => void handleSave()}
             >
@@ -426,49 +382,25 @@ export function DocumentEditPageUI() {
               Salvar
             </Button>
           </div>
-        </div>
-      </section>
+        }
+        initialContent={editorContent}
+        onContentChange={(nextContent) => {
+          if (!isTiptapDocumentJson(nextContent)) {
+            return;
+          }
 
-      <div className="mx-auto max-w-6xl space-y-4 px-3 py-6 sm:px-6 lg:py-8">
-        {saveError ? (
-          <div className="mx-auto max-w-3xl rounded-md border border-destructive/25 bg-white/90 px-4 py-3 text-sm shadow-sm">
-            <div className="font-medium text-destructive">
-              {saveState === "conflict" ? "Conteúdo alterado" : "Falha ao salvar"}
-            </div>
-            <div className="mt-1 text-muted-foreground">{saveError}</div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              disabled={saveMutation.isPending}
-              onClick={() => void handleSave()}
-            >
-              Tentar salvar novamente
-            </Button>
-          </div>
-        ) : null}
+          setEditorContent(nextContent);
 
-        <DocumentTiptapEditor
-          content={editorHtml}
-          onChange={(html) => {
-            if (isHydratingEditorRef.current) {
-              isHydratingEditorRef.current = false;
-              setSavedDraftContent(editorHtmlToDocumentMarkdown(html));
-              setEditorHtml(html);
-              setSaveState("saved");
-              return;
-            }
-
-            setEditorHtml(html);
-            if (saveState === "error" || saveState === "conflict") {
-              setSaveError(null);
-              setSaveState("dirty");
-            }
-          }}
-          onSaveShortcut={() => void handleSave()}
-        />
-      </div>
+          if (saveState === "error" || saveState === "conflict") {
+            setSaveError(null);
+            setSaveState("dirty");
+          }
+        }}
+        onSaveShortcut={() => void handleSave()}
+        processContext={editorContext}
+        saveStatus={toAgentSaveStatus(saveState)}
+        workspaceTestId="document-editor-real"
+      />
     </main>
   );
 }

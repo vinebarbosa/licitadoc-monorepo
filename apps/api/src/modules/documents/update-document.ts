@@ -5,10 +5,15 @@ import { documents } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
-import type { UpdateDocumentInput } from "./documents.schemas";
+import {
+  documentTextToTiptapJson,
+  getTiptapJsonContentHash,
+  isTiptapDocumentJson,
+  tiptapJsonToDocumentText,
+} from "../../shared/tiptap-json";
 import { canManageDocument } from "./documents.policies";
+import type { UpdateDocumentInput } from "./documents.schemas";
 import { serializeDocumentDetail } from "./documents.shared";
-import { getDocumentContentHash } from "./document-text-adjustment";
 
 type Input = {
   actor: Actor;
@@ -32,14 +37,21 @@ export async function updateDocument({ actor, db, documentId, input }: Input) {
     throw new BadRequestError("Document must be completed and contain draft content.");
   }
 
-  if (input.sourceContentHash !== getDocumentContentHash(document.draftContent)) {
+  const currentJson = isTiptapDocumentJson(document.draftContentJson)
+    ? document.draftContentJson
+    : documentTextToTiptapJson(document.draftContent);
+
+  if (input.sourceContentHash !== getTiptapJsonContentHash(currentJson)) {
     throw new ConflictError("Document content changed before this save completed.");
   }
+
+  const draftContent = tiptapJsonToDocumentText(input.draftContentJson);
 
   const [updatedDocument] = await db
     .update(documents)
     .set({
-      draftContent: input.draftContent,
+      draftContent,
+      draftContentJson: input.draftContentJson,
       updatedAt: new Date(),
     })
     .where(eq(documents.id, document.id))

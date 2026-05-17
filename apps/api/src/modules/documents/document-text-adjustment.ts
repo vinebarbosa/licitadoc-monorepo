@@ -10,6 +10,7 @@ import {
   supportedGeneratedDocumentTypes,
   type TextGenerationProvider,
 } from "../../shared/text-generation/types";
+import { documentTextToTiptapJson } from "../../shared/tiptap-json";
 import { canManageDocument } from "./documents.policies";
 import type {
   ApplyDocumentTextAdjustmentInput,
@@ -1049,6 +1050,7 @@ export async function applyDocumentTextAdjustment({
     .update(documents)
     .set({
       draftContent: nextContent,
+      draftContentJson: documentTextToTiptapJson(nextContent),
       updatedAt: new Date(),
     })
     .where(eq(documents.id, document.id))

@@ -4,3 +4,4 @@ export * from "./schema/documents";
 export * from "./schema/invites";
 export * from "./schema/organizations";
 export * from "./schema/processes";
+export * from "./schema/support";

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { check, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { TiptapDocumentJson } from "../../shared/tiptap-json";
 import { organizations } from "./organizations";
 import { processes } from "./processes";
 
@@ -17,6 +18,7 @@ export const documents = pgTable(
     type: text("type").notNull().default("attachment"),
     status: text("status").notNull().default("completed"),
     draftContent: text("draft_content"),
+    draftContentJson: jsonb("draft_content_json").$type<TiptapDocumentJson | null>(),
     storageKey: text("storage_key"),
     responsibles: text("responsibles").array().notNull().default(sql`ARRAY[]::text[]`),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

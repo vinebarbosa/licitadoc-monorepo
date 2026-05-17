@@ -1,6 +1,8 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { HttpResponse, http } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { ContextualHelpWidget } from "./contextual-help-widget";
 
@@ -102,13 +104,38 @@ describe("ContextualHelpWidget", () => {
     expect(screen.getByRole("textbox", { name: "Descrição para o suporte" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Iniciar chat" })).toBeDisabled();
 
+    fireEvent.change(screen.getByLabelText("Selecionar captura de tela"), {
+      target: {
+        files: [new File(["texto"], "erro.txt", { type: "text/plain" })],
+      },
+    });
+    expect(screen.getByText("Envie uma imagem PNG, JPEG ou WebP.")).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Voltar ao assistente" }));
 
     expect(screen.getByRole("textbox", { name: "Mensagem para ajuda" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ações rápidas" })).toBeInTheDocument();
   });
 
-  it("shows support history and opens a previous resolved conversation", () => {
+  it("shows a retryable support history error", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/support-tickets/me", () =>
+        HttpResponse.json({ error: "forbidden", message: "Forbidden", details: null }, { status: 403 }),
+      ),
+    );
+    renderWidget("/app");
+
+    fireEvent.click(screen.getByRole("button", { name: "Abrir ajuda" }));
+    fireEvent.click(screen.getByRole("button", { name: "Falar com suporte" }));
+    fireEvent.click(screen.getByRole("button", { name: "Meus atendimentos" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Não foi possível carregar")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+  });
+
+  it("shows API-backed support history and opens a previous conversation", async () => {
     renderWidget("/app");
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir ajuda" }));
@@ -116,65 +143,114 @@ describe("ContextualHelpWidget", () => {
     fireEvent.click(screen.getByRole("button", { name: "Meus atendimentos" }));
 
     expect(screen.getByText("Meus atendimentos")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Dúvida sobre documento em geração/ }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Resolvido")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Não consigo revisar o documento/ }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText("Em atendimento")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Dúvida sobre documento em geração/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Não consigo revisar o documento/ }));
 
-    expect(screen.getByText(/Atendimento LD-DOCUMENTOS-1233/)).toBeInTheDocument();
-    expect(screen.getByText("O documento ficou em geração por muito tempo.")).toBeInTheDocument();
-    expect(screen.getByText("Este atendimento foi resolvido.")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("textbox", { name: "Mensagem para o suporte" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText(/LD-SUP-2001/)).toBeInTheDocument();
+    expect(screen.getByText("Não consigo revisar o documento")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Mensagem para o suporte" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Novo atendimento" }));
+    fireEvent.click(screen.getByRole("button", { name: "Histórico" }));
+    fireEvent.click(screen.getByRole("button", { name: "Novo" }));
     expect(screen.getByRole("textbox", { name: "Descrição para o suporte" })).toBeInTheDocument();
   });
 
-  it("submits support intake, sends support chat messages, and receives local replies", async () => {
-    vi.useFakeTimers();
+  it("submits support intake and sends support chat messages through the API", async () => {
     renderWidget("/app/documento/document-1/preview");
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir ajuda" }));
     fireEvent.click(screen.getByRole("button", { name: "Falar com suporte" }));
-    fireEvent.click(screen.getByRole("button", { name: "Anexar captura de tela" }));
-    expect(screen.getByRole("button", { name: "Remover captura de tela" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Selecionar captura de tela"), {
+      target: {
+        files: [new File(["imagem"], "captura-de-tela.png", { type: "image/png" })],
+      },
+    });
+    await waitFor(() => {
+      expect(screen.getByText("captura-de-tela.png")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Remover captura-de-tela.png" }));
+    expect(screen.queryByText("captura-de-tela.png")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Selecionar captura de tela"), {
+      target: {
+        files: [new File(["imagem"], "captura-de-tela.png", { type: "image/png" })],
+      },
+    });
+    await waitFor(() => {
+      expect(screen.getByText("captura-de-tela.png")).toBeInTheDocument();
+    });
     fireEvent.change(screen.getByRole("textbox", { name: "Descrição para o suporte" }), {
       target: { value: "Não consigo revisar o documento" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Iniciar chat" }));
 
-    expect(screen.getByText(/Atendimento LD-DOCUMENT-PREVIEW/)).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "Prévia da captura de tela anexada" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Captura de tela")).toBeInTheDocument();
-    expect(screen.getByText("Não consigo revisar o documento")).toBeInTheDocument();
-    expect(screen.getByText(/Recebi sua solicitação/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/LD-SUP-2001/)).toBeInTheDocument();
+    });
+    expect(screen.getByRole("img", { name: "captura-de-tela.png" })).toBeInTheDocument();
+    expect(screen.getByText("captura-de-tela.png")).toBeInTheDocument();
+    expect(screen.getAllByText("Não consigo revisar o documento").length).toBeGreaterThan(0);
     expect(screen.getByRole("textbox", { name: "Mensagem para o suporte" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Selecionar imagem para o suporte"), {
+      target: {
+        files: [new File(["imagem"], "tela-atual.png", { type: "image/png" })],
+      },
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText("captura-de-tela.png").length).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar mensagem para o suporte" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Imagem anexada")).toBeInTheDocument();
+    });
 
     fireEvent.change(screen.getByRole("textbox", { name: "Mensagem para o suporte" }), {
       target: { value: "Aparece erro na prévia" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enviar mensagem para o suporte" }));
 
-    expect(screen.getByText("Aparece erro na prévia")).toBeInTheDocument();
-    expect(screen.getByText("Suporte preparando resposta...")).toBeInTheDocument();
-
-    await act(async () => {
-      vi.advanceTimersByTime(450);
+    await waitFor(() => {
+      expect(screen.getByText("Aparece erro na prévia")).toBeInTheDocument();
     });
-
-    expect(screen.getByText(/Entendi o erro/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Voltar ao assistente" }));
     expect(screen.getByRole("textbox", { name: "Mensagem para ajuda" })).toBeInTheDocument();
   });
 
-  it("adds current-session support requests to history", () => {
+  it("keeps the support intake draft when ticket creation fails", async () => {
+    server.use(
+      http.post("http://localhost:3333/api/support-tickets/", () =>
+        HttpResponse.json(
+          { error: "internal_server_error", message: "Internal server error" },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderWidget("/app/processos");
+
+    fireEvent.click(screen.getByRole("button", { name: "Abrir ajuda" }));
+    fireEvent.click(screen.getByRole("button", { name: "Falar com suporte" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Descrição para o suporte" }), {
+      target: { value: "Falhou ao salvar o processo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar chat" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Não foi possível iniciar o atendimento. Tente novamente."),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByDisplayValue("Falhou ao salvar o processo")).toBeInTheDocument();
+  });
+
+  it("adds current-session support requests to API-backed history cache", async () => {
     renderWidget("/app/processo/process-1");
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir ajuda" }));
@@ -183,15 +259,21 @@ describe("ContextualHelpWidget", () => {
       target: { value: "Quero rever o que enviei antes" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Iniciar chat" }));
-    fireEvent.click(screen.getByRole("button", { name: "Histórico" }));
 
+    await waitFor(() => {
+      expect(screen.getByText(/LD-SUP-2001/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Histórico" }));
     expect(screen.getByText("Meus atendimentos")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Quero rever o que enviei antes/ }),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Quero rever o que enviei antes/ }),
+      ).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /Quero rever o que enviei antes/ }));
-    expect(screen.getByText("Quero rever o que enviei antes")).toBeInTheDocument();
+    expect(screen.getAllByText("Quero rever o que enviei antes").length).toBeGreaterThan(0);
     expect(screen.getByRole("textbox", { name: "Mensagem para o suporte" })).toBeInTheDocument();
   });
 

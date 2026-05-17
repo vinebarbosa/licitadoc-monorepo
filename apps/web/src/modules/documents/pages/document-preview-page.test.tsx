@@ -200,6 +200,8 @@ describe("DocumentPreviewPage", () => {
     expect(sheet).toHaveAttribute("data-institutional-document-output");
     expect(sheet).toHaveAttribute("data-institutional-document-no-branding", "true");
     expect(sheet).toHaveAttribute("data-institutional-document-sheet");
+    expect(sheet.querySelector(".document-preview-prosemirror")).toBeInTheDocument();
+    expect(document.querySelector("[data-institutional-document-markdown]")).toBeNull();
     expect(screen.getByTestId("document-preview-scroll-container")).toHaveAttribute(
       "data-institutional-document-preview-root",
     );
@@ -220,6 +222,241 @@ describe("DocumentPreviewPage", () => {
     expect(screen.getByRole("button", { name: "Exportar PDF" })).toBeEnabled();
     expect(screen.getByText(/Processo:/)).toBeInTheDocument();
     expect(screen.getByText(/Contratacao de Servicos de TI/)).toBeInTheDocument();
+  });
+
+  it("prefers saved Tiptap JSON in completed preview and renders page breaks", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json({
+          ...documentDetailResponse,
+          draftContent: "# Conteudo textual antigo\n\nEste texto nao deve aparecer.",
+          draftContentJson: {
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 1 },
+                content: [{ type: "text", text: "DOCUMENTO EDITADO EM JSON" }],
+              },
+              {
+                type: "paragraph",
+                attrs: { textAlign: "justify", indentLevel: 1 },
+                content: [
+                  {
+                    type: "text",
+                    marks: [{ type: "bold" }, { type: "underline" }],
+                    text: "Trecho salvo pelo editor.",
+                  },
+                ],
+              },
+              { type: "horizontalRule" },
+              {
+                type: "heading",
+                attrs: { level: 2 },
+                content: [{ type: "text", text: "2. Segunda pagina" }],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    renderDocumentPreviewPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "DOCUMENTO EDITADO EM JSON" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Este texto nao deve aparecer.")).not.toBeInTheDocument();
+
+    const sheet = screen.getByTestId("document-preview-sheet");
+    expect(sheet.querySelector(".document-preview-prosemirror hr")).toBeInTheDocument();
+    expect(screen.getByText("Trecho salvo pelo editor.").closest("strong")).toBeInTheDocument();
+    expect(screen.getByText("Trecho salvo pelo editor.").closest("u")).toBeInTheDocument();
+    expect(screen.getByText("Trecho salvo pelo editor.").closest("p")).toHaveAttribute(
+      "data-indent-level",
+      "1",
+    );
+    expect(
+      screen.getByRole("heading", { level: 2, name: "2. Segunda pagina" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders automatic pagination frames for long Tiptap JSON preview content", async () => {
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        const rect = (top: number, height: number) =>
+          ({
+            bottom: top + height,
+            height,
+            left: 0,
+            right: 700,
+            toJSON: () => ({}),
+            top,
+            width: 700,
+            x: 0,
+            y: top,
+          }) as DOMRect;
+
+        if (this.classList.contains("ProseMirror")) {
+          return rect(0, 0);
+        }
+
+        if (this.parentElement?.classList.contains("ProseMirror")) {
+          const siblings = Array.from(this.parentElement.children);
+          const index = siblings.indexOf(this);
+          const heights = [160, 700, 180];
+          const top = heights.slice(0, index).reduce((sum, height) => sum + height, 0);
+
+          return rect(top, heights[index] ?? 120);
+        }
+
+        return rect(0, 0);
+      });
+
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json({
+          ...documentDetailResponse,
+          draftContentJson: {
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 1 },
+                content: [{ type: "text", text: "DOCUMENTO LONGO EM JSON" }],
+              },
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "Conteudo suficiente para ocupar a primeira pagina." },
+                ],
+              },
+              {
+                type: "heading",
+                attrs: { level: 2 },
+                content: [{ type: "text", text: "2. Conteudo seguinte" }],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    renderDocumentPreviewPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "DOCUMENTO LONGO EM JSON" }),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      const sheet = screen.getByTestId("document-preview-sheet");
+      const paginationSurface = sheet.querySelector("[data-document-pagination-surface]");
+      const movedHeading = screen.getByRole("heading", { level: 2, name: "2. Conteudo seguinte" });
+
+      expect(paginationSurface).toHaveAttribute("data-document-pagination-page-count", "2");
+      expect(sheet.querySelectorAll(".document-pagination-page-frame")).toHaveLength(2);
+      expect(movedHeading).toHaveAttribute("data-document-pagination-break-before", "true");
+    });
+
+    rectSpy.mockRestore();
+  });
+
+  it("does not render extra pagination frames from scroll height without a flow boundary", async () => {
+    const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollHeight",
+    );
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        const rect = (top: number, height: number) =>
+          ({
+            bottom: top + height,
+            height,
+            left: 0,
+            right: 700,
+            toJSON: () => ({}),
+            top,
+            width: 700,
+            x: 0,
+            y: top,
+          }) as DOMRect;
+
+        if (this.classList.contains("ProseMirror")) {
+          return rect(0, 0);
+        }
+
+        if (this.parentElement?.classList.contains("ProseMirror")) {
+          const siblings = Array.from(this.parentElement.children);
+          const index = siblings.indexOf(this);
+          const heights = [120, 180, 200];
+          const top = heights.slice(0, index).reduce((sum, height) => sum + height, 0);
+
+          return rect(top, heights[index] ?? 120);
+        }
+
+        return rect(0, 0);
+      });
+
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        return this.classList.contains("ProseMirror") ? 3200 : 0;
+      },
+    });
+
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json({
+          ...documentDetailResponse,
+          draftContentJson: {
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 1 },
+                content: [{ type: "text", text: "DOCUMENTO CURTO EM JSON" }],
+              },
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "Conteudo curto." }],
+              },
+              {
+                type: "heading",
+                attrs: { level: 2 },
+                content: [{ type: "text", text: "2. Ainda na primeira pagina" }],
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    renderDocumentPreviewPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "DOCUMENTO CURTO EM JSON" }),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      const sheet = screen.getByTestId("document-preview-sheet");
+      const paginationSurface = sheet.querySelector("[data-document-pagination-surface]");
+
+      expect(paginationSurface).toHaveAttribute("data-document-pagination-page-count", "1");
+      expect(sheet.querySelectorAll(".document-pagination-page-frame")).toHaveLength(1);
+      expect(
+        sheet.querySelector("[data-document-pagination-break-before]"),
+      ).not.toBeInTheDocument();
+    });
+
+    rectSpy.mockRestore();
+
+    if (scrollHeightDescriptor) {
+      Object.defineProperty(HTMLElement.prototype, "scrollHeight", scrollHeightDescriptor);
+    } else {
+      delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
+    }
   });
 
   it("shows a floating prompt for selected document text and applies an accepted suggestion", async () => {
@@ -278,6 +515,7 @@ describe("DocumentPreviewPage", () => {
           return HttpResponse.json({
             ...documentDetailResponse,
             draftContent: updatedDraftContent,
+            draftContentJson: null,
           });
         },
       ),
@@ -403,6 +641,7 @@ describe("DocumentPreviewPage", () => {
       http.get("http://localhost:3333/api/documents/:documentId", () =>
         HttpResponse.json({
           ...documentDetailResponse,
+          draftContentJson: null,
           draftContent: `# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)
 
 ## 1. DADOS DA SOLICITACAO
@@ -467,6 +706,7 @@ Secretaria Municipal`,
           ...documentDetailResponse,
           type,
           draftContent,
+          draftContentJson: null,
         }),
       ),
     );
@@ -1063,6 +1303,7 @@ Secretaria Municipal`,
           type: "etp",
           status: "completed",
           draftContent: "# ESTUDO TECNICO PRELIMINAR\n\nConteudo persistido.",
+          draftContentJson: null,
         });
       }),
     );
@@ -1189,6 +1430,7 @@ Secretaria Municipal`,
           type: "etp",
           status: "completed",
           draftContent: "# ESTUDO TECNICO PRELIMINAR\n\nConteudo finalizado.",
+          draftContentJson: null,
         });
       }),
     );
@@ -1238,7 +1480,10 @@ Secretaria Municipal`,
     it("renders h1/h2 headings, strong emphasis, list items, table, and link from Markdown", async () => {
       server.use(
         http.get("http://localhost:3333/api/documents/:documentId", () =>
-          HttpResponse.json(documentDetailResponse),
+          HttpResponse.json({
+            ...documentDetailResponse,
+            draftContentJson: null,
+          }),
         ),
       );
 
@@ -1281,6 +1526,7 @@ Secretaria Municipal`,
         http.get("http://localhost:3333/api/documents/:documentId", () =>
           HttpResponse.json({
             ...documentDetailResponse,
+            draftContentJson: null,
             draftContent:
               "# Titulo\n\nConteudo normal.\n\n<script>window.__xssTest = true</script>\n\nTexto apos HTML.",
           }),
@@ -1307,6 +1553,7 @@ Secretaria Municipal`,
         http.get("http://localhost:3333/api/documents/:documentId", () =>
           HttpResponse.json({
             ...documentDetailResponse,
+            draftContentJson: null,
             draftContent: "# Titulo\n\n[Link perigoso](javascript:alert('xss'))\n\nTexto normal.",
           }),
         ),
@@ -1542,6 +1789,7 @@ Secretaria Municipal`,
           return HttpResponse.json({
             ...documentDetailResponse,
             draftContent: updatedDraftContent,
+            draftContentJson: null,
           });
         }),
       );
@@ -1603,6 +1851,7 @@ Secretaria Municipal`,
           HttpResponse.json({
             ...documentDetailResponse,
             draftContent: updatedDraftContent,
+            draftContentJson: null,
           }),
         ),
       );

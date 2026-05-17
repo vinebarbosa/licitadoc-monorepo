@@ -8,6 +8,7 @@ import {
   z,
 } from "../../shared/http/zod";
 import { supportedGeneratedDocumentTypes } from "../../shared/text-generation/types";
+import type { TiptapDocumentJson } from "../../shared/tiptap-json";
 
 function normalizeNullableOptionalText(value?: string | null) {
   if (value == null) {
@@ -40,8 +41,33 @@ const documentSummarySchema = z.object({
   updatedAt: z.string(),
 });
 
+export const tiptapDocumentJsonSchema = z
+  .object({
+    type: z.literal("doc"),
+    content: z.array(z.unknown()).optional(),
+  })
+  .passthrough()
+  .transform((value) => value as TiptapDocumentJson)
+  .meta({
+    example: {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "DOCUMENTO DE FORMALIZACAO DA DEMANDA" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Conteudo revisado." }],
+        },
+      ],
+    } satisfies TiptapDocumentJson,
+  });
+
 const documentDetailSchema = documentSummarySchema.extend({
   draftContent: z.string().nullable(),
+  draftContentJson: tiptapDocumentJsonSchema.nullable(),
   storageKey: z.string().nullable(),
   responsibles: z.array(z.string()),
 });
@@ -142,12 +168,25 @@ export type ApplyDocumentTextAdjustmentInput = z.output<
 export const updateDocumentBodySchema = withOpenApiExample(
   z
     .object({
-      draftContent: withOpenApiExample(z.string().min(1).max(250_000), OPENAPI_EXAMPLE_TEXT),
+      draftContentJson: tiptapDocumentJsonSchema,
       sourceContentHash: withOpenApiExample(z.string().min(1).max(128), "sha256:3b6f7d0b4c2e1a9f"),
     })
     .strict(),
   {
-    draftContent: "# DOCUMENTO DE FORMALIZACAO DE DEMANDA\n\nConteudo revisado.",
+    draftContentJson: {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "DOCUMENTO DE FORMALIZACAO DA DEMANDA" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Conteudo revisado." }],
+        },
+      ],
+    },
     sourceContentHash: "sha256:3b6f7d0b4c2e1a9f",
   },
 );

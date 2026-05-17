@@ -19,10 +19,22 @@ export type SupportTicketRequester = {
 
 export type SupportTicketAttachment = {
   id: string;
-  type: "screenshot";
+  type: "screenshot" | "image";
   name: string;
   description: string;
   messageId?: string;
+  mimeType?: "image/png" | "image/jpeg" | "image/webp";
+  sizeBytes?: number;
+  url?: string;
+};
+
+export type PendingSupportTicketImageAttachment = {
+  type: "image";
+  name: string;
+  description: string;
+  storageKey: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
+  sizeBytes: number;
 };
 
 export type SupportTicketMessage = {
@@ -42,6 +54,7 @@ export type SupportTicketContext = {
 
 export type SupportTicket = {
   id: string;
+  organizationId: string;
   protocol: string;
   subject: string;
   status: SupportTicketStatus;
@@ -65,6 +78,35 @@ export type SupportTicketFilters = {
   source: SupportTicketSource | "all";
 };
 
+export type SupportTicketQueueCounts = {
+  all: number;
+  open: number;
+  waiting: number;
+  resolved: number;
+  attention: number;
+};
+
+export type SupportQueueTimeDisplay = {
+  label: string;
+  title: string;
+  ariaLabel: string;
+};
+
+export type SupportMessageTimelineItem =
+  | {
+      type: "day";
+      id: string;
+      label: string;
+    }
+  | {
+      type: "message";
+      id: string;
+      message: SupportTicketMessage;
+      timeLabel: string;
+      timestampTitle: string;
+      dayLabel: string;
+    };
+
 export type SupportAgent = {
   id: string;
   name: string;
@@ -84,6 +126,32 @@ export const defaultSupportTicketFilters: SupportTicketFilters = {
   assignee: "all",
   source: "all",
 };
+
+export const SUPPORT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const SUPPORT_IMAGE_MAX_COUNT = 4;
+export const SUPPORT_IMAGE_ACCEPT = "image/png,image/jpeg,image/webp";
+
+export function isAcceptedSupportImage(file: File) {
+  return file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/webp";
+}
+
+export function formatSupportFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+}
+
+export function getSupportAttachmentImageUrl(attachment: SupportTicketAttachment) {
+  if (!attachment.url) {
+    return undefined;
+  }
+
+  return attachment.url.startsWith("/")
+    ? `http://localhost:3333${attachment.url}`
+    : attachment.url;
+}
 
 export const supportStatusConfig: Record<
   SupportTicketStatus,
@@ -134,6 +202,7 @@ export const supportSourceConfig: Record<SupportTicketSource, { label: string }>
 export const seededSupportTickets: SupportTicket[] = [
   {
     id: "ticket-process-generation",
+    organizationId: "organization-1",
     protocol: "LD-SUP-1918",
     subject: "Nao consigo concluir a geracao do documento",
     status: "open",
@@ -153,10 +222,13 @@ export const seededSupportTickets: SupportTicket[] = [
     attachments: [
       {
         id: "attachment-process-screen",
-        type: "screenshot",
+        type: "image",
         name: "captura-detalhe-processo.png",
         description: "Captura enviada pelo usuario mostrando a etapa de geracao travada.",
         messageId: "message-process-user-1",
+        mimeType: "image/png",
+        sizeBytes: 2048,
+        url: "/api/support-tickets/ticket-process-generation/attachments/attachment-process-screen/image",
       },
     ],
     messages: [
@@ -182,6 +254,7 @@ export const seededSupportTickets: SupportTicket[] = [
   },
   {
     id: "ticket-document-preview",
+    organizationId: "organization-1",
     protocol: "LD-SUP-1907",
     subject: "Preview do documento nao abre",
     status: "open",
@@ -222,6 +295,7 @@ export const seededSupportTickets: SupportTicket[] = [
   },
   {
     id: "ticket-workspace-members",
+    organizationId: "organization-1",
     protocol: "LD-SUP-1884",
     subject: "Como convidar um membro para a equipe",
     status: "waiting",
@@ -263,6 +337,7 @@ export const seededSupportTickets: SupportTicket[] = [
   },
   {
     id: "ticket-document-import",
+    organizationId: "organization-1",
     protocol: "LD-SUP-1842",
     subject: "Solicitacao de despesa importada com itens errados",
     status: "resolved",
@@ -336,18 +411,194 @@ export function getTicketSlaState(ticket: SupportTicket, nowIso = SUPPORT_NOW) {
   return "ok" as const;
 }
 
-export function formatSupportRelativeTime(iso: string, nowIso = SUPPORT_NOW) {
-  const minutes = Math.max(
-    0,
-    Math.round((new Date(nowIso).getTime() - new Date(iso).getTime()) / 60000),
-  );
-
-  if (minutes < 60) {
-    return `${minutes} min`;
+function getValidDate(iso?: string | null) {
+  if (!iso) {
+    return null;
   }
 
-  const hours = Math.round(minutes / 60);
-  return `${hours} h`;
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getDateParts(date: Date) {
+  return {
+    day: date.getDate(),
+    month: date.getMonth(),
+    year: date.getFullYear(),
+  };
+}
+
+function isSameLocalDay(first: Date, second: Date) {
+  const firstParts = getDateParts(first);
+  const secondParts = getDateParts(second);
+
+  return (
+    firstParts.day === secondParts.day &&
+    firstParts.month === secondParts.month &&
+    firstParts.year === secondParts.year
+  );
+}
+
+function getLocalDayKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatClock(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatShortDate(date: Date, now: Date) {
+  const options: Intl.DateTimeFormatOptions =
+    date.getFullYear() === now.getFullYear()
+      ? { day: "2-digit", month: "2-digit" }
+      : { day: "2-digit", month: "2-digit", year: "numeric" };
+
+  return new Intl.DateTimeFormat("pt-BR", options).format(date);
+}
+
+export function formatSupportExactTimestamp(iso?: string | null) {
+  const date = getValidDate(iso);
+
+  if (!date) {
+    return "sem data";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+    .format(date)
+    .replace(",", " às");
+}
+
+export function formatSupportChatTime(iso?: string | null) {
+  const date = getValidDate(iso);
+
+  if (!date) {
+    return "sem hora";
+  }
+
+  return formatClock(date);
+}
+
+export function formatSupportDayLabel(iso?: string | null, nowIso = SUPPORT_NOW) {
+  const date = getValidDate(iso);
+  const now = getValidDate(nowIso) ?? getValidDate(SUPPORT_NOW);
+
+  if (!date || !now) {
+    return "Sem data";
+  }
+
+  if (isSameLocalDay(date, now)) {
+    return "Hoje";
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  if (isSameLocalDay(date, yesterday)) {
+    return "Ontem";
+  }
+
+  return formatShortDate(date, now);
+}
+
+export function formatSupportQueueFreshness(
+  iso?: string | null,
+  nowIso = SUPPORT_NOW,
+): SupportQueueTimeDisplay {
+  const date = getValidDate(iso);
+  const now = getValidDate(nowIso) ?? getValidDate(SUPPORT_NOW);
+
+  if (!date || !now) {
+    return {
+      label: "sem data",
+      title: "Sem data registrada",
+      ariaLabel: "Ultima atividade sem data registrada",
+    };
+  }
+
+  const exact = formatSupportExactTimestamp(iso);
+
+  if (!isSameLocalDay(date, now)) {
+    const label = formatSupportDayLabel(iso, nowIso).toLocaleLowerCase("pt-BR");
+
+    return {
+      label,
+      title: exact,
+      ariaLabel: `Ultima atividade ${label}, ${exact}`,
+    };
+  }
+
+  const minutes = Math.max(
+    0,
+    Math.round((now.getTime() - date.getTime()) / 60000),
+  );
+  let label: string;
+
+  if (minutes < 1) {
+    label = "agora";
+  } else if (minutes < 60) {
+    label = `há ${minutes} min`;
+  } else {
+    const hours = Math.max(1, Math.round(minutes / 60));
+    label = `há ${hours} h`;
+  }
+
+  return {
+    label,
+    title: exact,
+    ariaLabel: `Ultima atividade ${label}, ${exact}`,
+  };
+}
+
+export function formatSupportRelativeTime(iso: string, nowIso = SUPPORT_NOW) {
+  return formatSupportQueueFreshness(iso, nowIso).label;
+}
+
+export function getSupportMessageTimeline(
+  messages: SupportTicketMessage[],
+  nowIso = SUPPORT_NOW,
+): SupportMessageTimelineItem[] {
+  const timeline: SupportMessageTimelineItem[] = [];
+  let previousDayKey: string | null = null;
+
+  messages.forEach((message) => {
+    const date = getValidDate(message.timestamp);
+    const dayKey = date ? getLocalDayKey(date) : `invalid-${message.id}`;
+    const dayLabel = formatSupportDayLabel(message.timestamp, nowIso);
+
+    if (dayKey !== previousDayKey) {
+      timeline.push({
+        type: "day",
+        id: `day-${dayKey}`,
+        label: dayLabel,
+      });
+      previousDayKey = dayKey;
+    }
+
+    timeline.push({
+      type: "message",
+      id: message.id,
+      message,
+      timeLabel: formatSupportChatTime(message.timestamp),
+      timestampTitle: formatSupportExactTimestamp(message.timestamp),
+      dayLabel,
+    });
+  });
+
+  return timeline;
 }
 
 export function getSupportTicketStats(tickets: SupportTicket[], nowIso = SUPPORT_NOW) {
@@ -359,6 +610,18 @@ export function getSupportTicketStats(tickets: SupportTicket[], nowIso = SUPPORT
       const state = getTicketSlaState(ticket, nowIso);
       return state === "warning" || state === "breached";
     }).length,
+  };
+}
+
+export function getSupportTicketQueueCounts(
+  tickets: SupportTicket[],
+  nowIso = SUPPORT_NOW,
+): SupportTicketQueueCounts {
+  const stats = getSupportTicketStats(tickets, nowIso);
+
+  return {
+    all: stats.open + stats.waiting + stats.resolved,
+    ...stats,
   };
 }
 

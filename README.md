@@ -68,6 +68,18 @@ Para manutencao da `apps/api`, consulte:
 - `apps/api/agents.md` para fluxo de trabalho, comandos e limites de mudanca no backend
 - `apps/api/architecture.md` para o mapa da arquitetura atual da API
 
+## Realtime de Chamados
+
+Os chamados de suporte usam o banco da API como fonte da verdade. O provider realtime serve apenas para entregar eventos ao navegador em ambientes serverless como a Vercel, onde a aplicacao nao deve hospedar conexoes WebSocket long-lived.
+
+Variaveis da API:
+
+- `REALTIME_PROVIDER`: `disabled` por padrao; use `ably` para habilitar realtime externo
+- `ABLY_API_KEY`: chave server-side do app Ably, usada para publicar eventos e emitir token request
+- `REALTIME_TOKEN_TTL_MS`: validade dos tokens de canal privado, padrao `3600000`
+
+Em producao na Vercel, configure essas variaveis no projeto da API. O navegador assina canais privados via `POST /api/support-tickets/realtime/token`; mensagens, status e read state continuam sendo persistidos pela API antes de qualquer publish realtime.
+
 ## Expense Request Upload Seed
 
 Para testar manualmente `POST /api/processes/from-expense-request/pdf` com dados compativeis com o SD de referencia, a API agora tem um seed dedicado que prepara:

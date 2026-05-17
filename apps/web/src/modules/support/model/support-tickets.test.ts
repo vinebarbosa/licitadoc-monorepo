@@ -5,11 +5,17 @@ import {
   DEFAULT_SUPPORT_AGENT,
   defaultSupportTicketFilters,
   filterSupportTickets,
+  formatSupportChatTime,
+  formatSupportDayLabel,
+  formatSupportExactTimestamp,
+  formatSupportQueueFreshness,
   getInitialSupportTicketId,
   getLatestTicketPreview,
   getSelectedSupportTicket,
+  getSupportMessageTimeline,
   getSupportTicketStats,
   getTicketSlaState,
+  SUPPORT_NOW,
   seededSupportTickets,
   updateSupportTicketPriority,
   updateSupportTicketStatus,
@@ -27,6 +33,66 @@ describe("support ticket model", () => {
     expect(getTicketSlaState(seededSupportTickets[0])).toBe("breached");
     expect(getTicketSlaState(seededSupportTickets[1])).toBe("breached");
     expect(getTicketSlaState(seededSupportTickets[3])).toBe("done");
+  });
+
+  it("formats queue freshness and exact chat timestamps deterministically", () => {
+    expect(formatSupportQueueFreshness(SUPPORT_NOW, SUPPORT_NOW)).toMatchObject({
+      label: "agora",
+      title: "16/05/2026 às 12:30",
+    });
+    expect(formatSupportQueueFreshness("2026-05-16T12:22:00-03:00", SUPPORT_NOW).label).toBe(
+      "há 8 min",
+    );
+    expect(formatSupportQueueFreshness("2026-05-16T10:30:00-03:00", SUPPORT_NOW).label).toBe(
+      "há 2 h",
+    );
+    expect(formatSupportQueueFreshness("2026-05-15T16:22:00-03:00", SUPPORT_NOW).label).toBe(
+      "ontem",
+    );
+    expect(formatSupportQueueFreshness("2026-05-10T09:00:00-03:00", SUPPORT_NOW).label).toBe(
+      "10/05",
+    );
+    expect(formatSupportQueueFreshness(null, SUPPORT_NOW)).toEqual({
+      label: "sem data",
+      title: "Sem data registrada",
+      ariaLabel: "Ultima atividade sem data registrada",
+    });
+    expect(formatSupportChatTime("2026-05-16T12:08:00-03:00")).toBe("12:08");
+    expect(formatSupportChatTime("not-a-date")).toBe("sem hora");
+    expect(formatSupportExactTimestamp("2026-05-16T12:08:00-03:00")).toBe(
+      "16/05/2026 às 12:08",
+    );
+  });
+
+  it("builds support message timeline day labels for conversations crossing days", () => {
+    const timeline = getSupportMessageTimeline(
+      [
+        {
+          id: "message-yesterday",
+          role: "user",
+          authorName: "Ana Martins",
+          content: "Mensagem anterior.",
+          timestamp: "2026-05-15T23:56:00-03:00",
+        },
+        {
+          id: "message-today",
+          role: "support",
+          authorName: "Admin LicitaDoc",
+          content: "Resposta de hoje.",
+          timestamp: "2026-05-16T00:03:00-03:00",
+        },
+      ],
+      SUPPORT_NOW,
+    );
+
+    expect(formatSupportDayLabel("2026-05-16T12:08:00-03:00", SUPPORT_NOW)).toBe("Hoje");
+    expect(formatSupportDayLabel("2026-05-15T23:56:00-03:00", SUPPORT_NOW)).toBe("Ontem");
+    expect(timeline.map((item) => (item.type === "day" ? item.label : item.timeLabel))).toEqual([
+      "Ontem",
+      "23:56",
+      "Hoje",
+      "00:03",
+    ]);
   });
 
   it("filters tickets by status, assignee, source, priority, and search", () => {

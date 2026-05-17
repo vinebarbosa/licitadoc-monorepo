@@ -27,6 +27,7 @@ import {
   ProcessesPage,
 } from "@/modules/processes";
 import {
+  DocumentEditorDemoPage,
   LandingPage,
   OnboardingCompletePage,
   OnboardingCompleteProfilePage,
@@ -144,6 +145,10 @@ export const appRoutes: RouteObject[] = [
       {
         path: "demo/processo/:processId",
         element: <ProcessDetailDemoPage />,
+      },
+      {
+        path: "demo/documento/editor",
+        element: <DocumentEditorDemoPage />,
       },
       {
         path: "demo/onboarding/perfil",

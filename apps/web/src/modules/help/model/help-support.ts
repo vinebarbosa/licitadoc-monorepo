@@ -1,9 +1,12 @@
 import type { HelpContext } from "./help-context";
 
 export type SupportAttachment = {
-  type: "screenshot";
+  type: "screenshot" | "image";
   title: string;
   subtitle: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  url?: string;
 };
 
 export type SupportMessage = {
@@ -11,7 +14,7 @@ export type SupportMessage = {
   role: "support" | "user" | "system";
   content: string;
   time: string;
-  attachment?: SupportAttachment;
+  attachments?: SupportAttachment[];
   status?: "sent" | "read";
 };
 
@@ -57,11 +60,13 @@ export const SEEDED_SUPPORT_HISTORY: SupportHistoryRecord[] = [
         content: "Captura de tela anexada",
         time: "08:31",
         status: "read",
-        attachment: {
-          type: "screenshot",
-          title: "Captura de tela",
-          subtitle: "Ajuda em documentos",
-        },
+        attachments: [
+          {
+            type: "screenshot",
+            title: "Captura de tela",
+            subtitle: "Ajuda em documentos",
+          },
+        ],
       },
       {
         id: "seeded-document-user",

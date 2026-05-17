@@ -10,6 +10,7 @@ import {
   supportedGeneratedDocumentTypes,
   TextGenerationError,
 } from "../../shared/text-generation/types";
+import { documentTextToTiptapJson } from "../../shared/tiptap-json";
 import type { DocumentGenerationEvents } from "./document-generation-events";
 import { sanitizeGeneratedDocumentDraft } from "./documents.shared";
 
@@ -207,6 +208,7 @@ export async function executeDocumentGeneration({
         .set({
           status: "completed",
           draftContent,
+          draftContentJson: documentTextToTiptapJson(draftContent),
           updatedAt: now,
         })
         .where(and(eq(documents.id, document.id), eq(documents.status, "generating")));

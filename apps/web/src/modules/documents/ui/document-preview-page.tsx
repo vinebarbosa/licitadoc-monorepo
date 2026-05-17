@@ -34,8 +34,14 @@ import {
   useDocumentTextAdjustmentApply,
   useDocumentTextAdjustmentSuggestion,
 } from "../api/documents";
-import { getDocumentPreviewBreadcrumbs, getPreviewableDraftContent } from "../model/documents";
+import {
+  type DocumentEditorJson,
+  getDocumentPreviewBreadcrumbs,
+  getDocumentPreviewSource,
+  getPreviewableDraftContent,
+} from "../model/documents";
 import { DocumentMarkdownPreview } from "./document-markdown-preview";
+import { DocumentTiptapPreview } from "./document-tiptap-preview";
 import {
   getInstitutionalDocumentOutputClassName,
   institutionalDocumentTheme,
@@ -697,12 +703,14 @@ function DocumentTextAdjustmentPanel({
 function DocumentSheet({
   adjustmentSkeletonSelection = null,
   draftContent,
+  draftContentJson = null,
   isGenerating = false,
   liveWritingEndpointRef,
   onTextSelection,
 }: {
   adjustmentSkeletonSelection?: DocumentTextSelection | null;
   draftContent: string;
+  draftContentJson?: DocumentEditorJson | null;
   isGenerating?: boolean;
   liveWritingEndpointRef?: RefObject<HTMLDivElement | null>;
   onTextSelection?: (selection: {
@@ -713,6 +721,7 @@ function DocumentSheet({
   }) => void;
 }) {
   const bodyRef = useRef<HTMLElement | null>(null);
+  const isJsonPreview = Boolean(draftContentJson);
   const handleTextSelection = useCallback(() => {
     if (!onTextSelection || !bodyRef.current) {
       return;
@@ -747,9 +756,14 @@ function DocumentSheet({
   return (
     <section
       className={getInstitutionalDocumentOutputClassName(
-        cn(institutionalDocumentTheme.sheetClassName, "relative"),
+        cn(
+          "relative",
+          isJsonPreview
+            ? "public-document-demo-page document-preview-json-sheet"
+            : institutionalDocumentTheme.sheetClassName,
+        ),
       )}
-      style={institutionalDocumentThemeTokens}
+      style={isJsonPreview ? undefined : institutionalDocumentThemeTokens}
       data-institutional-document-output
       data-institutional-document-no-branding="true"
       data-institutional-document-sheet
@@ -775,7 +789,11 @@ function DocumentSheet({
             Gerando documento em tempo real
           </div>
         ) : null}
-        <DocumentMarkdownPreview content={draftContent} />
+        {draftContentJson ? (
+          <DocumentTiptapPreview content={draftContentJson} />
+        ) : (
+          <DocumentMarkdownPreview content={draftContent} />
+        )}
         {adjustmentSkeletonSelection ? (
           <DocumentAdjustmentSkeletonOverlay
             rects={adjustmentSkeletonSelection.rects}
@@ -819,11 +837,12 @@ export function DocumentPreviewPageUI() {
 
   useAppShellHeader(breadcrumbs);
 
-  const draftContent = getPreviewableDraftContent(document?.draftContent);
+  const previewSource = getDocumentPreviewSource(document);
+  const previewTextContent = previewSource?.textContent ?? null;
   const liveDraftContent =
     document?.status === "generating" ? getPreviewableDraftContent(livePreview.content) : null;
-  const canUsePersistedDocument = document?.status === "completed" && Boolean(draftContent);
-  const canAdjustDocumentText = canUsePersistedDocument && Boolean(draftContent);
+  const canUsePersistedDocument = document?.status === "completed" && Boolean(previewSource);
+  const canAdjustDocumentText = canUsePersistedDocument && Boolean(previewSource);
   const liveWritingEndpointRef = useRef<HTMLDivElement | null>(null);
   const [textSelection, setTextSelection] = useState<DocumentTextSelection | null>(null);
   const [adjustmentInstruction, setAdjustmentInstruction] = useState("");
@@ -855,20 +874,22 @@ export function DocumentPreviewPageUI() {
       selectedText: string;
       selectionContext?: DocumentTextSelection["selectionContext"];
     }) => {
-      if (!canAdjustDocumentText || !draftContent) {
+      if (!canAdjustDocumentText) {
         return;
       }
 
       setTextSelection({
         rects,
         selectedText,
-        selectionContext: selectionContext ?? getSelectionContext(draftContent, selectedText),
+        selectionContext:
+          selectionContext ??
+          (previewTextContent ? getSelectionContext(previewTextContent, selectedText) : undefined),
       });
       setAdjustmentInstruction("");
       setAdjustmentSuggestion(null);
       setAdjustmentError(null);
     },
-    [canAdjustDocumentText, draftContent],
+    [canAdjustDocumentText, previewTextContent],
   );
   const handleSuggestAdjustment = useCallback(() => {
     if (!textSelection || suggestionMutation.isPending || applyAdjustmentMutation.isPending) {
@@ -1037,11 +1058,12 @@ export function DocumentPreviewPageUI() {
               description="Não há conteúdo para visualizar porque a geração deste documento terminou com erro."
               icon="alert"
             />
-          ) : draftContent ? (
+          ) : previewSource ? (
             <>
               <DocumentSheet
                 adjustmentSkeletonSelection={adjustmentSkeletonSelection}
-                draftContent={draftContent}
+                draftContent={previewSource.textContent ?? ""}
+                draftContentJson={previewSource.kind === "json" ? previewSource.content : null}
                 onTextSelection={canAdjustDocumentText ? handleDocumentTextSelection : undefined}
               />
               {textSelection ? (

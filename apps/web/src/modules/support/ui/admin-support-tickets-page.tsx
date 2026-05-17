@@ -14,7 +14,7 @@ import {
   Sparkles,
   UserCheck,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthSession } from "@/modules/auth";
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
@@ -24,29 +24,38 @@ import { Label } from "@/shared/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Textarea } from "@/shared/ui/textarea";
 import {
-  appendSupportReply,
-  assignSupportTicketToAgent,
+  type SupportTicketRealtimeEvent,
+  useSupportTicketDetail,
+  useSupportTicketMessageCreate,
+  useSupportTicketRead,
+  useSupportTicketRealtime,
+  useSupportTicketsList,
+  useSupportTicketTyping,
+  useSupportTicketUpdate,
+} from "../api/support-tickets";
+import {
   DEFAULT_SUPPORT_AGENT,
   defaultSupportTicketFilters,
   filterSupportTickets,
-  formatSupportRelativeTime,
+  formatSupportQueueFreshness,
+  formatSupportFileSize,
+  getSupportMessageTimeline,
   getInitialSupportTicketId,
+  getSupportAttachmentImageUrl,
   getLatestTicketPreview,
   getSelectedSupportTicket,
-  getSupportTicketStats,
+  getSupportTicketQueueCounts,
   getTicketSlaState,
   type SupportAgent,
+  type SupportTicketQueueCounts,
   type SupportTicket,
   type SupportTicketAttachment,
   type SupportTicketFilters,
   type SupportTicketPriority,
   type SupportTicketStatus,
-  seededSupportTickets,
   supportPriorityConfig,
   supportSourceConfig,
   supportStatusConfig,
-  updateSupportTicketPriority,
-  updateSupportTicketStatus,
 } from "../model/support-tickets";
 
 const priorityOptions: Array<{ value: SupportTicketPriority | "all"; label: string }> = [
@@ -148,18 +157,18 @@ function SlaBadge({ ticket }: { ticket: SupportTicket }) {
 
 function StatusTabs({
   filters,
-  stats,
+  counts,
   onChange,
 }: {
   filters: SupportTicketFilters;
-  stats: ReturnType<typeof getSupportTicketStats>;
+  counts: SupportTicketQueueCounts;
   onChange: (status: SupportTicketStatus | "all") => void;
 }) {
   const tabs: Array<{ value: SupportTicketStatus | "all"; label: string; count: number }> = [
-    { value: "all", label: "Todos", count: stats.open + stats.waiting + stats.resolved },
-    { value: "open", label: "Abertos", count: stats.open },
-    { value: "waiting", label: "Aguardando", count: stats.waiting },
-    { value: "resolved", label: "Resolvidos", count: stats.resolved },
+    { value: "all", label: "Todos", count: counts.all },
+    { value: "open", label: "Abertos", count: counts.open },
+    { value: "waiting", label: "Aguardando", count: counts.waiting },
+    { value: "resolved", label: "Resolvidos", count: counts.resolved },
   ];
 
   return (
@@ -171,12 +180,12 @@ function StatusTabs({
           type="button"
           aria-pressed={filters.status === tab.value}
           className={cn(
-            "min-w-0 rounded-sm px-2 py-1.5 text-center text-muted-foreground text-xs transition-colors hover:bg-background/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "min-w-0 rounded-sm px-1.5 py-1.5 text-center text-muted-foreground text-xs transition-colors hover:bg-background/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             filters.status === tab.value && "bg-background text-foreground shadow-xs",
           )}
           onClick={() => onChange(tab.value)}
         >
-          <span className="block truncate">{tab.label}</span>
+          <span className="block leading-tight">{tab.label}</span>
           <span className="font-semibold tabular-nums">{tab.count}</span>
         </button>
       ))}
@@ -195,6 +204,7 @@ function TicketQueueButton({
 }) {
   const status = supportStatusConfig[ticket.status];
   const priority = supportPriorityConfig[ticket.priority];
+  const freshness = formatSupportQueueFreshness(ticket.updatedAt);
 
   return (
     <button
@@ -229,9 +239,14 @@ function TicketQueueButton({
             {ticket.requester.name} - {supportSourceConfig[ticket.context.source].label}
           </p>
         </div>
-        <span className="shrink-0 text-muted-foreground text-xs">
-          {formatSupportRelativeTime(ticket.updatedAt)}
-        </span>
+        <time
+          dateTime={ticket.updatedAt}
+          title={freshness.title}
+          aria-label={freshness.ariaLabel}
+          className="shrink-0 whitespace-nowrap font-medium text-muted-foreground text-xs tabular-nums"
+        >
+          {freshness.label}
+        </time>
       </div>
       <p className="mt-2 line-clamp-2 text-muted-foreground text-xs">
         {getLatestTicketPreview(ticket)}
@@ -279,10 +294,12 @@ function TicketQueueButton({
 }
 
 function AttachmentPreview({ attachment }: { attachment: SupportTicketAttachment }) {
+  const imageUrl = getSupportAttachmentImageUrl(attachment);
+
   return (
     <div
       role="img"
-      aria-label="Preview da captura enviada pelo usuario"
+      aria-label={`Preview do anexo ${attachment.name}`}
       className="mt-2 overflow-hidden rounded-md border bg-background shadow-xs"
     >
       <div className="flex items-center justify-between gap-3 border-b bg-muted/70 px-3 py-2">
@@ -295,19 +312,38 @@ function AttachmentPreview({ attachment }: { attachment: SupportTicketAttachment
             <p className="truncate text-muted-foreground text-[11px]">{attachment.description}</p>
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs">
-          Abrir
-        </Button>
+        {imageUrl ? (
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
+            <a href={imageUrl} target="_blank" rel="noreferrer">
+              Abrir
+            </a>
+          </Button>
+        ) : null}
       </div>
-      <div className="space-y-2 p-3">
-        <div className="h-2.5 w-3/4 rounded bg-slate-200" />
-        <div className="h-2.5 w-1/2 rounded bg-slate-200" />
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <div className="h-12 rounded border bg-sky-50" />
-          <div className="h-12 rounded border bg-emerald-50" />
+      {imageUrl ? (
+        <div className="p-3">
+          <img
+            src={imageUrl}
+            alt={attachment.name}
+            className="max-h-56 w-full rounded-md border object-contain"
+          />
+          {attachment.sizeBytes ? (
+            <p className="mt-2 text-muted-foreground text-[11px]">
+              {formatSupportFileSize(attachment.sizeBytes)}
+            </p>
+          ) : null}
         </div>
-        <div className="h-7 rounded border border-primary/30 bg-primary/10" />
-      </div>
+      ) : (
+        <div className="space-y-2 p-3">
+          <div className="h-2.5 w-3/4 rounded bg-slate-200" />
+          <div className="h-2.5 w-1/2 rounded bg-slate-200" />
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="h-12 rounded border bg-sky-50" />
+            <div className="h-12 rounded border bg-emerald-50" />
+          </div>
+          <div className="h-7 rounded border border-primary/30 bg-primary/10" />
+        </div>
+      )}
     </div>
   );
 }
@@ -372,20 +408,34 @@ function RequesterHistory({ ticket }: { ticket: SupportTicket }) {
 function TicketConversation({
   ticket,
   reply,
+  typingNames,
   onReplyChange,
   onSubmitReply,
 }: {
   ticket: SupportTicket;
   reply: string;
+  typingNames: string[];
   onReplyChange: (value: string) => void;
   onSubmitReply: () => void;
 }) {
   const isResolved = ticket.status === "resolved";
+  const timeline = getSupportMessageTimeline(ticket.messages);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,hsl(var(--muted)/0.35),hsl(var(--background)))] px-4 py-5 sm:px-6">
-        {ticket.messages.map((message) => {
+        {timeline.map((item) => {
+          if (item.type === "day") {
+            return (
+              <div key={item.id} className="flex justify-center">
+                <span className="rounded-full border bg-background/90 px-3 py-1 font-medium text-muted-foreground text-[11px] shadow-xs">
+                  {item.label}
+                </span>
+              </div>
+            );
+          }
+
+          const message = item.message;
           const messageAttachments = ticket.attachments.filter(
             (attachment) => attachment.messageId === message.id,
           );
@@ -415,7 +465,9 @@ function TicketConversation({
                   )}
                 >
                   <span>{message.authorName}</span>
-                  <span>{formatSupportRelativeTime(message.timestamp)}</span>
+                  <time dateTime={message.timestamp} title={item.timestampTitle}>
+                    {item.timeLabel}
+                  </time>
                 </div>
                 <p className="leading-relaxed">{message.content}</p>
                 {messageAttachments.map((attachment) => (
@@ -425,6 +477,13 @@ function TicketConversation({
             </div>
           );
         })}
+        {typingNames.length > 0 ? (
+          <div className="flex justify-start">
+            <div className="rounded-md border bg-card px-3 py-2 text-muted-foreground text-xs shadow-xs">
+              {typingNames.join(", ")} {typingNames.length === 1 ? "esta" : "estao"} digitando...
+            </div>
+          </div>
+        ) : null}
       </div>
       <div className="border-t bg-card/80 p-3">
         {isResolved ? (
@@ -615,45 +674,157 @@ function EmptyConversation() {
 export function AdminSupportTicketsPageContent() {
   const { session } = useAuthSession();
   const agent = useMemo(() => getAgentFromSession(session), [session]);
-  const [tickets, setTickets] = useState(seededSupportTickets);
   const [filters, setFilters] = useState(defaultSupportTicketFilters);
-  const [selectedTicketId, setSelectedTicketId] = useState(() =>
-    getInitialSupportTicketId(tickets),
-  );
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
+  const [typingByActor, setTypingByActor] = useState<Record<string, string>>({});
+  const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const stopTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ticketsQuery = useSupportTicketsList(filters);
+  const tickets = ticketsQuery.data?.items ?? [];
+  const detailQuery = useSupportTicketDetail(selectedTicketId);
+  const updateTicket = useSupportTicketUpdate();
+  const createMessage = useSupportTicketMessageCreate();
+  const markRead = useSupportTicketRead();
+  const publishTyping = useSupportTicketTyping();
+  const markReadTicket = markRead.mutate;
 
   const filteredTickets = useMemo(
     () => filterSupportTickets(tickets, filters, agent),
     [tickets, filters, agent],
   );
   const selectedTicket = getSelectedSupportTicket(filteredTickets, selectedTicketId);
-  const stats = getSupportTicketStats(tickets);
+  const selectedTicketDetail = detailQuery.data ?? selectedTicket;
+  const fallbackCounts = useMemo(() => getSupportTicketQueueCounts(tickets), [tickets]);
+  const queueCounts = ticketsQuery.data?.counts ?? fallbackCounts;
+  const typingNames = useMemo(() => Object.values(typingByActor), [typingByActor]);
 
   useEffect(() => {
-    if (!filteredTickets.some((ticket) => ticket.id === selectedTicketId)) {
+    if (!selectedTicketId && filteredTickets.length > 0) {
+      setSelectedTicketId(getInitialSupportTicketId(filteredTickets));
+      return;
+    }
+
+    if (selectedTicketId && !filteredTickets.some((ticket) => ticket.id === selectedTicketId)) {
       setSelectedTicketId(filteredTickets[0]?.id ?? null);
     }
   }, [filteredTickets, selectedTicketId]);
+
+  useEffect(() => {
+    if (!selectedTicketId) {
+      return;
+    }
+
+    markReadTicket({ ticketId: selectedTicketId });
+  }, [markReadTicket, selectedTicketId]);
+
+  const handleRealtimeTyping = useCallback(
+    (event: Extract<SupportTicketRealtimeEvent, { type: "ticket.typing" }>) => {
+      if (event.actor.id === agent.id) {
+        return;
+      }
+
+      const timer = typingTimersRef.current[event.actor.id];
+
+      if (timer) {
+        clearTimeout(timer);
+      }
+
+      if (!event.isTyping) {
+        setTypingByActor((current) => {
+          const next = { ...current };
+          delete next[event.actor.id];
+          return next;
+        });
+        return;
+      }
+
+      setTypingByActor((current) => ({
+        ...current,
+        [event.actor.id]: event.actor.name,
+      }));
+      typingTimersRef.current[event.actor.id] = setTimeout(() => {
+        setTypingByActor((current) => {
+          const next = { ...current };
+          delete next[event.actor.id];
+          return next;
+        });
+      }, 3500);
+    },
+    [agent.id],
+  );
+
+  useSupportTicketRealtime({
+    ticket: selectedTicketDetail,
+    enabled: !!selectedTicketDetail,
+    onTyping: handleRealtimeTyping,
+  });
 
   function updateFilters(nextFilters: Partial<SupportTicketFilters>) {
     setFilters((current) => ({ ...current, ...nextFilters }));
   }
 
   function handleAssign(ticket: SupportTicket) {
-    setTickets((current) => assignSupportTicketToAgent(current, ticket.id, agent));
+    updateTicket.mutate({
+      ticketId: ticket.id,
+      data: { assigneeUserId: agent.id },
+    });
   }
 
   function handlePriorityChange(ticket: SupportTicket, priority: SupportTicketPriority) {
-    setTickets((current) => updateSupportTicketPriority(current, ticket.id, priority));
+    updateTicket.mutate({
+      ticketId: ticket.id,
+      data: { priority },
+    });
   }
 
   function handleStatusChange(ticket: SupportTicket, status: SupportTicketStatus) {
-    setTickets((current) => updateSupportTicketStatus(current, ticket.id, status));
+    updateTicket.mutate({
+      ticketId: ticket.id,
+      data: { status },
+    });
   }
 
   function handleReply(ticket: SupportTicket) {
-    setTickets((current) => appendSupportReply(current, ticket.id, reply, agent));
-    setReply("");
+    const content = reply.trim();
+
+    if (!content) {
+      return;
+    }
+
+    createMessage.mutate(
+      {
+        ticketId: ticket.id,
+        data: { content },
+      },
+      {
+        onSuccess: () => setReply(""),
+      },
+    );
+  }
+
+  function handleReplyChange(value: string) {
+    setReply(value);
+
+    if (!selectedTicketDetail || !value.trim()) {
+      return;
+    }
+
+    publishTyping.mutate({
+      ticketId: selectedTicketDetail.id,
+      data: { isTyping: true },
+    });
+
+    if (stopTypingTimerRef.current) {
+      clearTimeout(stopTypingTimerRef.current);
+    }
+
+    stopTypingTimerRef.current = setTimeout(() => {
+      publishTyping.mutate({
+        ticketId: selectedTicketDetail.id,
+        data: { isTyping: false },
+      });
+    }, 1200);
   }
 
   return (
@@ -678,17 +849,19 @@ export function AdminSupportTicketsPageContent() {
               <div>
                 <p className="font-semibold text-sm">Fila de atendimento</p>
                 <p className="text-muted-foreground text-xs">
-                  {filteredTickets.length} de {tickets.length} chamados
+                  {ticketsQuery.isLoading
+                    ? "Carregando chamados"
+                    : `${filteredTickets.length} de ${queueCounts.all} chamados`}
                 </p>
               </div>
               <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
-                <span>{stats.attention}</span>
-                <span>Atencao</span>
+                <span>{queueCounts.attention}</span>
+                <span>Atenção</span>
               </Badge>
             </div>
             <StatusTabs
               filters={filters}
-              stats={stats}
+              counts={queueCounts}
               onChange={(status) => updateFilters({ status })}
             />
             <div className="relative">
@@ -749,11 +922,11 @@ export function AdminSupportTicketsPageContent() {
           </div>
         </section>
 
-        {selectedTicket ? (
+        {selectedTicketDetail ? (
           <>
             <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-background shadow-xs">
               <TicketHeader
-                selectedTicket={selectedTicket}
+                selectedTicket={selectedTicketDetail}
                 agent={agent}
                 onAssign={handleAssign}
                 onPriorityChange={handlePriorityChange}
@@ -769,16 +942,17 @@ export function AdminSupportTicketsPageContent() {
                     </span>
                   </summary>
                   <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                    <TicketContext ticket={selectedTicket} />
-                    <RequesterHistory ticket={selectedTicket} />
+                    <TicketContext ticket={selectedTicketDetail} />
+                    <RequesterHistory ticket={selectedTicketDetail} />
                   </div>
                 </details>
               </div>
               <TicketConversation
-                ticket={selectedTicket}
+                ticket={selectedTicketDetail}
                 reply={reply}
-                onReplyChange={setReply}
-                onSubmitReply={() => handleReply(selectedTicket)}
+                typingNames={typingNames}
+                onReplyChange={handleReplyChange}
+                onSubmitReply={() => handleReply(selectedTicketDetail)}
               />
             </section>
 
@@ -788,15 +962,15 @@ export function AdminSupportTicketsPageContent() {
                 <p className="text-muted-foreground text-xs">Dados para apoiar a resposta.</p>
               </div>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-                <TicketContext ticket={selectedTicket} />
-                <RequesterHistory ticket={selectedTicket} />
+                <TicketContext ticket={selectedTicketDetail} />
+                <RequesterHistory ticket={selectedTicketDetail} />
                 <div className="rounded-md border bg-muted/30 p-3">
                   <div className="flex items-center gap-2">
                     <FileText className="size-4 text-primary" aria-hidden="true" />
-                    <p className="font-medium text-sm">Atendimento local</p>
+                    <p className="font-medium text-sm">Atendimento em tempo real</p>
                   </div>
                   <p className="mt-1 text-muted-foreground text-xs">
-                    Alteracoes feitas aqui ficam no estado local ate existir uma API de chamados.
+                    Mensagens e status sao persistidos na API; o realtime apenas sincroniza a tela.
                   </p>
                 </div>
               </div>

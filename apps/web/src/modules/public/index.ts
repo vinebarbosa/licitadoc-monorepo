@@ -1,3 +1,4 @@
+export { DocumentEditorDemoPage } from "./pages/document-editor-demo-page";
 export { LandingPage } from "./pages/landing-page";
 export {
   OnboardingCompletePage,

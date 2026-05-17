@@ -43,6 +43,18 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(3 * 1024 * 1024),
+  SUPPORT_IMAGE_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 1024 * 1024),
+  REALTIME_PROVIDER: z.enum(["disabled", "ably"]).default("disabled"),
+  ABLY_API_KEY: z.string().optional(),
+  REALTIME_TOKEN_TTL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 1000),
 });
 
 declare module "fastify" {

@@ -310,6 +310,7 @@ function createDocumentRow(
     type: "attachment",
     status: "completed",
     draftContent: null,
+    draftContentJson: null,
     storageKey: "documents/processo/documento.pdf",
     responsibles: ["Ana Souza"],
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
@@ -1150,9 +1151,15 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
     deleteObject: async (object) => {
       deletedObjects.push(object);
     },
+    getObject: async () => {
+      throw new Error("not implemented");
+    },
     storeExpenseRequestPdf: async () => {
       storedCalls += 1;
       return storedObject;
+    },
+    storeSupportTicketImage: async () => {
+      throw new Error("not implemented");
     },
   };
 
@@ -1217,8 +1224,14 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
 test("createProcessFromExpenseRequestPdf reuses scope rules and stops when storage fails", async () => {
   const rejectingStorage: FileStorageProvider = {
     deleteObject: async () => undefined,
+    getObject: async () => {
+      throw new Error("not implemented");
+    },
     storeExpenseRequestPdf: async () => {
       throw new Error("storage down");
+    },
+    storeSupportTicketImage: async () => {
+      throw new Error("not implemented");
     },
   };
 
@@ -1275,6 +1288,9 @@ test("createProcessFromExpenseRequestPdf reuses scope rules and stops when stora
   } as unknown as FastifyInstance["db"];
   const storage: FileStorageProvider = {
     deleteObject: async () => undefined,
+    getObject: async () => {
+      throw new Error("not implemented");
+    },
     storeExpenseRequestPdf: async () => ({
       bucket: "licitadoc-expense-requests",
       contentType: "application/pdf",
@@ -1283,6 +1299,9 @@ test("createProcessFromExpenseRequestPdf reuses scope rules and stops when stora
       sizeBytes: PUREZA_EXPENSE_REQUEST_PDF.byteLength,
       uploadedAt: "2026-04-21T12:00:00.000Z",
     }),
+    storeSupportTicketImage: async () => {
+      throw new Error("not implemented");
+    },
   };
 
   await assert.rejects(

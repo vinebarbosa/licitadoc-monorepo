@@ -19,6 +19,7 @@ import {
   TextGenerationError,
   type TextGenerationProvider,
 } from "../../shared/text-generation/types";
+import { documentTextToTiptapJson, getTiptapJsonContentHash } from "../../shared/tiptap-json";
 import { createDocument as createPendingDocument } from "./create-document";
 import { createDocumentGenerationEvents } from "./document-generation-events";
 import { executeDocumentGeneration } from "./document-generation-worker";
@@ -152,6 +153,7 @@ function createDocumentRow(
     type: "dfd",
     status: "generating",
     draftContent: null,
+    draftContentJson: null,
     storageKey: null,
     responsibles: ["Ana Souza"],
     createdAt: new Date("2029-12-01T00:00:00.000Z"),
@@ -936,10 +938,13 @@ test("updateDocument persists completed draft edits and preserves ownership fiel
   let updatedDocument: Record<string, unknown> | undefined;
   const draftContent = "# Documento\n\nTexto original.";
   const nextDraftContent = "# Documento\n\nTexto revisado com seguranca.";
+  const draftContentJson = documentTextToTiptapJson(draftContent);
+  const nextDraftContentJson = documentTextToTiptapJson(nextDraftContent);
   const db = createDb({
     initialDocument: createDocumentRow({
       status: "completed",
       draftContent,
+      draftContentJson,
     }),
     onDocumentUpdate: (values) => {
       updatedDocument = values;
@@ -955,14 +960,16 @@ test("updateDocument persists completed draft edits and preserves ownership fiel
     db,
     documentId: DOCUMENT_ID,
     input: {
-      draftContent: nextDraftContent,
-      sourceContentHash: getDocumentContentHash(draftContent),
+      draftContentJson: nextDraftContentJson,
+      sourceContentHash: getTiptapJsonContentHash(draftContentJson),
     },
   });
 
   assert.equal(updatedDocument?.draftContent, nextDraftContent);
+  assert.deepEqual(updatedDocument?.draftContentJson, nextDraftContentJson);
   assert.ok(updatedDocument?.updatedAt instanceof Date);
   assert.equal(response.draftContent, nextDraftContent);
+  assert.deepEqual(response.draftContentJson, nextDraftContentJson);
   assert.equal(response.id, DOCUMENT_ID);
   assert.equal(response.organizationId, ORGANIZATION_ID);
   assert.equal(response.processId, PROCESS_ID);
@@ -972,10 +979,12 @@ test("updateDocument persists completed draft edits and preserves ownership fiel
 
 test("updateDocument rejects cross-organization actors without changing content", async () => {
   const draftContent = "Conteudo original.";
+  const draftContentJson = documentTextToTiptapJson(draftContent);
   const db = createDb({
     initialDocument: createDocumentRow({
       status: "completed",
       draftContent,
+      draftContentJson,
     }),
   });
 
@@ -990,8 +999,8 @@ test("updateDocument rejects cross-organization actors without changing content"
         db,
         documentId: DOCUMENT_ID,
         input: {
-          draftContent: "Conteudo indevido.",
-          sourceContentHash: getDocumentContentHash(draftContent),
+          draftContentJson: documentTextToTiptapJson("Conteudo indevido."),
+          sourceContentHash: getTiptapJsonContentHash(draftContentJson),
         },
       }),
     ForbiddenError,
@@ -1001,10 +1010,12 @@ test("updateDocument rejects cross-organization actors without changing content"
 });
 
 test("updateDocument rejects non-completed documents without changing content", async () => {
+  const draftContentJson = documentTextToTiptapJson("Conteudo parcial.");
   const db = createDb({
     initialDocument: createDocumentRow({
       status: "generating",
       draftContent: "Conteudo parcial.",
+      draftContentJson,
     }),
   });
 
@@ -1019,8 +1030,8 @@ test("updateDocument rejects non-completed documents without changing content", 
         db,
         documentId: DOCUMENT_ID,
         input: {
-          draftContent: "Conteudo revisado.",
-          sourceContentHash: getDocumentContentHash("Conteudo parcial."),
+          draftContentJson: documentTextToTiptapJson("Conteudo revisado."),
+          sourceContentHash: getTiptapJsonContentHash(draftContentJson),
         },
       }),
     BadRequestError,
@@ -1031,10 +1042,12 @@ test("updateDocument rejects non-completed documents without changing content", 
 
 test("updateDocument rejects stale content hash without changing content", async () => {
   const draftContent = "Conteudo atual.";
+  const draftContentJson = documentTextToTiptapJson(draftContent);
   const db = createDb({
     initialDocument: createDocumentRow({
       status: "completed",
       draftContent,
+      draftContentJson,
     }),
   });
 
@@ -1049,7 +1062,7 @@ test("updateDocument rejects stale content hash without changing content", async
         db,
         documentId: DOCUMENT_ID,
         input: {
-          draftContent: "Conteudo salvo tarde demais.",
+          draftContentJson: documentTextToTiptapJson("Conteudo salvo tarde demais."),
           sourceContentHash: "sha256:stale",
         },
       }),
