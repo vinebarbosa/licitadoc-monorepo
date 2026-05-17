@@ -9,7 +9,12 @@ import {
   SignInPage,
   useAuthSession,
 } from "@/modules/auth";
-import { DocumentCreatePage, DocumentPreviewPage, DocumentsPage } from "@/modules/documents";
+import {
+  DocumentCreatePage,
+  DocumentEditPage,
+  DocumentPreviewPage,
+  DocumentsPage,
+} from "@/modules/documents";
 import {
   OwnerOrganizationOnboardingPage,
   OwnerProfileOnboardingPage,
@@ -276,6 +281,17 @@ export const appRoutes: RouteObject[] = [
                 { label: "Central de Trabalho", href: "/app" },
                 { label: "Documentos", href: "/app/documentos" },
                 { label: "Preview do Documento" },
+              ],
+            },
+          },
+          {
+            path: "documento/:documentId",
+            element: <DocumentEditPage />,
+            handle: {
+              breadcrumbs: [
+                { label: "Central de Trabalho", href: "/app" },
+                { label: "Documentos", href: "/app/documentos" },
+                { label: "Editar Documento" },
               ],
             },
           },

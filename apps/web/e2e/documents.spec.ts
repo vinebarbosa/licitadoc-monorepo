@@ -151,3 +151,70 @@ test("authenticated user can open a document preview page", async ({ page }) => 
   await expect(page.getByRole("table")).toBeVisible();
   await expect(page.locator("article").getByRole("list")).toBeVisible();
 });
+
+test("authenticated user can edit, save, and preview a document", async ({ page }) => {
+  let draftContent = "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)\n\nTexto original do documento.";
+
+  await page.route("**/api/auth/get-session", async (route) => {
+    await route.fulfill({
+      json: {
+        session: {
+          id: "session-1",
+          token: "session-token",
+          userId: "user-1",
+          expiresAt: "2026-05-25T00:00:00.000Z",
+          createdAt: "2026-04-25T00:00:00.000Z",
+          updatedAt: "2026-04-25T00:00:00.000Z",
+        },
+        user: {
+          id: "user-1",
+          name: "Maria Silva",
+          email: "maria@licitadoc.test",
+          role: "member",
+          organizationId: "organization-1",
+          createdAt: "2026-04-25T00:00:00.000Z",
+          updatedAt: "2026-04-25T00:00:00.000Z",
+        },
+      },
+    });
+  });
+
+  await page.route("**/api/documents/document-1", async (route) => {
+    if (route.request().method() === "PATCH") {
+      const body = (await route.request().postDataJSON()) as { draftContent: string };
+      draftContent = body.draftContent;
+    }
+
+    await route.fulfill({
+      json: {
+        id: "document-1",
+        name: "DFD - PE-2024-045",
+        organizationId: "organization-1",
+        processId: "process-1",
+        processNumber: "PE-2024-045",
+        type: "dfd",
+        status: "completed",
+        responsibles: ["Maria Costa"],
+        createdAt: "2024-03-20T00:00:00.000Z",
+        updatedAt: "2024-04-01T00:00:00.000Z",
+        draftContent,
+        storageKey: null,
+      },
+    });
+  });
+
+  await page.goto("/app/documento/document-1");
+
+  await expect(page.getByRole("heading", { name: "DFD - PE-2024-045" })).toBeVisible();
+  await expect(page.locator("[data-document-editor-workspace]")).toBeVisible();
+  await expect(page.locator('[data-slot="sidebar"][data-state="collapsed"]')).toBeVisible();
+  await expect(page.getByRole("toolbar", { name: "Ferramentas do editor" })).toBeVisible();
+  const editor = page.getByLabel("Editor do documento");
+  await editor.fill("Texto final revisado pelo editor.");
+  await expect(page.getByText("Alterações não salvas")).toBeVisible();
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Salvo")).toBeVisible();
+
+  await page.getByRole("link", { name: "Preview" }).click();
+  await expect(page.getByText("Texto final revisado pelo editor.")).toBeVisible();
+});

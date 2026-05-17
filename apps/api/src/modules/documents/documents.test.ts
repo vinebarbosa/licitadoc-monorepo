@@ -36,6 +36,7 @@ import {
   writeSseComment,
   writeSseEvent,
 } from "./routes";
+import { updateDocument } from "./update-document";
 
 const ORGANIZATION_ID = "4fd5b7df-e2e5-4876-b4c3-b35306c6e733";
 const OTHER_ORGANIZATION_ID = "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228";
@@ -929,6 +930,133 @@ test("applyDocumentTextAdjustment persists accepted replacement using resolved s
   );
   assert.ok(updatedDocument?.updatedAt instanceof Date);
   assert.equal(response.draftContent, updatedDocument?.draftContent);
+});
+
+test("updateDocument persists completed draft edits and preserves ownership fields", async () => {
+  let updatedDocument: Record<string, unknown> | undefined;
+  const draftContent = "# Documento\n\nTexto original.";
+  const nextDraftContent = "# Documento\n\nTexto revisado com seguranca.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+    onDocumentUpdate: (values) => {
+      updatedDocument = values;
+    },
+  });
+
+  const response = await updateDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    documentId: DOCUMENT_ID,
+    input: {
+      draftContent: nextDraftContent,
+      sourceContentHash: getDocumentContentHash(draftContent),
+    },
+  });
+
+  assert.equal(updatedDocument?.draftContent, nextDraftContent);
+  assert.ok(updatedDocument?.updatedAt instanceof Date);
+  assert.equal(response.draftContent, nextDraftContent);
+  assert.equal(response.id, DOCUMENT_ID);
+  assert.equal(response.organizationId, ORGANIZATION_ID);
+  assert.equal(response.processId, PROCESS_ID);
+  assert.equal(response.type, "dfd");
+  assert.equal(response.status, "completed");
+});
+
+test("updateDocument rejects cross-organization actors without changing content", async () => {
+  const draftContent = "Conteudo original.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      updateDocument({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: OTHER_ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          draftContent: "Conteudo indevido.",
+          sourceContentHash: getDocumentContentHash(draftContent),
+        },
+      }),
+    ForbiddenError,
+  );
+
+  assert.equal(db.getCurrentDocument().draftContent, draftContent);
+});
+
+test("updateDocument rejects non-completed documents without changing content", async () => {
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "generating",
+      draftContent: "Conteudo parcial.",
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      updateDocument({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          draftContent: "Conteudo revisado.",
+          sourceContentHash: getDocumentContentHash("Conteudo parcial."),
+        },
+      }),
+    BadRequestError,
+  );
+
+  assert.equal(db.getCurrentDocument().draftContent, "Conteudo parcial.");
+});
+
+test("updateDocument rejects stale content hash without changing content", async () => {
+  const draftContent = "Conteudo atual.";
+  const db = createDb({
+    initialDocument: createDocumentRow({
+      status: "completed",
+      draftContent,
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      updateDocument({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        documentId: DOCUMENT_ID,
+        input: {
+          draftContent: "Conteudo salvo tarde demais.",
+          sourceContentHash: "sha256:stale",
+        },
+      }),
+    ConflictError,
+  );
+
+  assert.equal(db.getCurrentDocument().draftContent, draftContent);
 });
 
 test("applyDocumentTextAdjustment rejects stale hash or mismatched sourceText without changing content", async () => {

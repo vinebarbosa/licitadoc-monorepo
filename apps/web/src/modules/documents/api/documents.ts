@@ -5,6 +5,8 @@ import {
   type GetApiProcessesQueryResponse,
   getApiDocumentsDocumentidQueryKey,
   getApiDocumentsQueryKey,
+  type PatchApiDocumentsDocumentidMutationRequest,
+  type PatchApiDocumentsDocumentidMutationResponse,
   type PostApiDocumentsDocumentidAdjustmentsApplyMutationRequest,
   type PostApiDocumentsDocumentidAdjustmentsApplyMutationResponse,
   type PostApiDocumentsDocumentidAdjustmentsSuggestionsMutationRequest,
@@ -23,6 +25,8 @@ export type DocumentsListItem = DocumentsListResponse["items"][number];
 export type DocumentDetailResponse = GetApiDocumentsDocumentidQueryResponse;
 export type DocumentCreateRequest = PostApiDocumentsMutationRequest;
 export type DocumentCreateResponse = PostApiDocumentsMutationResponse;
+export type DocumentSaveRequest = PatchApiDocumentsDocumentidMutationRequest;
+export type DocumentSaveResponse = PatchApiDocumentsDocumentidMutationResponse;
 export type DocumentTextAdjustmentSuggestionRequest =
   PostApiDocumentsDocumentidAdjustmentsSuggestionsMutationRequest;
 export type DocumentTextAdjustmentSuggestionResponse =
@@ -400,6 +404,42 @@ export function useDocumentTextAdjustmentApply(documentId: string) {
       >({
         method: "POST",
         url: `http://localhost:3333/api/documents/${docId}/adjustments/apply`,
+        data,
+      });
+
+      if (response.status >= 400) {
+        throw {
+          data: response.data,
+          headers: response.headers,
+          status: response.status,
+        } satisfies ResponseErrorConfig;
+      }
+
+      return response.data;
+    },
+    onSuccess: async (updatedDocument) => {
+      queryClient.setQueryData(getApiDocumentsDocumentidQueryKey({ documentId }), updatedDocument);
+      await queryClient.invalidateQueries({ queryKey: getApiDocumentsQueryKey() });
+    },
+  });
+}
+
+export function useDocumentSave(documentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    DocumentSaveResponse,
+    ResponseErrorConfig<{ message?: string }>,
+    { documentId: string; data: DocumentSaveRequest }
+  >({
+    mutationFn: async ({ documentId: docId, data }) => {
+      const response = await client<
+        DocumentSaveResponse,
+        ResponseErrorConfig<{ message?: string }>,
+        DocumentSaveRequest
+      >({
+        method: "PATCH",
+        url: `http://localhost:3333/api/documents/${docId}`,
         data,
       });
 

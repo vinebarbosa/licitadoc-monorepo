@@ -1,6 +1,7 @@
 import { HttpResponse, http } from "msw";
 import {
   anonymousSessionResponse,
+  currentOrganizationResponse,
   departmentCreateResponse,
   departmentsListResponse,
   documentCreateResponse,
@@ -10,7 +11,6 @@ import {
   failedDocumentDetailResponse,
   generatingDocumentDetailResponse,
   healthOkResponse,
-  currentOrganizationResponse,
   organizationsListResponse,
   processCreateResponse,
   processDetailResponse,
@@ -123,5 +123,29 @@ export const handlers = [
   }),
   http.post("http://localhost:3333/api/documents/", () => {
     return HttpResponse.json(documentCreateResponse, { status: 201 });
+  }),
+  http.patch("http://localhost:3333/api/documents/:documentId", async ({ params, request }) => {
+    const body = (await request.json().catch(() => null)) as {
+      draftContent?: string;
+      sourceContentHash?: string;
+    } | null;
+
+    if (body?.sourceContentHash === "sha256:stale") {
+      return HttpResponse.json(
+        {
+          error: "conflict",
+          message: "Document content changed before this save completed.",
+          details: null,
+        },
+        { status: 409 },
+      );
+    }
+
+    return HttpResponse.json({
+      ...documentDetailResponse,
+      id: String(params.documentId ?? documentDetailResponse.id),
+      draftContent: body?.draftContent ?? documentDetailResponse.draftContent,
+      updatedAt: "2024-04-01T00:00:00.000Z",
+    });
   }),
 ];

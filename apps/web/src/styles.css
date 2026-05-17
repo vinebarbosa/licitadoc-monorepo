@@ -265,6 +265,7 @@
     color: var(--institutional-text-color);
     font-size: var(--institutional-body-size);
     line-height: var(--institutional-line-height);
+    list-style-position: outside;
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -279,6 +280,14 @@
 
   .institutional-document-list-item::marker {
     color: #000000;
+  }
+
+  ul.institutional-document-list {
+    list-style-type: disc;
+  }
+
+  ol.institutional-document-list {
+    list-style-type: decimal;
   }
 
   .institutional-document-field {
@@ -376,7 +385,8 @@
     text-indent: 0;
   }
 
-  .institutional-document-signature-heading + .institutional-document-paragraph
+  .institutional-document-signature-heading
+    + .institutional-document-paragraph
     + .institutional-document-paragraph {
     margin-top: var(--institutional-signature-spacing);
     text-align: center;
@@ -384,16 +394,146 @@
     font-weight: 700;
   }
 
-  .institutional-document-signature-heading + .institutional-document-paragraph
+  .institutional-document-signature-heading
+    + .institutional-document-paragraph
     + .institutional-document-paragraph
     + .institutional-document-paragraph {
     text-align: center;
     text-indent: 0;
   }
 
+  .document-editor-sheet {
+    width: min(100%, 880px);
+    max-width: 880px;
+    min-height: min(1245px, calc(100vh - 11rem));
+    padding: clamp(72px, 8vw, 112px) clamp(34px, 7vw, 98px) clamp(80px, 8vw, 112px);
+    border-color: rgb(15 23 42 / 7%);
+    border-radius: 2px;
+    box-shadow:
+      0 1px 2px rgb(15 23 42 / 3%),
+      0 24px 80px rgb(15 23 42 / 8%);
+  }
+
+  .document-editor-prosemirror {
+    min-height: calc(1245px - 224px);
+    color: var(--institutional-text-color);
+    font-family: var(--institutional-font-family);
+    font-size: 12.5pt;
+    line-height: 1.62;
+    outline: none;
+    overflow-wrap: break-word;
+  }
+
+  .document-editor-prosemirror > *:first-child {
+    margin-top: 0;
+  }
+
+  .document-editor-prosemirror > *:last-child {
+    margin-bottom: 0;
+  }
+
+  .document-editor-prosemirror h1,
+  .document-editor-prosemirror h2,
+  .document-editor-prosemirror h3 {
+    color: var(--institutional-text-color);
+    font-family: var(--institutional-font-family);
+    font-weight: 700;
+    line-height: 1.38;
+  }
+
+  .document-editor-prosemirror h1 {
+    margin: 0 0 36px;
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 14pt;
+  }
+
+  .document-editor-prosemirror h2,
+  .document-editor-prosemirror h3 {
+    margin-top: 30px;
+    margin-bottom: 14px;
+    font-size: 13.5pt;
+  }
+
+  .document-editor-prosemirror h2 {
+    text-transform: uppercase;
+  }
+
+  .document-editor-prosemirror p {
+    margin: 0 0 14px;
+    text-align: justify;
+    text-indent: var(--institutional-paragraph-indent);
+  }
+
+  .document-editor-prosemirror ul,
+  .document-editor-prosemirror ol {
+    margin: 0 0 16px;
+    padding-left: var(--institutional-list-indent);
+    list-style-position: outside;
+  }
+
+  .document-editor-prosemirror ul {
+    list-style-type: disc;
+  }
+
+  .document-editor-prosemirror ol {
+    list-style-type: decimal;
+  }
+
+  .document-editor-prosemirror li {
+    margin-bottom: 8px;
+    text-align: justify;
+  }
+
+  .document-editor-prosemirror li:has(strong:first-child),
+  .document-editor-prosemirror li:has(p > strong:first-child) {
+    text-align: left;
+  }
+
+  .document-editor-prosemirror h2 + ul:has(strong:first-child),
+  .document-editor-prosemirror h2 + ul:has(p > strong:first-child) {
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .document-editor-prosemirror blockquote {
+    margin: 0 0 16px;
+    padding: 10px 16px;
+    color: #1f2937;
+    text-align: justify;
+    background: #f8fafc;
+    border-left: 2px solid #94a3b8;
+  }
+
+  .document-editor-prosemirror a {
+    color: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .document-editor-prosemirror .is-empty::before {
+    float: left;
+    height: 0;
+    color: #94a3b8;
+    pointer-events: none;
+    content: attr(data-placeholder);
+  }
+
   @media (max-width: 720px) {
     .institutional-document-sheet {
       padding: 56px 28px 48px;
+    }
+
+    .document-editor-sheet {
+      width: min(100%, 100vw - 24px);
+      min-height: 760px;
+      padding: 48px 28px 56px;
+    }
+
+    .document-editor-prosemirror {
+      min-height: 640px;
+      font-size: 12pt;
     }
   }
 }

@@ -139,6 +139,21 @@ export type ApplyDocumentTextAdjustmentInput = z.output<
   typeof applyDocumentTextAdjustmentBodySchema
 >;
 
+export const updateDocumentBodySchema = withOpenApiExample(
+  z
+    .object({
+      draftContent: withOpenApiExample(z.string().min(1).max(250_000), OPENAPI_EXAMPLE_TEXT),
+      sourceContentHash: withOpenApiExample(z.string().min(1).max(128), "sha256:3b6f7d0b4c2e1a9f"),
+    })
+    .strict(),
+  {
+    draftContent: "# DOCUMENTO DE FORMALIZACAO DE DEMANDA\n\nConteudo revisado.",
+    sourceContentHash: "sha256:3b6f7d0b4c2e1a9f",
+  },
+);
+
+export type UpdateDocumentInput = z.output<typeof updateDocumentBodySchema>;
+
 export const createDocumentSchema = {
   tags: ["Documents"],
   summary: "Generate document draft",
@@ -167,6 +182,17 @@ export const getDocumentSchema = {
   response: {
     200: documentDetailSchema,
     ...pickErrorResponses(401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const updateDocumentSchema = {
+  tags: ["Documents"],
+  summary: "Update document draft content",
+  params: documentParamsSchema,
+  body: updateDocumentBodySchema,
+  response: {
+    200: documentDetailSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 409, 500),
   },
 } satisfies AppRouteSchema;
 

@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { Outlet, useMatches } from "react-router-dom";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { Outlet, useLocation, useMatches } from "react-router-dom";
 import { ContextualHelpWidget } from "@/modules/help";
 import { SidebarInset, SidebarProvider } from "@/shared/ui/sidebar";
 import { AppHeader } from "../components/app-header";
@@ -31,23 +31,43 @@ export function useAppShellHeader(header: AppShellHeaderHandle | undefined) {
 }
 
 export function AppShellLayout() {
+  const { pathname } = useLocation();
   const matches = useMatches();
   const routeHeaderHandle = [...matches]
     .reverse()
     .map((match) => match.handle as AppShellHeaderHandle | undefined)
     .find((handle) => handle?.breadcrumbs || handle?.title);
   const [headerOverride, setHeaderOverride] = useState<AppShellHeaderHandle | undefined>();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const previousSidebarOpenRef = useRef(true);
+  const wasDocumentEditorWorkspaceRef = useRef(false);
   const headerHandle = headerOverride ?? routeHeaderHandle;
+  const isDocumentEditorWorkspace = /^\/app\/documento\/[^/]+$/.test(pathname);
+
+  useEffect(() => {
+    if (isDocumentEditorWorkspace && !wasDocumentEditorWorkspaceRef.current) {
+      previousSidebarOpenRef.current = sidebarOpen;
+      setSidebarOpen(false);
+    }
+
+    if (!isDocumentEditorWorkspace && wasDocumentEditorWorkspaceRef.current) {
+      setSidebarOpen(previousSidebarOpenRef.current);
+    }
+
+    wasDocumentEditorWorkspaceRef.current = isDocumentEditorWorkspace;
+  }, [isDocumentEditorWorkspace, sidebarOpen]);
 
   return (
     <AppShellHeaderContext.Provider value={setHeaderOverride}>
-      <SidebarProvider>
+      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar />
-        <SidebarInset>
-          <AppHeader
-            breadcrumbs={headerHandle?.breadcrumbs ?? [{ label: "Central de Trabalho" }]}
-            title={headerHandle?.title}
-          />
+        <SidebarInset className={isDocumentEditorWorkspace ? "bg-[#f6f7f9]" : undefined}>
+          {isDocumentEditorWorkspace ? null : (
+            <AppHeader
+              breadcrumbs={headerHandle?.breadcrumbs ?? [{ label: "Central de Trabalho" }]}
+              title={headerHandle?.title}
+            />
+          )}
           <Outlet />
           <ContextualHelpWidget />
         </SidebarInset>

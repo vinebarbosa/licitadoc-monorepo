@@ -15,9 +15,11 @@ import {
   getDocumentSchema,
   getDocumentsSchema,
   suggestDocumentTextAdjustmentSchema,
+  updateDocumentSchema,
 } from "./documents.schemas";
 import { getDocument } from "./get-document";
 import { getDocuments } from "./get-documents";
+import { updateDocument } from "./update-document";
 
 type SseWritableStream = {
   write: (chunk: string) => boolean | undefined;
@@ -205,6 +207,24 @@ export const registerDocumentRoutes: FastifyPluginAsyncZodOpenApi = async (app) 
       const { documentId } = request.params;
 
       return getDocument({ actor, db: app.db, documentId });
+    },
+  );
+
+  app.patch(
+    "/:documentId",
+    {
+      schema: updateDocumentSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+      const { documentId } = request.params;
+
+      return updateDocument({
+        actor,
+        db: app.db,
+        documentId,
+        input: request.body,
+      });
     },
   );
 

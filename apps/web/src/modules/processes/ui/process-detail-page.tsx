@@ -603,6 +603,15 @@ function DocumentCard({
               </Link>
             </Button>
           ) : null}
+
+          {links.editHref ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to={links.editHref}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                Editar
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </CardContent>
     </Card>

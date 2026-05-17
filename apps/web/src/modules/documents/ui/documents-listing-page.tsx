@@ -300,7 +300,7 @@ export function DocumentsListingPage() {
                   return (
                     <TableRow key={doc.id} className="cursor-pointer hover:bg-accent/50">
                       <TableCell>
-                        <Link to={previewLink} className="font-medium hover:text-primary">
+                        <Link to={editLink} className="font-medium hover:text-primary">
                           {doc.name}
                         </Link>
                       </TableCell>

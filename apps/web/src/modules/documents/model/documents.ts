@@ -112,6 +112,16 @@ export function getDocumentPreviewBreadcrumbs(
   ];
 }
 
+export function getDocumentEditBreadcrumbs(
+  document: Pick<DocumentDetailResponse, "name"> | null | undefined,
+) {
+  return [
+    { label: "Central de Trabalho", href: "/app" },
+    { label: "Documentos", href: "/app/documentos" },
+    { label: document?.name ?? "Editar Documento" },
+  ];
+}
+
 export function getDocumentTypeLabel(type: string): string {
   const displayType = mapApiTypeToDisplay(type);
 
