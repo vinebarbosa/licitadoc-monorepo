@@ -1,3 +1,4 @@
+import { EditorContent, useEditor } from "@tiptap/react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -34,12 +35,14 @@ import {
   getPreviewableDraftContent,
 } from "../model/documents";
 import { DocumentMarkdownPreview } from "./document-markdown-preview";
+import { getDocumentTiptapExtensions } from "./document-tiptap-extensions";
 import { DocumentTiptapPreview } from "./document-tiptap-preview";
 import {
   getInstitutionalDocumentOutputClassName,
   institutionalDocumentTheme,
   institutionalDocumentThemeTokens,
 } from "./institutional-document-theme";
+import { DocumentPreview as PagedDocumentPreview, PaperLayout } from "./paged-preview";
 
 const API_ASSET_BASE_URL = "http://localhost:3333";
 
@@ -136,7 +139,7 @@ function DocumentPreviewActions({ canPrint = false }: { canPrint?: boolean }) {
           <FileText className="h-4 w-4 mr-2" />
           Exportar DOCX
         </Button>
-        <Button type="button" size="sm" disabled={!canPrint}>
+        <Button type="button" size="sm" disabled={!canPrint} onClick={() => window.print()}>
           <Download className="h-4 w-4 mr-2" />
           Exportar PDF
         </Button>
@@ -588,6 +591,49 @@ function DocumentSheet({
   );
 }
 
+function DocumentPagedTiptapBody({ content }: { content: DocumentEditorJson }) {
+  const editor = useEditor({
+    content,
+    editable: false,
+    extensions: getDocumentTiptapExtensions(),
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        "aria-label": "Preview do documento",
+        class: "document-editor-prosemirror document-preview-prosemirror",
+        "data-document-body": "true",
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    editor.commands.setContent(content, { emitUpdate: false });
+    editor.setEditable(false);
+  }, [content, editor]);
+
+  if (!editor) {
+    return null;
+  }
+
+  return <EditorContent editor={editor} />;
+}
+
+function DocumentPagedBody({
+  source,
+}: {
+  source: NonNullable<ReturnType<typeof getDocumentPreviewSource>>;
+}) {
+  if (source.kind === "json") {
+    return <DocumentPagedTiptapBody content={source.content} />;
+  }
+
+  return <DocumentMarkdownPreview content={source.content} />;
+}
+
 export function DocumentPreviewPageUI() {
   const { documentId = "" } = useParams();
   const documentQuery = useDocumentDetail(documentId);
@@ -677,7 +723,7 @@ export function DocumentPreviewPageUI() {
       className="flex-1 overflow-auto bg-muted/30"
       data-institutional-document-preview-root
       data-document-preview-print-root
-      // data-document-letterhead={letterheadUrl ? "true" : undefined}
+      data-document-letterhead={letterheadUrl ? "true" : undefined}
       data-testid="document-preview-scroll-container"
       onScroll={handleScroll}
     >
@@ -719,11 +765,18 @@ export function DocumentPreviewPageUI() {
               icon="alert"
             />
           ) : previewSource ? (
-            <DocumentSheet
-              draftContent={previewSource.textContent ?? ""}
-              draftContentJson={previewSource.kind === "json" ? previewSource.content : null}
-              // letterheadUrl={letterheadUrl}
-            />
+            <PagedDocumentPreview
+              letterheadUrl={letterheadUrl ?? undefined}
+              renderKey={`${document.id}:${document.updatedAt}:${previewSource.kind}:${
+                letterheadUrl ?? "no-letterhead"
+              }`}
+              showToolbar={false}
+              title={document.name}
+            >
+              <PaperLayout>
+                <DocumentPagedBody source={previewSource} />
+              </PaperLayout>
+            </PagedDocumentPreview>
           ) : (
             <DocumentPreviewStateCard
               title="Documento sem conteúdo"

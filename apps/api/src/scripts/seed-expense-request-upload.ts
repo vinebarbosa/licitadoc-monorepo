@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { buildApp } from "../app/build-app";
 import { accounts, sessions, users, verifications } from "../db/schema/auth";
-import { organizations } from "../db/schema/organizations";
 import { departments as departmentsTable } from "../db/schema/departments";
+import { organizations } from "../db/schema/organizations";
 
 const FIXTURE = {
   user: {
@@ -150,10 +150,7 @@ async function upsertOrganization(
     return updatedOrganization;
   }
 
-  const [createdOrganization] = await app.db
-    .insert(organizations)
-    .values(nextValues)
-    .returning();
+  const [createdOrganization] = await app.db.insert(organizations).values(nextValues).returning();
 
   if (!createdOrganization) {
     throw new Error("Unable to create expense request upload fixture organization.");
@@ -162,10 +159,7 @@ async function upsertOrganization(
   return createdOrganization;
 }
 
-async function upsertDepartment(
-  app: Awaited<ReturnType<typeof buildApp>>,
-  organizationId: string,
-) {
+async function upsertDepartment(app: Awaited<ReturnType<typeof buildApp>>, organizationId: string) {
   const existingDepartment = await app.db.query.departments.findFirst({
     where: (table, { and: both, eq: equals, or: either }) =>
       both(
@@ -201,10 +195,7 @@ async function upsertDepartment(
     return updatedDepartment;
   }
 
-  const [createdDepartment] = await app.db
-    .insert(departmentsTable)
-    .values(nextValues)
-    .returning();
+  const [createdDepartment] = await app.db.insert(departmentsTable).values(nextValues).returning();
 
   if (!createdDepartment) {
     throw new Error("Unable to create expense request upload fixture department.");
@@ -273,7 +264,7 @@ function printSummary({
   console.log(`Department budget unit: ${department.budgetUnitCode ?? "n/a"}`);
   console.log("");
   console.log("Suggested manual flow:");
-  console.log("1. Start the stack: docker compose up -d postgres localstack");
+  console.log("1. Start the stack: docker compose up -d postgres ministack");
   console.log("2. Run migrations: cd apps/api && pnpm db:migrate");
   console.log("3. Seed fixture: cd apps/api && pnpm seed:expense-request-upload");
   console.log("4. Start the API: cd apps/api && pnpm dev");
@@ -283,9 +274,7 @@ function printSummary({
     `curl -i -c /tmp/licitadoc-expense-upload.cookies -X POST ${baseUrl}/api/auth/sign-in/email \\`,
   );
   console.log('  -H "content-type: application/json" \\');
-  console.log(
-    `  -d '{"email":"${FIXTURE.user.email}","password":"${FIXTURE.user.password}"}'`,
-  );
+  console.log(`  -d '{"email":"${FIXTURE.user.email}","password":"${FIXTURE.user.password}"}'`);
   console.log("");
   console.log("Example PDF upload request:");
   console.log(

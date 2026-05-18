@@ -32,6 +32,7 @@ import {
   OnboardingCompletePage,
   OnboardingCompleteProfilePage,
   OnboardingOrganizationPage,
+  PagedDocumentPreviewDemoPage,
   ProcessCreateDemoPage,
   ProcessDetailDemoPage,
 } from "@/modules/public";
@@ -149,6 +150,10 @@ export const appRoutes: RouteObject[] = [
       {
         path: "demo/documento/editor",
         element: <DocumentEditorDemoPage />,
+      },
+      {
+        path: "demo/documento/paged-preview",
+        element: <PagedDocumentPreviewDemoPage />,
       },
       {
         path: "demo/onboarding/perfil",

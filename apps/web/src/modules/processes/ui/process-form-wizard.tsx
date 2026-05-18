@@ -12,6 +12,7 @@ import {
   Plus,
   Scale,
   Trash2,
+  Upload,
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -32,6 +33,13 @@ import type {
   ProcessOrganizationListItem,
   ProcessUpdateRequest,
 } from "../api/processes";
+import type { ExpenseRequestExtractionResult } from "../model/processes";
+import { SdImportDialog } from "./sd-import-dialog";
+import {
+  applySdImportToProcessForm,
+  getSdImportWarningLabel,
+  type SdImportSummary,
+} from "./sd-import-flow";
 
 type ProcessStep = "dados" | "vinculos" | "itens" | "revisao";
 
@@ -73,14 +81,18 @@ export type ProcessFormValues = {
 
 type ProcessMutationItemRequest = NonNullable<ProcessCreateRequest["items"]>[number];
 
-type ProcessDepartmentReference = Pick<
+export type ProcessDepartmentReference = Pick<
   ProcessDepartmentListItem,
   "id" | "name" | "organizationId" | "budgetUnitCode"
 >;
 
-type ProcessOrganizationReference = Pick<ProcessOrganizationListItem, "id" | "name">;
+export type ProcessOrganizationReference = Pick<
+  ProcessOrganizationListItem,
+  "id" | "name" | "cnpj"
+>;
 
 type ProcessFormWizardProps = {
+  enableSdImport?: boolean;
   pageTitle: string;
   pageDescription: string;
   submitLabel: string;
@@ -823,6 +835,7 @@ export function mapProcessDetailToFormValues(process: ProcessDetailResponse): Pr
 }
 
 export function ProcessFormWizard({
+  enableSdImport = false,
   pageTitle,
   pageDescription,
   submitLabel,
@@ -846,6 +859,8 @@ export function ProcessFormWizard({
   );
   const [appliedResetKey, setAppliedResetKey] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [sdImportDialogOpen, setSdImportDialogOpen] = useState(false);
+  const [sdImportSummary, setSdImportSummary] = useState<SdImportSummary | null>(null);
 
   useEffect(() => {
     if (!resetKey || !initialValues || appliedResetKey === resetKey) {
@@ -855,6 +870,7 @@ export function ProcessFormWizard({
     setValues(initialValues);
     setErrors({});
     setCurrentStep("dados");
+    setSdImportSummary(null);
     setAppliedResetKey(resetKey);
   }, [appliedResetKey, initialValues, resetKey]);
 
@@ -903,6 +919,22 @@ export function ProcessFormWizard({
   function updateField<K extends keyof ProcessFormValues>(field: K, value: ProcessFormValues[K]) {
     setValues((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
+  }
+
+  function handleApplySdImport(extraction: ExpenseRequestExtractionResult) {
+    const result = applySdImportToProcessForm({
+      currentValues: values,
+      defaultOrganizationId,
+      departments,
+      extraction,
+      forcedOrganizationId,
+      organizations,
+      showOrganizationSelect,
+    });
+
+    setValues(result.values);
+    setSdImportSummary(result.summary);
+    setErrors({});
   }
 
   function selectOrganization(organizationId: string) {
@@ -1114,10 +1146,32 @@ export function ProcessFormWizard({
   return (
     <main className="flex-1 overflow-auto bg-background">
       <div className="mx-auto max-w-7xl px-4 py-6 md:py-8">
-        <div className="mb-5 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{pageTitle}</h1>
-          <p className="text-muted-foreground">{pageDescription}</p>
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{pageTitle}</h1>
+            <p className="text-muted-foreground">{pageDescription}</p>
+          </div>
+
+          {enableSdImport ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setSdImportDialogOpen(true)}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importar SD
+            </Button>
+          ) : null}
         </div>
+
+        {enableSdImport ? (
+          <SdImportDialog
+            open={sdImportDialogOpen}
+            onOpenChange={setSdImportDialogOpen}
+            onApply={handleApplySdImport}
+          />
+        ) : null}
 
         <div className="mb-4 md:hidden">
           <Stepper currentStep={currentStep} isMobile />
@@ -1142,6 +1196,28 @@ export function ProcessFormWizard({
             <AlertDescription>{submitErrorMessage}</AlertDescription>
           </Alert>
         )}
+
+        {sdImportSummary ? (
+          <Alert className="mb-6 border-primary/20 bg-primary/5">
+            <FileText className="h-4 w-4" />
+            <AlertTitle>Dados importados da SD</AlertTitle>
+            <AlertDescription>
+              <p>
+                {sdImportSummary.sourceReference ?? sdImportSummary.fileName}
+                {sdImportSummary.budgetUnitCode
+                  ? ` · Unidade ${sdImportSummary.budgetUnitCode}`
+                  : ""}
+              </p>
+              {sdImportSummary.warnings.length > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {sdImportSummary.warnings.map((warning) => (
+                    <p key={warning}>{getSdImportWarningLabel(warning)}</p>
+                  ))}
+                </div>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
           <div className="space-y-6">

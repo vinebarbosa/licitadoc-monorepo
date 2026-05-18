@@ -11,6 +11,7 @@
     "admin:create": "node --import tsx src/scripts/create-admin.ts",
     "seed:expense-request-upload": "node --import tsx src/scripts/seed-expense-request-upload.ts",
     "seed:pureza-letterhead": "node --import tsx src/scripts/seed-pureza-letterhead.ts",
+    "storage:verify": "node --import tsx src/scripts/verify-storage.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",

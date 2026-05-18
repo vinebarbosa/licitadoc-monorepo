@@ -90,14 +90,16 @@ function expectPrintOnlyLetterhead(url = purezaLetterheadResolvedUrl) {
   const sheet = screen.getByTestId("document-preview-sheet");
 
   expect(sheet).toHaveAttribute("data-document-letterhead", "true");
-  expect(sheet.getAttribute("style") ?? "").not.toContain(url);
+  expect(sheet.getAttribute("style") ?? "").toContain(url);
   expect(screen.getByTestId("document-preview-scroll-container")).toHaveAttribute(
     "data-document-letterhead",
     "true",
   );
   expect(sheet.querySelector("[data-document-letterhead-screen-layer]")).toBeNull();
   expect(sheet.querySelector("[data-document-letterhead-page-image]")).toBeNull();
-  expect(sheet.querySelector("[data-document-letterhead-print-layer]")).toHaveAttribute("src", url);
+  expect(sheet.querySelector("[data-document-letterhead-print-layer]")).toBeNull();
+  expect(sheet).toHaveAttribute("data-paged-preview-letterhead", "true");
+  expect(sheet.querySelector("[data-paged-preview-output]")).toBeInTheDocument();
 }
 
 beforeEach(() => {
@@ -233,8 +235,8 @@ describe("DocumentPreviewPage", () => {
     expect(screen.getByRole("button", { name: "Imprimir" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Exportar DOCX" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Exportar PDF" })).toBeEnabled();
-    expect(screen.getByText(/Processo:/)).toBeInTheDocument();
-    expect(screen.getByText(/Contratacao de Servicos de TI/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Processo:/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Contratacao de Servicos de TI/).length).toBeGreaterThan(0);
   });
 
   it("keeps organization letterhead print-only for completed markdown previews", async () => {
@@ -258,7 +260,41 @@ describe("DocumentPreviewPage", () => {
 
     expectPrintOnlyLetterhead();
     expect(document.querySelector("[data-institutional-document-markdown]")).toBeInTheDocument();
-    expect(screen.getByText(/Contratacao de Servicos de TI/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Contratacao de Servicos de TI/).length).toBeGreaterThan(0);
+  });
+
+  it("prints the official paged preview output from print and PDF actions", async () => {
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => undefined);
+
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json({
+          ...documentDetailResponse,
+          draftContentJson: null,
+          letterhead: purezaLetterhead,
+        }),
+      ),
+    );
+
+    renderDocumentPreviewPage();
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /DOCUMENTO DE FORMALIZACAO DE DEMANDA/,
+      }),
+    ).toBeInTheDocument();
+
+    const sheet = screen.getByTestId("document-preview-sheet");
+    expect(sheet.querySelector("[data-paged-preview-output]")).toBeInTheDocument();
+    expect(sheet.querySelector("[data-paged-preview-source]")).toBeInTheDocument();
+    expect(sheet.querySelectorAll(".pagedjs_page")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Imprimir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Exportar PDF" }));
+
+    expect(printSpy).toHaveBeenCalledTimes(2);
+    printSpy.mockRestore();
   });
 
   it("prefers saved Tiptap JSON in completed preview and renders page breaks", async () => {
@@ -307,12 +343,10 @@ describe("DocumentPreviewPage", () => {
 
     const sheet = screen.getByTestId("document-preview-sheet");
     expect(sheet.querySelector(".document-preview-prosemirror hr")).toBeInTheDocument();
-    expect(screen.getByText("Trecho salvo pelo editor.").closest("strong")).toBeInTheDocument();
-    expect(screen.getByText("Trecho salvo pelo editor.").closest("u")).toBeInTheDocument();
-    expect(screen.getByText("Trecho salvo pelo editor.").closest("p")).toHaveAttribute(
-      "data-indent-level",
-      "1",
-    );
+    const savedEditorText = screen.getAllByText("Trecho salvo pelo editor.")[0];
+    expect(savedEditorText.closest("strong")).toBeInTheDocument();
+    expect(savedEditorText.closest("u")).toBeInTheDocument();
+    expect(savedEditorText.closest("p")).toHaveAttribute("data-indent-level", "1");
     expect(
       screen.getByRole("heading", { level: 2, name: "2. Segunda pagina" }),
     ).toBeInTheDocument();
@@ -389,25 +423,13 @@ describe("DocumentPreviewPage", () => {
 
     await waitFor(() => {
       const sheet = screen.getByTestId("document-preview-sheet");
-      const paginationSurface = sheet.querySelector("[data-document-pagination-surface]");
-      const boundaryStyle = sheet.querySelector("[data-document-pagination-boundary-style]");
       const movedHeading = screen.getByRole("heading", { level: 2, name: "2. Conteudo seguinte" });
 
       expectPrintOnlyLetterhead();
-      expect(paginationSurface).toHaveAttribute("data-document-pagination-page-count", "2");
-      expect(paginationSurface).not.toHaveAttribute("data-document-letterhead-pagination");
-      expect(sheet.querySelectorAll(".document-pagination-page-frame")).toHaveLength(2);
+      expect(sheet.querySelector("[data-paged-preview-output]")).toBeInTheDocument();
+      expect(sheet.querySelectorAll(".pagedjs_page")).toHaveLength(1);
       expect(sheet.querySelectorAll("[data-document-letterhead-page-image]")).toHaveLength(0);
-      expect(movedHeading).toHaveAttribute("data-document-pagination-break-before", "true");
-      expect(boundaryStyle?.textContent).toContain("@media screen");
-      expect(boundaryStyle?.textContent).toContain("@media print");
-      expect(boundaryStyle?.textContent).toContain("margin-top: 0 !important");
-      expect(boundaryStyle?.textContent).toContain("break-before: auto;");
-      expect(boundaryStyle?.textContent).toContain("page-break-before: auto;");
-      expect(boundaryStyle?.textContent).not.toMatch(/@media print \{[\s\S]*break-before: page;/);
-      expect(boundaryStyle?.textContent).not.toMatch(
-        /@media print \{[\s\S]*page-break-before: always;/,
-      );
+      expect(movedHeading.closest(".pagedjs_page")).toBeInTheDocument();
     });
 
     rectSpy.mockRestore();
@@ -492,10 +514,8 @@ describe("DocumentPreviewPage", () => {
 
     await waitFor(() => {
       const sheet = screen.getByTestId("document-preview-sheet");
-      const paginationSurface = sheet.querySelector("[data-document-pagination-surface]");
 
-      expect(paginationSurface).toHaveAttribute("data-document-pagination-page-count", "1");
-      expect(sheet.querySelectorAll(".document-pagination-page-frame")).toHaveLength(1);
+      expect(sheet.querySelectorAll(".pagedjs_page")).toHaveLength(1);
       expect(
         sheet.querySelector("[data-document-pagination-break-before]"),
       ).not.toBeInTheDocument();
@@ -643,16 +663,15 @@ describe("DocumentPreviewPage", () => {
     expect(screen.getByRole("heading", { level: 2, name: /1\. DADOS DA SOLICITACAO/ })).toHaveClass(
       "institutional-document-section-title",
     );
-    expect(screen.getByText("Unidade Orcamentaria:").closest("li")).toHaveAttribute(
+    const budgetUnitLabel = screen.getAllByText("Unidade Orcamentaria:")[0];
+    expect(budgetUnitLabel.closest("li")).toHaveAttribute(
       "data-institutional-administrative-field",
     );
-    expect(screen.getByText("Unidade Orcamentaria:")).toHaveClass(
-      "institutional-document-field-label",
-    );
-    expect(screen.getByText("06.001 - Secretaria Municipal de Educacao")).not.toHaveClass(
+    expect(budgetUnitLabel).toHaveClass("institutional-document-field-label");
+    expect(screen.getAllByText("06.001 - Secretaria Municipal de Educacao")[0]).not.toHaveClass(
       "font-semibold",
     );
-    expect(screen.getByText("Critério principal:")).toHaveClass("font-semibold");
+    expect(screen.getAllByText("Critério principal:")[0]).toHaveClass("font-semibold");
     expect(screen.queryByRole("heading", { name: /FECHO|ASSINATURA/i })).not.toBeInTheDocument();
   });
 
@@ -1555,7 +1574,7 @@ Conteudo do documento.
       expect(screen.getAllByText(/Processo:/).length).toBeGreaterThan(0);
 
       // List items
-      expect(screen.getByText(/Suporte a infraestrutura de rede/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Suporte a infraestrutura de rede/).length).toBeGreaterThan(0);
 
       // Table
       expect(screen.getByRole("table")).toBeInTheDocument();
@@ -1594,8 +1613,8 @@ Conteudo do documento.
       // window.__xssTest should not have been set
       expect((window as unknown as Record<string, unknown>).__xssTest).toBeUndefined();
       // Normal content should still render
-      expect(screen.getByText(/Conteudo normal/)).toBeInTheDocument();
-      expect(screen.getByText(/Texto apos HTML/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Conteudo normal/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Texto apos HTML/).length).toBeGreaterThan(0);
     });
 
     it("renders unsafe link scheme without navigating through it", async () => {
@@ -1621,7 +1640,7 @@ Conteudo do documento.
         expect(link).not.toHaveAttribute("href", "javascript:alert('xss')");
       }
       // Content text remains visible
-      expect(screen.getByText(/Texto normal/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Texto normal/).length).toBeGreaterThan(0);
     });
   });
 

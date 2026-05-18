@@ -1,7 +1,11 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  ExpenseRequestPdfError,
+  parseTopDownExpenseRequestText,
+} from "@/modules/processes/model/expense-request-pdf";
 import {
   authenticatedSessionResponse,
   currentOrganizationResponse,
@@ -11,6 +15,45 @@ import {
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { ProcessCreatePage } from "./process-create-page";
+
+const { extractExpenseRequestFromPdfMock } = vi.hoisted(() => ({
+  extractExpenseRequestFromPdfMock: vi.fn(),
+}));
+
+vi.mock("@/modules/processes/model/expense-request-pdf", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/modules/processes/model/expense-request-pdf")>();
+
+  return {
+    ...actual,
+    extractExpenseRequestFromPdf: extractExpenseRequestFromPdfMock,
+  };
+});
+
+const sdImportText = `
+PRACA 05 DE ABRIL, 180, CENTRO
+CNPJ: 00.000.000/0001-00
+Solicitacao de Despesa
+MUNICIPIO DE PUREZA
+Unidade Orcamentaria: 06.001 - Secretaria de Educacao
+N Solicitacao:
+6
+Data Emissao:
+08/01/2026
+Processo:
+Servico
+Classificacao:
+Contratacao de apresentacao artistica musical
+Objeto:
+Justificativa da necessidade importada.
+Item Descricao
+Contratacao de show 12345 1 10.000,00 10.000,00 UND
+Valor Total
+10.000,00
+Secretaria Municipal
+Maria Responsavel
+123.456.789-00
+`;
 
 function renderCreatePage(initialEntry = "/app/processo/novo") {
   return renderWithProviders(
@@ -22,6 +65,27 @@ function renderCreatePage(initialEntry = "/app/processo/novo") {
       </Routes>
     </MemoryRouter>,
   );
+}
+
+function createSdFile(name = "SD.pdf") {
+  return new File(["pdf"], name, { type: "application/pdf" });
+}
+
+function mockSuccessfulSdImport(fileName = "SD.pdf") {
+  extractExpenseRequestFromPdfMock.mockResolvedValueOnce(
+    parseTopDownExpenseRequestText(sdImportText, fileName),
+  );
+}
+
+async function applySuccessfulSdImport(fileName = "SD.pdf") {
+  mockSuccessfulSdImport(fileName);
+  fireEvent.click(await screen.findByRole("button", { name: "Importar SD" }));
+  fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+    target: { files: [createSdFile(fileName)] },
+  });
+
+  expect(await screen.findByText("SD-6-2026")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Aplicar dados da SD/ }));
 }
 
 function createProcessResponse(overrides: Record<string, unknown> = {}) {
@@ -90,6 +154,28 @@ async function goToItemsStep() {
   expect(await screen.findByText("Itens do Processo")).toBeInTheDocument();
 }
 
+function fillManualSimpleItem() {
+  fireEvent.click(screen.getByRole("button", { name: "Item simples" }));
+  fireEvent.change(screen.getByLabelText("Código do item 1"), {
+    target: { value: "0005909" },
+  });
+  fireEvent.change(screen.getByLabelText("Título do item 1"), {
+    target: { value: "Pote manual" },
+  });
+  fireEvent.change(screen.getByLabelText("Descrição do item 1"), {
+    target: { value: "Pote manual com tampa" },
+  });
+  fireEvent.change(screen.getByLabelText("Quantidade do item 1"), {
+    target: { value: "2" },
+  });
+  fireEvent.change(screen.getByLabelText("Unidade do item 1"), {
+    target: { value: "UN" },
+  });
+  fireEvent.change(screen.getByLabelText("Valor unitário do item 1"), {
+    target: { value: "12,50" },
+  });
+}
+
 async function goToReviewStep() {
   fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
   expect(await screen.findByText("Revisão Final")).toBeInTheDocument();
@@ -105,6 +191,7 @@ async function reachReviewStep(processNumber = "PROC-2026-001") {
 
 describe("ProcessCreatePage", () => {
   beforeEach(() => {
+    extractExpenseRequestFromPdfMock.mockReset();
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () =>
         HttpResponse.json(authenticatedSessionResponse),
@@ -365,6 +452,160 @@ describe("ProcessCreatePage", () => {
     expect(screen.getByText("Informe o título do processo")).toBeInTheDocument();
     expect(screen.getByText("Descreva o objeto da contratação")).toBeInTheDocument();
     expect(screen.getByText("Informe a justificativa")).toBeInTheDocument();
+  });
+
+  it("opens the SD import dialog and cancels without changing the form", async () => {
+    renderCreatePage();
+
+    fireEvent.change(await screen.findByLabelText(/Número do processo/i), {
+      target: { value: "PROC-MANUAL" },
+    });
+    mockSuccessfulSdImport();
+
+    fireEvent.click(screen.getByRole("button", { name: "Importar SD" }));
+    fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+      target: { files: [createSdFile()] },
+    });
+
+    expect(await screen.findByText("Prévia extraída")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.getByLabelText(/Número do processo/i)).toHaveValue("PROC-MANUAL");
+    expect(screen.queryByText("Dados importados da SD")).not.toBeInTheDocument();
+  });
+
+  it("applies imported SD data to editable wizard fields", async () => {
+    renderCreatePage();
+
+    await applySuccessfulSdImport();
+
+    expect(screen.getByLabelText(/Número do processo/i)).toHaveValue("SD-6-2026");
+    expect(screen.getByLabelText(/ID externo/i)).toHaveValue("6");
+    expect(screen.getByLabelText(/Data de emissão/i)).toHaveValue("2026-01-08");
+    expect(screen.getByLabelText(/Responsável/i)).toHaveValue("Maria Responsavel");
+    expect(screen.getByText("Dados importados da SD")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Objeto da contratação/i), {
+      target: { value: "Objeto revisado pelo usuário" },
+    });
+    expect(screen.getByLabelText(/Objeto da contratação/i)).toHaveValue(
+      "Objeto revisado pelo usuário",
+    );
+
+    await goToLinksStep();
+    expect(screen.getByText(/Unidades selecionadas \(1\)/)).toBeInTheDocument();
+  });
+
+  it("reports an import failure and lets the user recover with another PDF", async () => {
+    extractExpenseRequestFromPdfMock.mockRejectedValueOnce(
+      new ExpenseRequestPdfError("Arquivo não reconhecido.", "unrecognized_sd"),
+    );
+    renderCreatePage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Importar SD" }));
+    fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+      target: { files: [createSdFile("relatorio.pdf")] },
+    });
+
+    expect(
+      await screen.findByText(
+        "O arquivo não foi reconhecido como uma Solicitação de Despesa TopDown.",
+      ),
+    ).toBeInTheDocument();
+
+    mockSuccessfulSdImport("SD-recuperada.pdf");
+    fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+      target: { files: [createSdFile("SD-recuperada.pdf")] },
+    });
+
+    expect(await screen.findByText("SD-6-2026")).toBeInTheDocument();
+    expect(screen.queryByText("Importação não concluída")).not.toBeInTheDocument();
+  });
+
+  it("submits reviewed values after importing SD without unsupported source fields", async () => {
+    let requestBody: Record<string, unknown> | null = null;
+
+    server.use(
+      http.post("http://localhost:3333/api/processes/", async ({ request }) => {
+        requestBody = (await request.json()) as Record<string, unknown>;
+
+        return HttpResponse.json(createProcessResponse({ processNumber: "SD-6-2026" }), {
+          status: 201,
+        });
+      }),
+    );
+
+    renderCreatePage();
+
+    await applySuccessfulSdImport();
+    fireEvent.change(screen.getByLabelText(/Objeto da contratação/i), {
+      target: { value: "Objeto revisado pelo usuário" },
+    });
+
+    await goToLinksStep();
+    await goToItemsStep();
+    await goToReviewStep();
+    fireEvent.click(screen.getByRole("button", { name: /Criar Processo/ }));
+
+    await waitFor(() => {
+      expect(requestBody).toMatchObject({
+        processNumber: "SD-6-2026",
+        externalId: "6",
+        object: "Objeto revisado pelo usuário",
+        responsibleName: "Maria Responsavel",
+        departmentIds: ["department-1"],
+        items: [],
+      });
+      expect(requestBody).not.toHaveProperty("sourceKind");
+      expect(requestBody).not.toHaveProperty("sourceReference");
+      expect(requestBody).not.toHaveProperty("sourceMetadata");
+    });
+  });
+
+  it("preserves manually added items when SD data is applied", async () => {
+    let requestBody: { items: Array<Record<string, unknown>> } | null = null;
+
+    server.use(
+      http.post("http://localhost:3333/api/processes/", async ({ request }) => {
+        requestBody = (await request.json()) as { items: Array<Record<string, unknown>> };
+
+        return HttpResponse.json(createProcessResponse({ processNumber: "SD-6-2026" }), {
+          status: 201,
+        });
+      }),
+    );
+
+    renderCreatePage();
+
+    await fillRequiredFields("PROC-MANUAL-ITEM");
+    await goToLinksStep();
+    await selectDefaultDepartment();
+    await goToItemsStep();
+    fillManualSimpleItem();
+
+    await applySuccessfulSdImport();
+
+    expect(screen.getByLabelText("Código do item 1")).toHaveValue("0005909");
+    expect(screen.getByLabelText("Título do item 1")).toHaveValue("Pote manual");
+
+    await goToReviewStep();
+    fireEvent.click(screen.getByRole("button", { name: /Criar Processo/ }));
+
+    await waitFor(() => {
+      expect(requestBody?.items).toEqual([
+        expect.objectContaining({
+          kind: "simple",
+          code: "0005909",
+          title: "Pote manual",
+          description: "Pote manual com tampa",
+          quantity: "2",
+          unit: "UN",
+          unitValue: "12,50",
+          totalValue: "25.00",
+        }),
+      ]);
+      expect(requestBody?.items).toHaveLength(1);
+    });
   });
 
   it("shows backend rejection errors without leaving the form", async () => {

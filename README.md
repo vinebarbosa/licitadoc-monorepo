@@ -80,6 +80,28 @@ Variaveis da API:
 
 Em producao na Vercel, configure essas variaveis no projeto da API. O navegador assina canais privados via `POST /api/support-tickets/realtime/token`; mensagens, status e read state continuam sendo persistidos pela API antes de qualquer publish realtime.
 
+## Armazenamento Local
+
+O armazenamento S3 local usa MiniStack em `http://localhost:4566`, com o bucket `licitadoc-expense-requests`. O `docker-compose.yml` habilita persistencia de estado e de objetos S3; se os volumes forem removidos explicitamente, os arquivos locais tambem serao perdidos.
+
+Fluxo recomendado:
+
+```bash
+docker compose up -d postgres ministack
+cd apps/api
+pnpm storage:verify
+pnpm dev
+```
+
+Se o banco local apontar para arquivos que ficaram no estado antigo do LocalStack, recrie o bucket subindo o `ministack` e reenvie os ativos afetados. Para o timbrado de Pureza/RN, rode:
+
+```bash
+cd apps/api
+pnpm seed:pureza-letterhead
+```
+
+Para PDFs de SD ou imagens de chamados que nao existem mais no armazenamento local, reenvie o arquivo pelo fluxo correspondente ou limpe/recrie os registros locais afetados.
+
 ## Expense Request Upload Seed
 
 Para testar manualmente `POST /api/processes/from-expense-request/pdf` com dados compativeis com o SD de referencia, a API agora tem um seed dedicado que prepara:
@@ -91,7 +113,7 @@ Para testar manualmente `POST /api/processes/from-expense-request/pdf` com dados
 Fluxo recomendado:
 
 ```bash
-docker compose up -d postgres localstack
+docker compose up -d postgres ministack
 cd apps/api
 pnpm db:migrate
 pnpm seed:expense-request-upload

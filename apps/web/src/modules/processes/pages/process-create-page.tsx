@@ -21,7 +21,9 @@ export function ProcessCreatePage() {
   const createProcess = useProcessCreate();
   const departmentsQuery = useProcessDepartmentsList();
   const organizationsQuery = useProcessOrganizationsList(isAdmin);
-  const currentOrganizationQuery = useCurrentProcessOrganization(!isAdmin && Boolean(actorOrganizationId));
+  const currentOrganizationQuery = useCurrentProcessOrganization(
+    !isAdmin && Boolean(actorOrganizationId),
+  );
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string>();
 
   const organizations = organizationsQuery.data?.items ?? [];
@@ -37,7 +39,8 @@ export function ProcessCreatePage() {
   }, [currentOrganizationQuery.data, isAdmin, organizations]);
 
   const hasReferenceError =
-    departmentsQuery.isError || (isAdmin ? organizationsQuery.isError : currentOrganizationQuery.isError);
+    departmentsQuery.isError ||
+    (isAdmin ? organizationsQuery.isError : currentOrganizationQuery.isError);
 
   async function handleSubmit(values: Parameters<typeof buildCreateRequest>[0]) {
     setSubmitErrorMessage(undefined);
@@ -58,6 +61,7 @@ export function ProcessCreatePage() {
     <ProcessFormWizard
       pageTitle="Novo Processo"
       pageDescription="Cadastre os dados do processo e revise as informações antes de gerar os documentos."
+      enableSdImport
       submitLabel="Criar Processo"
       submitPendingLabel="Criando..."
       submitErrorTitle="Não foi possível criar o processo"

@@ -16,22 +16,36 @@ services:
       timeout: 5s
       retries: 5
 
-  localstack:
-    image: localstack/localstack:4.6.0
+  ministack:
+    image: ministackorg/ministack:1.3
     restart: unless-stopped
     ports:
       - "4566:4566"
     environment:
       SERVICES: s3
-      DEBUG: 0
+      LOG_LEVEL: INFO
+      PERSIST_STATE: "1"
+      S3_PERSIST: "1"
+      STATE_DIR: /tmp/ministack-state
+      S3_DATA_DIR: /tmp/ministack-data/s3
+      STORAGE_S3_BUCKET: licitadoc-expense-requests
     volumes:
-      - localstack_data:/var/lib/localstack
+      - ministack_state:/tmp/ministack-state
+      - ministack_s3:/tmp/ministack-data/s3
+      - ./infra/ministack/init/ready.d:/etc/localstack/init/ready.d:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:4566/_ministack/ready')",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
   postgres_data:
-  localstack_data:
+  ministack_state:
+  ministack_s3:
