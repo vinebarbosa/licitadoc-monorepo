@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthSession, useSignOut } from "@/modules/auth";
+import { useProcessSidebarCount } from "@/modules/processes";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Badge } from "@/shared/ui/badge";
 import {
@@ -43,7 +44,7 @@ import {
 
 const mainNavItems = [
   { title: "Central de Trabalho", url: "/app", icon: LayoutGrid },
-  { title: "Processos", url: "/app/processos", icon: FolderKanban, badge: "5" },
+  { title: "Processos", url: "/app/processos", icon: FolderKanban },
   { title: "Documentos", url: "/app/documentos", icon: FileText },
 ];
 
@@ -106,8 +107,13 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const { role, session } = useAuthSession();
   const signOut = useSignOut();
+  const processCountQuery = useProcessSidebarCount();
   const isCollapsed = state === "collapsed";
   const user = session?.user;
+  const processCountBadge =
+    processCountQuery.isSuccess && typeof processCountQuery.data.total === "number"
+      ? processCountQuery.data.total.toString()
+      : undefined;
 
   async function handleSignOut() {
     if (signOut.isPending) {
@@ -163,6 +169,7 @@ export function AppSidebar() {
                   pathname === item.url ||
                   (item.url !== "/app" && pathname.startsWith(item.url)) ||
                   (item.url === "/app/processos" && pathname.startsWith("/app/processo/"));
+                const badge = item.title === "Processos" ? processCountBadge : undefined;
 
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -170,9 +177,9 @@ export function AppSidebar() {
                       <Link to={item.url}>
                         <item.icon className="size-4" />
                         <span className="flex-1">{item.title}</span>
-                        {item.badge && !isCollapsed && (
+                        {badge !== undefined && !isCollapsed && (
                           <Badge variant="secondary" className="ml-auto h-5 min-w-5 px-1.5">
-                            {item.badge}
+                            {badge}
                           </Badge>
                         )}
                       </Link>

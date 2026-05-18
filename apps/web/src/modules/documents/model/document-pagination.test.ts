@@ -105,6 +105,28 @@ describe("planDocumentPagination", () => {
     expect(compactPlan.boundaries).toEqual([]);
   });
 
+  it("keeps estimated signature blocks with the following paragraph", () => {
+    const plan = planDocumentPagination(
+      [
+        { height: 700, key: "content" },
+        { height: 40, keepWithNext: true, key: "signature-line" },
+        { height: 90, key: "responsible-name" },
+      ],
+      geometry,
+    );
+
+    expect(plan.pageCount).toBe(2);
+    expect(plan.boundaries).toEqual([
+      {
+        blockKey: "signature-line",
+        pageIndex: 1,
+        placement: "before",
+        reason: "automatic",
+        spacerHeight: 120,
+      },
+    ]);
+  });
+
   it("uses measured block positions to move overflowing content to the next page start", () => {
     const plan = planDocumentPagination(
       [

@@ -122,8 +122,6 @@ Quando houver pendências relevantes, como estimativa de valor, pesquisa de merc
 
 Evite encerramento superficial. A conclusão deve demonstrar coerência da contratação, interesse público e viabilidade preliminar, sem transformar a análise em aprovação absoluta ou dispensar verificações posteriores.
 
-## 12. FECHO
-
 {{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.
 
 {{process.responsibleName}}

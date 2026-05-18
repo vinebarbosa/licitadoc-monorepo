@@ -51,8 +51,6 @@ Os requisitos devem ser mínimos, diretamente ligados ao objeto e compatíveis c
 
 Não inclua cláusulas contratuais detalhadas, obrigações extensas, critérios de fiscalização, critérios de pagamento, critérios de medição, SLA, sanções, certificações sem suporte, padrões técnicos não informados ou exigências excessivamente específicas sem base no contexto.
 
-## 6. FECHO
-
 {{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.
 
 {{process.responsibleName}}

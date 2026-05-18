@@ -39,6 +39,10 @@ export function useProcessesList(params: ProcessesListQueryParams) {
   return useGetApiProcesses({ params });
 }
 
+export function useProcessSidebarCount() {
+  return useProcessesList({ page: 1, pageSize: 1 });
+}
+
 export function useProcessDetail(processId: string) {
   return useQuery<ProcessDetailResponse, ResponseErrorConfig<{ message?: string }>>({
     enabled: processId.length > 0,
@@ -170,7 +174,9 @@ export function useProcessUpdate(processId: string) {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getApiProcessesQueryKey() }),
-        queryClient.invalidateQueries({ queryKey: getApiProcessesProcessidQueryKey({ processId }) }),
+        queryClient.invalidateQueries({
+          queryKey: getApiProcessesProcessidQueryKey({ processId }),
+        }),
       ]);
     },
   });

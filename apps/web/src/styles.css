@@ -733,6 +733,18 @@
     text-indent: 0;
   }
 
+  .public-document-demo-prosemirror p[data-signature-closing-part="date"] {
+    margin-top: 40px;
+  }
+
+  .public-document-demo-prosemirror p[data-signature-closing-part="name"] {
+    margin-top: 34px;
+  }
+
+  .public-document-demo-prosemirror p[data-signature-closing-part="role"] {
+    margin-top: 10px;
+  }
+
   .public-document-demo-prosemirror hr {
     height: 28px;
     margin: 52px calc(-1 * var(--public-document-demo-page-x)) 50px;
@@ -894,14 +906,16 @@
     display: block !important;
   }
 
-  .document-pagination-page-frames {
+  [data-document-preview-print-root] .document-pagination-page-frames {
     display: none !important;
   }
 
-  .document-pagination-surface {
+  [data-document-preview-print-root] .document-pagination-surface {
+    --document-pagination-total-height: auto !important;
     width: 100% !important;
     max-width: none !important;
     min-height: auto !important;
+    height: auto !important;
     padding: 0 !important;
     color: #000000 !important;
     background: #ffffff !important;
@@ -910,16 +924,39 @@
     box-shadow: none !important;
   }
 
-  .document-pagination-content-layer {
+  [data-document-preview-print-root] .document-pagination-content-layer,
+  [data-document-preview-print-root] .document-pagination-content-layer > div {
     display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
-  .document-pagination-surface
+  [data-document-preview-print-root] .document-pagination-surface .public-document-demo-prosemirror {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  [data-document-preview-print-root]
+    .document-pagination-surface
     .public-document-demo-prosemirror
     > [data-document-pagination-break-before="true"] {
+    --document-pagination-break-before-space: 0px !important;
     margin-top: 0 !important;
-    break-before: page;
-    page-break-before: always;
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+
+  [data-document-preview-print-root] [data-document-pagination-break-before="true"] {
+    --document-pagination-break-before-space: 0px !important;
+    margin-top: 0 !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+
+  [data-document-preview-print-root] [data-document-pagination-manual-break="true"] {
+    --document-pagination-manual-break-space: 0px !important;
+    height: 0 !important;
+    margin: 0 !important;
   }
 
   .institutional-document-markdown h1,
@@ -953,7 +990,7 @@
     text-decoration: underline;
   }
 
-  .public-document-demo-prosemirror hr {
+  [data-document-preview-print-root] .public-document-demo-prosemirror hr {
     height: 0;
     margin: 0;
     background: transparent;
@@ -962,7 +999,11 @@
     page-break-after: always;
   }
 
-  .document-pagination-surface .public-document-demo-prosemirror hr {
+  [data-document-preview-print-root]
+    .document-pagination-surface
+    .public-document-demo-prosemirror
+    hr {
+    --document-pagination-manual-break-space: 0px !important;
     height: 0 !important;
     margin: 0 !important;
     background: transparent !important;

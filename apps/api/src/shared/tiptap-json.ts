@@ -66,9 +66,10 @@ function parseInlineText(text: string): TiptapNodeJson[] {
   return nodes.length > 0 ? nodes : [textNode(text)];
 }
 
-function paragraph(text: string): TiptapNodeJson {
+function paragraph(text: string, attrs?: TiptapNodeJson["attrs"]): TiptapNodeJson {
   return {
     type: "paragraph",
+    ...(attrs ? { attrs } : {}),
     content: parseInlineText(text),
   };
 }
@@ -111,6 +112,126 @@ function collectParagraph(lines: string[], startIndex: number) {
     index,
     text: paragraphLines.join(" "),
   };
+}
+
+function renderInlineText(nodes: TiptapNodeJson[] = []): string {
+  return nodes
+    .map((node) => {
+      if (node.type === "text") {
+        return node.text ?? "";
+      }
+
+      if (node.type === "hardBreak") {
+        return "\n";
+      }
+
+      return renderInlineText(node.content);
+    })
+    .join("");
+}
+
+function getParagraphText(node: TiptapNodeJson) {
+  if (node.type !== "paragraph") {
+    return null;
+  }
+
+  return renderInlineText(node.content).trim();
+}
+
+function isSignatureLine(value: string | null) {
+  return typeof value === "string" && /^_{8,}$/.test(value.trim());
+}
+
+function isClosingLocalDateLine(value: string | null) {
+  return (
+    typeof value === "string" &&
+    /^[^\n,]+\/[A-Z]{2},\s+\d{1,2}\s+de\s+[\p{L}ç]+\s+de\s+\d{4}\.$/iu.test(value.trim())
+  );
+}
+
+function setClosingParagraphAttributes(
+  node: TiptapNodeJson,
+  textAlign: "center" | "right",
+  signatureClosingPart: "date" | "name" | "role",
+): TiptapNodeJson {
+  if (node.type !== "paragraph") {
+    return node;
+  }
+
+  return {
+    ...node,
+    attrs: {
+      ...node.attrs,
+      noFirstLineIndent: true,
+      signatureClosingPart,
+      textAlign,
+    },
+  };
+}
+
+function applySignatureClosingAttributes(nodes: TiptapNodeJson[]): TiptapNodeJson[] {
+  const nextNodes = [...nodes];
+  const signatureIndex = nextNodes.findLastIndex((node) => isSignatureLine(getParagraphText(node)));
+
+  if (signatureIndex >= 0) {
+    const localDateIndex = signatureIndex - 1;
+    const nameIndex = signatureIndex + 1;
+    const roleIndex = signatureIndex + 2;
+
+    if (
+      localDateIndex < 0 ||
+      nextNodes[localDateIndex]?.type !== "paragraph" ||
+      nextNodes[nameIndex]?.type !== "paragraph" ||
+      nextNodes[roleIndex]?.type !== "paragraph"
+    ) {
+      return nextNodes;
+    }
+
+    nextNodes[localDateIndex] = setClosingParagraphAttributes(
+      nextNodes[localDateIndex],
+      "right",
+      "date",
+    );
+    nextNodes[nameIndex] = setClosingParagraphAttributes(nextNodes[nameIndex], "center", "name");
+    nextNodes[roleIndex] = setClosingParagraphAttributes(nextNodes[roleIndex], "center", "role");
+    nextNodes.splice(signatureIndex, 1);
+
+    return nextNodes;
+  }
+
+  const localDateIndex = nextNodes.findLastIndex((node, index) => {
+    const nextNode = nextNodes[index + 1];
+    const followingNode = nextNodes[index + 2];
+
+    return (
+      node.type === "paragraph" &&
+      nextNode?.type === "paragraph" &&
+      followingNode?.type === "paragraph" &&
+      isClosingLocalDateLine(getParagraphText(node))
+    );
+  });
+
+  if (localDateIndex < 0) {
+    return nextNodes;
+  }
+
+  nextNodes[localDateIndex] = setClosingParagraphAttributes(
+    nextNodes[localDateIndex],
+    "right",
+    "date",
+  );
+  nextNodes[localDateIndex + 1] = setClosingParagraphAttributes(
+    nextNodes[localDateIndex + 1],
+    "center",
+    "name",
+  );
+  nextNodes[localDateIndex + 2] = setClosingParagraphAttributes(
+    nextNodes[localDateIndex + 2],
+    "center",
+    "role",
+  );
+
+  return nextNodes;
 }
 
 export function documentTextToTiptapJson(content: string | null | undefined): TiptapDocumentJson {
@@ -218,7 +339,8 @@ export function documentTextToTiptapJson(content: string | null | undefined): Ti
 
   return {
     type: "doc",
-    content: nodes.length > 0 ? nodes : emptyTiptapDocumentJson.content,
+    content:
+      nodes.length > 0 ? applySignatureClosingAttributes(nodes) : emptyTiptapDocumentJson.content,
   };
 }
 

@@ -1,4 +1,4 @@
-export { useProcessesList } from "./api/processes";
+export { useProcessesList, useProcessSidebarCount } from "./api/processes";
 export {
   formatProcessListDate,
   getProcessDetailPath,

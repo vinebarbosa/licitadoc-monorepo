@@ -21,6 +21,10 @@ Regras obrigatórias:
 11. Não desenvolva estudo de mercado, metodologia de pesquisa de preços, análise de alternativas, matriz de riscos, fiscalização contratual, obrigações da contratada, critérios de pagamento, critérios de medição, SLA, sanções, parecer jurídico, conclusão de economicidade ou conclusão de vantajosidade.
 12. Renderize valores de campos como texto formal do documento; não envolva dados em crases ou marcação de código inline.
 13. Se valor estimado estiver ausente, zerado ou marcado como não informado, não declare compatibilidade com preços de mercado, economicidade já comprovada, vantajosidade ou validação de pesquisa de mercado. Registre apenas, de forma simples, que o valor será apurado na instrução processual ou em etapa posterior.
+14. O bloco final de local/data e assinatura não deve ter título visível. Não crie headings como "FECHO", "ASSINATURA" ou equivalentes para essas informações.
+15. No bloco final, gere apenas linhas Markdown simples, na ordem do modelo: local/data, nome do responsável e cargo.
+16. Não gere linha de assinatura, sublinhado, tracejado ou qualquer linha separadora entre a data e o nome.
+17. Não use HTML, `<div>`, `align`, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final. O alinhamento visual será aplicado pelo sistema.
 
 Orientação editorial:
 

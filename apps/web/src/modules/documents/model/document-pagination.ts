@@ -213,8 +213,13 @@ function planEstimatedDocumentPagination(
   let pageIndex = 0;
   let usedHeight = 0;
 
-  for (const block of blocks) {
+  for (const [index, block] of blocks.entries()) {
     const blockHeight = Math.max(0, block.height);
+    const nextBlock = blocks[index + 1];
+    const keepTogetherHeight =
+      block.keepWithNext && nextBlock && !nextBlock.isForcedPageBreak
+        ? blockHeight + Math.max(0, nextBlock.height)
+        : blockHeight;
 
     if (block.isForcedPageBreak) {
       const spacerHeight = Math.max(0, usablePageHeight - usedHeight) + pageGap;
@@ -232,7 +237,7 @@ function planEstimatedDocumentPagination(
       continue;
     }
 
-    if (usedHeight > 0 && usedHeight + blockHeight > usablePageHeight) {
+    if (usedHeight > 0 && usedHeight + keepTogetherHeight > usablePageHeight) {
       const spacerHeight = Math.max(0, usablePageHeight - usedHeight) + pageGap;
 
       boundaries.push({

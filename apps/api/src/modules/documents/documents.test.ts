@@ -172,6 +172,41 @@ function createTextGenerationProvider(
   };
 }
 
+function getNodeText(node: unknown): string {
+  if (!node || typeof node !== "object") {
+    return "";
+  }
+
+  const record = node as { content?: unknown[]; text?: unknown };
+
+  if (typeof record.text === "string") {
+    return record.text;
+  }
+
+  return (record.content ?? []).map(getNodeText).join("");
+}
+
+function assertDraftJsonParagraphAlignment(
+  content: unknown,
+  text: string,
+  textAlign: "center" | "right",
+) {
+  const doc = content as { content?: Array<{ attrs?: Record<string, unknown>; type?: string }> };
+  const paragraph = (doc.content ?? []).find(
+    (node) => node.type === "paragraph" && getNodeText(node).trim() === text,
+  );
+
+  assert.ok(paragraph, `Expected paragraph with text: ${text}`);
+  assert.equal(paragraph.attrs?.textAlign, textAlign);
+  assert.equal(paragraph.attrs?.noFirstLineIndent, true);
+}
+
+function assertDraftJsonSignatureClosing(content: unknown) {
+  assertDraftJsonParagraphAlignment(content, "Fortaleza/CE, 08 de janeiro de 2026.", "right");
+  assertDraftJsonParagraphAlignment(content, "Ana Souza", "center");
+  assertDraftJsonParagraphAlignment(content, "Secretaria Municipal", "center");
+}
+
 function createDb({
   departments = [createDepartmentRow()],
   organization = createOrganizationRow(),
@@ -477,7 +512,17 @@ test("createDocument generates and persists a completed draft", async () => {
       return {
         providerKey: "stub",
         model: "stub-model",
-        text: "Conteudo gerado do DFD",
+        text: [
+          "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)",
+          "",
+          "Conteudo gerado do DFD.",
+          "",
+          "Fortaleza/CE, 08 de janeiro de 2026.",
+          "",
+          "Ana Souza",
+          "",
+          "Secretaria Municipal",
+        ].join("\n"),
         responseMetadata: {
           finishReason: "stop",
         },
@@ -488,13 +533,69 @@ test("createDocument generates and persists a completed draft", async () => {
   assert.equal(insertedDocument?.type, "dfd");
   assert.equal(insertedDocument?.status, "generating");
   assert.equal(updatedDocument?.status, "completed");
-  assert.equal(updatedDocument?.draftContent, "Conteudo gerado do DFD");
+  assert.match(String(updatedDocument?.draftContent), /Conteudo gerado do DFD\./);
+  assert.equal(/^## .*FECHO/im.test(String(updatedDocument?.draftContent)), false);
+  assertDraftJsonSignatureClosing(updatedDocument?.draftContentJson);
   assert.equal(updatedRun?.status, "completed");
   assert.equal(response.status, "completed");
-  assert.equal(response.draftContent, "Conteudo gerado do DFD");
+  assert.equal(response.draftContent, updatedDocument?.draftContent);
+  assertDraftJsonSignatureClosing(response.draftContentJson);
   assert.match(receivedPrompt ?? "", /## Modelo Markdown canônico/);
   assert.match(receivedPrompt ?? "", /# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA \(DFD\)/);
+  assert.match(receivedPrompt ?? "", /Não inclua heading de FECHO, ASSINATURA ou equivalente/);
+  assert.match(receivedPrompt ?? "", /Não gere linha de assinatura, sublinhado, tracejado/i);
+  assert.match(receivedPrompt ?? "", /Não use HTML, <div>, align, CSS inline, tabelas/i);
   assert.match(receivedPrompt ?? "", /Usar linguagem objetiva\./);
+});
+
+test("createDocument strips provider closing alignment HTML before persistence", async () => {
+  let updatedDocument: Record<string, unknown> | undefined;
+
+  const response = await createDocument({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db: createDb({
+      onDocumentUpdate: (values) => {
+        updatedDocument = values;
+      },
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+      instructions: "Usar linguagem objetiva.",
+    }),
+    textGeneration: createTextGenerationProvider(async () => ({
+      providerKey: "stub",
+      model: "stub-model",
+      text: [
+        "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)",
+        "",
+        "Conteudo gerado do DFD.",
+        "",
+        '<div align="right">Fortaleza/CE, 08 de janeiro de 2026.</div>',
+        '<div align="center">Ana Souza</div>',
+        '<div align="center">Secretaria Municipal</div>',
+      ].join("\n"),
+      responseMetadata: {
+        finishReason: "stop",
+      },
+    })),
+  });
+
+  assert.equal(updatedDocument?.status, "completed");
+  assert.equal(updatedDocument?.draftContent, response.draftContent);
+  assert.doesNotMatch(response.draftContent ?? "", /<div/i);
+  assert.doesNotMatch(response.draftContent ?? "", /<\/div>/i);
+  assert.doesNotMatch(response.draftContent ?? "", /align=/i);
+  assert.match(response.draftContent ?? "", /Fortaleza\/CE, 08 de janeiro de 2026\./);
+  assert.doesNotMatch(response.draftContent ?? "", /_{8,}/);
+  assert.match(response.draftContent ?? "", /Ana Souza/);
+  assert.match(response.draftContent ?? "", /Secretaria Municipal/);
+  assertDraftJsonSignatureClosing(updatedDocument?.draftContentJson);
+  assertDraftJsonSignatureClosing(response.draftContentJson);
 });
 
 test("createDocument uses the canonical ETP recipe and zero-value safety", async () => {
@@ -547,6 +648,12 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
           "",
           "## 5. ESTIMATIVA DO VALOR DA CONTRATAÇÃO",
           "O valor estimado dependerá de apuração complementar em etapa própria.",
+          "",
+          "Fortaleza/CE, 08 de janeiro de 2026.",
+          "",
+          "Ana Souza",
+          "",
+          "Secretaria Municipal",
         ].join("\n"),
         responseMetadata: {
           finishReason: "stop",
@@ -573,9 +680,15 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
   );
   assert.match(receivedPrompt ?? "", /Não misture informações de DFD, TR, minuta/);
   assert.match(receivedPrompt ?? "", /Lei nº 14\.133\/2021 e a boas práticas do TCU/);
+  assert.match(receivedPrompt ?? "", /Não inclua heading de FECHO, ASSINATURA ou equivalente/);
+  assert.match(receivedPrompt ?? "", /Não gere linha de assinatura, sublinhado, tracejado/i);
+  assert.match(receivedPrompt ?? "", /Não use HTML, <div>, align, CSS inline, tabelas/i);
   assert.match(receivedPrompt ?? "", /Manter consistencia com o DFD\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
+  assert.equal(/^## .*FECHO/im.test(response.draftContent ?? ""), false);
+  assertDraftJsonSignatureClosing(updatedDocument?.draftContentJson);
+  assertDraftJsonSignatureClosing(response.draftContentJson);
   assert.match(response.draftContent ?? "", /ESTIMATIVA DO VALOR DA CONTRATAÇÃO/);
   assert.match(response.draftContent ?? "", /apuração complementar/);
 });
@@ -631,6 +744,12 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
           "",
           "## 7. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA",
           "Valor não informado no contexto; será apurado posteriormente por pesquisa de mercado.",
+          "",
+          "Fortaleza/CE, 08 de janeiro de 2026.",
+          "",
+          "Ana Souza",
+          "",
+          "Secretaria Municipal",
         ].join("\n"),
         responseMetadata: {
           finishReason: "stop",
@@ -649,9 +768,15 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
   assert.match(receivedPrompt ?? "", /- Valor bruto de referência: R\$ 0,00/);
   assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
   assert.match(receivedPrompt ?? "", /não invente valores/i);
+  assert.match(receivedPrompt ?? "", /Não inclua heading de FECHO, ASSINATURA ou equivalente/);
+  assert.match(receivedPrompt ?? "", /Não gere linha de assinatura, sublinhado, tracejado/i);
+  assert.match(receivedPrompt ?? "", /Não use HTML, <div>, align, CSS inline, tabelas/i);
   assert.match(receivedPrompt ?? "", /Manter consistencia operacional com o ETP\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
+  assert.equal(/^## .*FECHO/im.test(response.draftContent ?? ""), false);
+  assertDraftJsonSignatureClosing(updatedDocument?.draftContentJson);
+  assertDraftJsonSignatureClosing(response.draftContentJson);
   assert.match(response.draftContent ?? "", /VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
   assert.match(response.draftContent ?? "", /Valor não informado no contexto/);
 });
@@ -937,7 +1062,15 @@ test("applyDocumentTextAdjustment persists accepted replacement using resolved s
 test("updateDocument persists completed draft edits and preserves ownership fields", async () => {
   let updatedDocument: Record<string, unknown> | undefined;
   const draftContent = "# Documento\n\nTexto original.";
-  const nextDraftContent = "# Documento\n\nTexto revisado com seguranca.";
+  const nextDraftContent = `# Documento
+
+Texto revisado com seguranca.
+
+Fortaleza/CE, 08 de janeiro de 2026.
+
+Ana Souza
+
+Secretaria Municipal`;
   const draftContentJson = documentTextToTiptapJson(draftContent);
   const nextDraftContentJson = documentTextToTiptapJson(nextDraftContent);
   const db = createDb({
@@ -967,9 +1100,11 @@ test("updateDocument persists completed draft edits and preserves ownership fiel
 
   assert.equal(updatedDocument?.draftContent, nextDraftContent);
   assert.deepEqual(updatedDocument?.draftContentJson, nextDraftContentJson);
+  assertDraftJsonSignatureClosing(updatedDocument?.draftContentJson);
   assert.ok(updatedDocument?.updatedAt instanceof Date);
   assert.equal(response.draftContent, nextDraftContent);
   assert.deepEqual(response.draftContentJson, nextDraftContentJson);
+  assertDraftJsonSignatureClosing(response.draftContentJson);
   assert.equal(response.id, DOCUMENT_ID);
   assert.equal(response.organizationId, ORGANIZATION_ID);
   assert.equal(response.processId, PROCESS_ID);
@@ -2157,7 +2292,12 @@ test("createDocument strips ETP and TR sections from generated DFD content", asy
         "- Numero da Solicitacao: 6",
         "",
         "## 6. FECHO",
+        "",
+        "Fortaleza/CE, 08 de janeiro de 2026.",
+        "",
         "Ana Souza",
+        "",
+        "Secretaria Municipal",
         "",
         "## ESTUDO TECNICO PRELIMINAR (ETP)",
         "Conteudo que nao deve permanecer.",
@@ -2179,10 +2319,14 @@ test("createDocument strips ETP and TR sections from generated DFD content", asy
       "## 1. DADOS DA SOLICITACAO",
       "- Numero da Solicitacao: 6",
       "",
-      "## 6. FECHO",
+      "Fortaleza/CE, 08 de janeiro de 2026.",
+      "",
       "Ana Souza",
+      "",
+      "Secretaria Municipal",
     ].join("\n"),
   );
+  assert.equal(/^## .*FECHO/im.test(response.draftContent ?? ""), false);
   assert.equal(/ESTUDO TÉCNICO PRELIMINAR/i.test(response.draftContent ?? ""), false);
   assert.equal(/TERMO DE REFERÊNCIA/i.test(response.draftContent ?? ""), false);
 });

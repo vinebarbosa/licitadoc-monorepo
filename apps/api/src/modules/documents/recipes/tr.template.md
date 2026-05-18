@@ -105,8 +105,6 @@ Indique que eventual apuração deverá observar o instrumento contratual, a leg
 
 Não invente percentuais, valores de multa, prazos, gradações, penalidades específicas, rito sancionador detalhado ou hipóteses não suportadas pelo contexto.
 
-## 11. FECHO
-
 {{organization.city}}/{{organization.state}}, {{process.issuedAt_long_br}}.
 
 {{process.responsibleName}}

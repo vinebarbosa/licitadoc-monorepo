@@ -1,0 +1,4 @@
+interface:
+  display_name: "Enrich SD Context"
+  short_description: "Classify and enrich SD context"
+  default_prompt: "Use $enrich-sd-document-context to classify and enrich a Solicitação de Despesa before generating documents."

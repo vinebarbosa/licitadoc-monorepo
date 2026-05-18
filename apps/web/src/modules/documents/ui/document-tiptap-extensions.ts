@@ -91,6 +91,23 @@ export const ParagraphIndentExtension = Extension.create({
               };
             },
           },
+          signatureClosingPart: {
+            default: null,
+            parseHTML: (element) => element.getAttribute("data-signature-closing-part"),
+            renderHTML: (attributes) => {
+              if (
+                attributes.signatureClosingPart !== "date" &&
+                attributes.signatureClosingPart !== "name" &&
+                attributes.signatureClosingPart !== "role"
+              ) {
+                return {};
+              }
+
+              return {
+                "data-signature-closing-part": attributes.signatureClosingPart,
+              };
+            },
+          },
         },
       },
     ];

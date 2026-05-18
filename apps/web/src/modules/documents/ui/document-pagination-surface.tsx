@@ -83,13 +83,33 @@ function getElementScale(element: HTMLElement) {
   return Number.isFinite(scale) && scale > 0 ? scale : 1;
 }
 
+export function getSignatureClosingKeepWithNextIndexes(elements: HTMLElement[]) {
+  const dateIndex = elements.findLastIndex(
+    (element, index) =>
+      element.tagName === "P" &&
+      element.getAttribute("data-signature-closing-part") === "date" &&
+      elements[index + 1]?.getAttribute("data-signature-closing-part") === "name" &&
+      elements[index + 2]?.getAttribute("data-signature-closing-part") === "role",
+  );
+
+  if (dateIndex < 0) {
+    return new Set<number>();
+  }
+
+  return new Set(
+    [dateIndex, dateIndex + 1].filter((index) => index >= 0 && index < elements.length),
+  );
+}
+
 function getMeasuredBlocks(editorElement: HTMLElement, scale = 1) {
   const editorRect = editorElement.getBoundingClientRect();
   const elementsByKey = getPaginationElementsByKey(editorElement);
+  const contentBlocks = getPaginationContentBlocks(editorElement);
+  const signatureKeepWithNextIndexes = getSignatureClosingKeepWithNextIndexes(contentBlocks);
   const blocks: DocumentPaginationBlockMetric[] = [];
   const measurementScale = scale > 0 ? scale : 1;
 
-  for (const [index, element] of getPaginationContentBlocks(editorElement).entries()) {
+  for (const [index, element] of contentBlocks.entries()) {
     const key = String(index);
     const rect = element.getBoundingClientRect();
     const top = Math.max(0, (rect.top - editorRect.top) / measurementScale);
@@ -106,7 +126,7 @@ function getMeasuredBlocks(editorElement: HTMLElement, scale = 1) {
       bottom,
       height: measuredHeight,
       isForcedPageBreak,
-      keepWithNext: /^H[1-6]$/.test(element.tagName),
+      keepWithNext: /^H[1-6]$/.test(element.tagName) || signatureKeepWithNextIndexes.has(index),
       key,
       marginTop,
       top,
@@ -120,7 +140,7 @@ function applyPaginationPlanToEditor(editorElement: HTMLElement, plan: DocumentP
   applyPaginationBoundaries(plan, getPaginationElementsByKey(editorElement));
 }
 
-function createPaginationBoundaryCss(surfaceId: string, layout: DocumentPaginationPlan) {
+export function createPaginationBoundaryCss(surfaceId: string, layout: DocumentPaginationPlan) {
   return layout.boundaries
     .map((boundary) => {
       const blockIndex = Number.parseInt(boundary.blockKey, 10);
@@ -133,7 +153,8 @@ function createPaginationBoundaryCss(surfaceId: string, layout: DocumentPaginati
       const selector = `[data-document-pagination-surface-id="${surfaceId}"] [data-document-pagination-content="true"] > :nth-child(${childIndex})`;
 
       if (boundary.placement === "self") {
-        return `${selector} {
+        return `@media screen {
+${selector} {
   height: ${boundary.spacerHeight}px !important;
   margin: 0 calc(-1 * var(--public-document-demo-page-x)) !important;
   border: 0 !important;
@@ -141,13 +162,36 @@ function createPaginationBoundaryCss(surfaceId: string, layout: DocumentPaginati
   box-shadow: none !important;
   break-after: page;
   page-break-after: always;
+}
+}
+@media print {
+${selector} {
+  --document-pagination-manual-break-space: 0px !important;
+  height: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  break-after: page;
+  page-break-after: always;
+}
 }`;
       }
 
-      return `${selector} {
+      return `@media screen {
+${selector} {
   margin-top: ${boundary.spacerHeight + (boundary.marginTop ?? 0)}px !important;
   break-before: page;
   page-break-before: always;
+}
+}
+@media print {
+${selector} {
+  --document-pagination-break-before-space: 0px !important;
+  margin-top: 0 !important;
+  break-before: auto;
+  page-break-before: auto;
+}
 }`;
     })
     .filter(Boolean)

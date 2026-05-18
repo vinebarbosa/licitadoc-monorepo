@@ -1015,6 +1015,9 @@ function buildDfdGenerationPrompt({
     "- Mantenha contexto, objeto e justificativa em 1 ou 2 parágrafos cada, salvo complexidade real presente no contexto.",
     "- Use requisitos essenciais mínimos em 3 a 6 bullets curtos e diretamente ligados ao objeto.",
     "- Não inclua seções, títulos ou conteúdo de ETP, ESTUDO TÉCNICO PRELIMINAR, TR ou TERMO DE REFERÊNCIA.",
+    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
+    "- Não gere linha de assinatura, sublinhado, tracejado ou linha separadora entre a data e o nome.",
+    "- Não use HTML, <div>, align, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final.",
     "- Não desenvolva estudo de mercado, metodologia de pesquisa de preços, análise de alternativas, estudo de viabilidade, matriz de riscos ou riscos sofisticados.",
     "- Não inclua obrigações contratuais detalhadas, fiscalização contratual, critérios de pagamento, critérios de medição, aceite, SLA, sanções ou cláusulas de execução.",
     "- Se algum dado estiver ausente, explicite a ausência sem inventar fatos.",
@@ -1062,6 +1065,65 @@ function normalizeHeadingForComparison(value: string) {
 
 function isClauseHeadingLine(value: string) {
   return /^clausula\b/.test(normalizeHeadingForComparison(value));
+}
+
+function isAdministrativeClosingHeading(value: string) {
+  return /^(#{1,6}\s*)?(\d+[.)]?\s*)?(fecho|assinatura)\b/.test(normalizeSearchText(value));
+}
+
+function removeAdministrativeClosingHeadings(text: string) {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !isAdministrativeClosingHeading(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function isSignatureSeparatorLine(value: string) {
+  return /^[_-]{8,}$/.test(value.trim());
+}
+
+function removeSignatureSeparatorLines(text: string) {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !isSignatureSeparatorLine(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function unwrapAlignmentHtmlLine(line: string) {
+  const match = line.match(
+    /^\s*<(div|p)\b(?=[^>]*(?:\balign\s*=\s*["']?(?:right|center)["']?|\bstyle\s*=\s*["'][^"']*\btext-align\s*:\s*(?:right|center)\b[^"']*["']))[^>]*>([\s\S]*?)<\/\1>\s*$/i,
+  );
+
+  return match ? (match[2] ?? "").trim() : null;
+}
+
+function normalizeGeneratedClosingAlignmentHtml(text: string) {
+  const normalizedLines: string[] = [];
+
+  for (const line of text.split(/\r?\n/)) {
+    const unwrappedLine = unwrapAlignmentHtmlLine(line);
+
+    if (unwrappedLine === null) {
+      normalizedLines.push(line);
+      continue;
+    }
+
+    if (normalizedLines.length > 0 && normalizedLines.at(-1)?.trim()) {
+      normalizedLines.push("");
+    }
+
+    normalizedLines.push(unwrappedLine);
+    normalizedLines.push("");
+  }
+
+  return normalizedLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function enforceMinutaFixedClauses(text: string) {
@@ -1172,6 +1234,9 @@ function buildEtpGenerationPrompt({
     "- Retorne somente o ETP final em Markdown.",
     "- Siga a estrutura do modelo canônico, mantendo a seção ESTIMATIVA DO VALOR DA CONTRATAÇÃO.",
     "- Não inclua seções, títulos ou conteúdo de DFD, DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA, TR ou TERMO DE REFERÊNCIA.",
+    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
+    "- Não gere linha de assinatura, sublinhado, tracejado ou linha separadora entre a data e o nome.",
+    "- Não use HTML, <div>, align, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final.",
     "- Você pode reutilizar ou adaptar contexto de DFD/SD apenas como conteúdo narrativo, sem copiar headings de DFD.",
     "- Use o perfil de análise inferido apenas para ajustar a ênfase técnica do ETP; ele não autoriza criar fatos ausentes no contexto.",
     "- Preserve a consistência entre objeto, município, organização, unidade administrativa, item da SD, estimativa disponível e perfil de análise inferido.",
@@ -1265,6 +1330,9 @@ function buildTrGenerationPrompt({
     "- Obrigações da contratada e da contratante devem ser práticas, executáveis, fiscalizáveis e proporcionais ao objeto.",
     "- Não inclua seções, títulos ou conteúdo de DFD, DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA, ETP ou ESTUDO TÉCNICO PRELIMINAR.",
     "- Não inclua headings como DADOS DA SOLICITAÇÃO, LEVANTAMENTO DE MERCADO ou ANÁLISE DE ALTERNATIVAS.",
+    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
+    "- Não gere linha de assinatura, sublinhado, tracejado ou linha separadora entre a data e o nome.",
+    "- Não use HTML, <div>, align, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final.",
     "- Não transforme o TR em ETP, parecer jurídico, minuta contratual ou checklist genérico.",
     "- Você pode reutilizar ou adaptar contexto de DFD/ETP/SD apenas como conteúdo operacional, sem copiar headings desses documentos.",
     "- Se a estimativa estiver indisponível, indique que o valor será apurado em etapa própria, sem afirmar pesquisa realizada, economicidade, vantajosidade ou compatibilidade de mercado.",
@@ -1520,6 +1588,12 @@ export function sanitizeGeneratedDocumentDraft({
   let sanitized = (stopIndex === -1 ? candidateLines : candidateLines.slice(0, stopIndex))
     .join("\n")
     .trim();
+
+  if (documentType === "dfd" || documentType === "etp" || documentType === "tr") {
+    sanitized = normalizeGeneratedClosingAlignmentHtml(sanitized);
+    sanitized = removeAdministrativeClosingHeadings(sanitized);
+    sanitized = removeSignatureSeparatorLines(sanitized);
+  }
 
   if (documentType === "etp") {
     sanitized = sanitized.replace(/\bR\$\s*0+(?:[,.]0{1,2})?\b/g, "não informado");

@@ -182,6 +182,28 @@ function assertMinutaContractualGuidance(prompt: string) {
   assert.match(prompt, /preserve placeholders ou use redação contratual condicional/i);
 }
 
+function assertUntitledSignatureClosingBlock(template: string) {
+  assert.doesNotMatch(template, /^## .*FECHO/im);
+  assert.doesNotMatch(template, /^## .*ASSINATURA/im);
+  assert.doesNotMatch(template, /<div|align=|style=|<table/i);
+  assert.match(
+    template,
+    /{{organization\.city}}\/{{organization\.state}}, {{process\.issuedAt_long_br}}\.\n\n{{process\.responsibleName}}\n\n{{department\.responsibleRole_or_sourceResponsibleRole_or_fallback}}/,
+  );
+}
+
+function assertPlainMarkdownSignatureClosingGuidance(instructions: string) {
+  assert.match(instructions, /bloco final de local\/data e assinatura não deve ter título/i);
+  assert.match(instructions, /gere apenas linhas Markdown simples/i);
+  assert.match(instructions, /local\/data, nome do responsável e cargo/i);
+  assert.match(instructions, /Não gere linha de assinatura, sublinhado, tracejado/i);
+  assert.match(instructions, /Não use HTML, `<div>`, `align`, CSS inline, tabelas/i);
+  assert.match(instructions, /comentários, cercas de código ou diretivas de renderizador/i);
+  assert.match(instructions, /O alinhamento visual será aplicado pelo sistema/i);
+  assert.doesNotMatch(instructions, /local\/data alinhável à direita/i);
+  assert.doesNotMatch(instructions, /cargo centralizados/i);
+}
+
 test("resolveDocumentGenerationRecipe returns the repository-managed DFD assets", () => {
   const recipe = resolveDocumentGenerationRecipe("dfd");
 
@@ -212,6 +234,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed DFD assets"
   assert.match(recipe.instructions, /Não copie exemplos de uma categoria/i);
   assert.match(recipe.instructions, /não declare compatibilidade com preços de mercado/i);
   assert.match(recipe.instructions, /não envolva dados em crases/i);
+  assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
   assert.match(recipe.instructions, /Itens da SD revisados/);
   assert.match(recipe.instructions, /demanda como um todo/i);
   assert.match(recipe.instructions, /não transforme o DFD em enumeração exaustiva item a item/i);
@@ -237,6 +260,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed DFD assets"
   assert.equal(/FORR[OÓ] TSUNAMI/i.test(recipe.template), false);
   assert.equal(/ESTUDO TÉCNICO PRELIMINAR/i.test(recipe.template), false);
   assert.equal(/TERMO DE REFERÊNCIA/i.test(recipe.template), false);
+  assertUntitledSignatureClosingBlock(recipe.template);
 });
 
 test("resolveDocumentGenerationRecipe returns the repository-managed ETP assets", () => {
@@ -245,29 +269,61 @@ test("resolveDocumentGenerationRecipe returns the repository-managed ETP assets"
   assert.ok(recipe);
   assert.match(recipe.instructions, /retorne somente o etp final em markdown/i);
   assert.match(recipe.instructions, /r\$ 0,00.*ausência de estimativa/i);
-  assert.match(recipe.instructions, /nunca declare que pesquisa de mercado foi realizada/i);
-  assert.match(recipe.instructions, /nunca com aparência de resposta de IA/i);
-  assert.match(recipe.instructions, /checklist preenchido/i);
+  assert.match(recipe.instructions, /pesquisa realizada sem suporte no contexto/i);
+  assert.match(recipe.instructions, /resposta genérica de IA/i);
+  assert.match(
+    recipe.instructions,
+    /complexidade, risco, valor, criticidade e impacto operacional/i,
+  );
+  assert.match(
+    recipe.instructions,
+    /compras simples.*as seções devem existir.*curtas, diretas e sem desenvolvimento artificial/is,
+  );
+  assert.match(recipe.instructions, /Não use o mesmo peso narrativo para todos os objetos/i);
+  assert.match(
+    recipe.instructions,
+    /objetos complexos, críticos, continuados, de maior valor.*análise mais robusta/is,
+  );
+  assert.match(recipe.instructions, /Não repita a mesma ideia em várias seções/i);
+  assert.match(
+    recipe.instructions,
+    /finalidade pública.*interesse público.*ação institucional.*integração comunitária.*viabilidade preliminar/is,
+  );
+  assert.match(
+    recipe.instructions,
+    /logística de entrega.*recebimento provisório\/definitivo.*conferência de quantidade.*armazenamento.*kits/is,
+  );
   assert.match(recipe.instructions, /Lei nº 14\.133\/2021/i);
   assert.match(recipe.instructions, /não invente artigo, inciso, acórdão/i);
   assert.match(recipe.instructions, /Guia de adaptação ao objeto/);
   assert.match(recipe.instructions, /apresentações artísticas ou eventos culturais/i);
-  assert.match(recipe.instructions, /metodologia futura de pesquisa de preços/i);
-  assert.match(recipe.instructions, /a definição ocorrerá em etapa posterior/i);
-  assert.match(recipe.instructions, /será objeto de apuração complementar/i);
+  assert.match(recipe.instructions, /metodologia futura de forma proporcional ao objeto/i);
+  assert.match(recipe.instructions, /a definição deverá ocorrer em etapa própria/i);
+  assert.match(recipe.instructions, /a continuidade dependerá de apuração complementar/i);
+  assert.match(recipe.instructions, /execução direta pela Administração/i);
+  assert.match(recipe.instructions, /Sistema de Registro de Preços/i);
+  assert.match(recipe.instructions, /adesão a ata/i);
+  assert.match(recipe.instructions, /lote único/i);
+  assert.match(recipe.instructions, /parcelamento por itens, lotes ou grupos/i);
+  assert.match(recipe.instructions, /fornecimento centralizado/i);
+  assert.match(recipe.instructions, /kits prontos versus montagem interna/i);
+  assert.match(recipe.instructions, /redução ou ajuste de escopo/i);
+  assert.match(recipe.instructions, /simplificação logística/i);
+  assert.match(recipe.instructions, /não apenas defender automaticamente a solução proposta/i);
   assert.match(recipe.instructions, /gestão e fiscalização/i);
   assert.match(recipe.instructions, /riscos/i);
   assert.match(recipe.instructions, /Benefícios esperados/i);
-  assert.match(recipe.instructions, /Preserve rigorosamente o objeto, município, organização/i);
+  assert.match(recipe.instructions, /Preserve rigorosamente objeto, município, organização/i);
   assert.match(recipe.instructions, /Itens da SD revisados/);
-  assert.match(recipe.instructions, /necessidade, da solução, da viabilidade, das alternativas/i);
+  assert.match(recipe.instructions, /necessidade, da solução, da estimativa, das alternativas/i);
   assert.match(recipe.instructions, /Não invente itens, grupos ou categorias/i);
+  assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
   assert.match(recipe.template, /# ESTUDO TÉCNICO PRELIMINAR \(ETP\)/);
   assert.match(recipe.template, /## 5\. ESTIMATIVA DO VALOR DA CONTRATAÇÃO/);
   assert.match(recipe.template, /## 9\. RISCOS DA CONTRATAÇÃO E MEDIDAS MITIGATÓRIAS/);
   assert.match(recipe.template, /## 10\. BENEFÍCIOS ESPERADOS/);
   assert.match(recipe.template, /## 11\. CONCLUSÃO E RECOMENDAÇÃO/);
-  assert.match(recipe.template, /## 12\. FECHO/);
+  assertUntitledSignatureClosingBlock(recipe.template);
   assert.match(recipe.template, /metodologia de apuração/i);
   assert.match(recipe.template, /não deve parecer uma justificativa automática/i);
   assert.match(recipe.template, /medidas mitigatórias/i);
@@ -304,6 +360,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed TR assets",
   assert.match(recipe.instructions, /Itens da SD revisados/);
   assert.match(recipe.instructions, /objeto, especificações, entrega, recebimento/i);
   assert.match(recipe.instructions, /Não trate o primeiro item como representante único/i);
+  assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
   assert.match(
     recipe.instructions,
     /A gestão e fiscalização devem refletir o acompanhamento real/i,
@@ -327,6 +384,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed TR assets",
   assert.match(recipe.template, /## 7\. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
   assert.match(recipe.template, /## 8\. CONDIÇÕES DE PAGAMENTO/);
   assert.match(recipe.template, /## 10\. SANÇÕES ADMINISTRATIVAS/);
+  assertUntitledSignatureClosingBlock(recipe.template);
   assert.equal(/`{{/i.test(recipe.template), false);
   assert.equal(/DADOS DA SOLICITAÇÃO/i.test(recipe.template), false);
   assert.equal(/^## .*LEVANTAMENTO DE MERCADO/im.test(recipe.template), false);
@@ -1707,4 +1765,67 @@ test("sanitizeGeneratedDocumentDraft appends accented fallbacks and keeps accent
   );
   assert.match(minutaDraft, /## CLÁUSULA SEGUNDA - DO PREÇO/);
   assert.match(minutaDraft, /O preço não consta no contexto ou foi informado como zero/);
+});
+
+test("sanitizeGeneratedDocumentDraft removes administrative closing headings", () => {
+  for (const documentType of ["dfd", "etp", "tr"] as const) {
+    const draft = sanitizeGeneratedDocumentDraft({
+      documentType,
+      text: [
+        documentType === "dfd"
+          ? "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)"
+          : documentType === "etp"
+            ? "# ESTUDO TECNICO PRELIMINAR (ETP)"
+            : "# TERMO DE REFERENCIA",
+        "",
+        "## 1. SECAO INICIAL",
+        "Conteudo valido.",
+        "",
+        "## 6. FECHO",
+        "",
+        "Fortaleza/CE, 08 de janeiro de 2026.",
+        "",
+        "Ana Souza",
+        "",
+        "Secretaria Municipal",
+      ].join("\n"),
+    });
+
+    assert.equal(/^## .*FECHO/im.test(draft), false);
+    assert.match(draft, /Fortaleza\/CE, 08 de janeiro de 2026\./);
+    assert.doesNotMatch(draft, /_{8,}/);
+    assert.match(draft, /Ana Souza/);
+    assert.match(draft, /Secretaria Municipal/);
+  }
+});
+
+test("sanitizeGeneratedDocumentDraft unwraps generated closing alignment HTML", () => {
+  for (const documentType of ["dfd", "etp", "tr"] as const) {
+    const draft = sanitizeGeneratedDocumentDraft({
+      documentType,
+      text: [
+        documentType === "dfd"
+          ? "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)"
+          : documentType === "etp"
+            ? "# ESTUDO TECNICO PRELIMINAR (ETP)"
+            : "# TERMO DE REFERENCIA",
+        "",
+        "## 1. SECAO INICIAL",
+        "Conteudo valido.",
+        "",
+        '<div align="right">Fortaleza/CE, 08 de janeiro de 2026.</div>',
+        '<div align="center">Ana Souza</div>',
+        '<div align="center">Secretaria Municipal</div>',
+      ].join("\n"),
+    });
+
+    assert.doesNotMatch(draft, /<div/i);
+    assert.doesNotMatch(draft, /<\/div>/i);
+    assert.doesNotMatch(draft, /align=/i);
+    assert.doesNotMatch(draft, /_{8,}/);
+    assert.match(
+      draft,
+      /Fortaleza\/CE, 08 de janeiro de 2026\.\n\nAna Souza\n\nSecretaria Municipal/,
+    );
+  }
 });

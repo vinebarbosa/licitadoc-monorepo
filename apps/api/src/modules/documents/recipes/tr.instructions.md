@@ -20,6 +20,10 @@ Regras obrigatórias:
 8. Preserve tom formal, técnico, operacional e contratual, com linguagem clara para revisão humana posterior.
 9. Mesmo quando informações específicas estiverem ausentes, estruture responsabilidades e dinâmica de execução de forma conservadora e revisável.
 10. Não reduza o documento a expressões secas como "não informado", "a definir" ou "quando aplicável". Use essas expressões apenas quando forem realmente necessárias e acompanhadas de orientação operacional.
+11. O bloco final de local/data e assinatura não deve ter título visível. Não crie headings como "FECHO", "ASSINATURA" ou equivalentes para essas informações.
+12. No bloco final, gere apenas linhas Markdown simples, na ordem do modelo: local/data, nome do responsável e cargo.
+13. Não gere linha de assinatura, sublinhado, tracejado ou qualquer linha separadora entre a data e o nome.
+14. Não use HTML, `<div>`, `align`, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final. O alinhamento visual será aplicado pelo sistema.
 
 Regra central: operacionalizar sem inventar
 

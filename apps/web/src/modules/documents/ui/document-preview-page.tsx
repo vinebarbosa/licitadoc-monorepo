@@ -26,14 +26,7 @@ import {
 import { PageBackButton } from "@/shared/ui/page-back";
 import { Separator } from "@/shared/ui/separator";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { Textarea } from "@/shared/ui/textarea";
-import {
-  getDocumentMutationErrorMessage,
-  useDocumentDetail,
-  useDocumentGenerationEvents,
-  useDocumentTextAdjustmentApply,
-  useDocumentTextAdjustmentSuggestion,
-} from "../api/documents";
+import { useDocumentDetail, useDocumentGenerationEvents } from "../api/documents";
 import {
   type DocumentEditorJson,
   getDocumentPreviewBreadcrumbs,
@@ -47,29 +40,6 @@ import {
   institutionalDocumentTheme,
   institutionalDocumentThemeTokens,
 } from "./institutional-document-theme";
-
-type DocumentTextSelection = {
-  rects: DocumentSelectionRect[];
-  selectionContext?: {
-    prefix?: string;
-    suffix?: string;
-  };
-  selectedText: string;
-};
-
-type DocumentSelectionRect = {
-  height: number;
-  left: number;
-  top: number;
-  width: number;
-};
-
-type DocumentTextAdjustmentSuggestion = {
-  replacementText: string;
-  selectedText: string;
-  sourceContentHash: string;
-  sourceTarget: { start: number; end: number; sourceText: string };
-};
 
 function DocumentPreviewLoadingState() {
   return (
@@ -520,238 +490,19 @@ function DocumentPlanningProgress({
   );
 }
 
-function getSelectionContext(draftContent: string, selectedText: string) {
-  const index = draftContent.indexOf(selectedText);
-
-  if (index < 0) {
-    return undefined;
-  }
-
-  return {
-    prefix: draftContent.slice(Math.max(0, index - 500), index),
-    suffix: draftContent.slice(index + selectedText.length, index + selectedText.length + 500),
-  };
-}
-
-function getRangeTextContext({ body, range }: { body: HTMLElement; range: Range }) {
-  const prefixRange = range.cloneRange();
-  prefixRange.selectNodeContents(body);
-  prefixRange.setEnd(range.startContainer, range.startOffset);
-
-  const suffixRange = range.cloneRange();
-  suffixRange.selectNodeContents(body);
-  suffixRange.setStart(range.endContainer, range.endOffset);
-
-  const prefix = prefixRange.toString().slice(-500);
-  const suffix = suffixRange.toString().slice(0, 500);
-
-  return prefix || suffix ? { prefix, suffix } : undefined;
-}
-
-function getRangeSelectionRects({
-  range,
-  root,
-}: {
-  range: Range;
-  root: HTMLElement;
-}): DocumentSelectionRect[] {
-  const rootRect = root.getBoundingClientRect();
-  const rects =
-    typeof range.getClientRects === "function"
-      ? Array.from(range.getClientRects())
-      : [range.getBoundingClientRect()];
-  const visibleRects = rects.length > 0 ? rects : [range.getBoundingClientRect()];
-
-  return visibleRects
-    .filter((rect) => rect.width > 0 && rect.height > 0)
-    .map((rect) => ({
-      height: rect.height,
-      left: rect.left - rootRect.left,
-      top: rect.top - rootRect.top,
-      width: rect.width,
-    }));
-}
-
-function DocumentAdjustmentSkeletonOverlay({
-  rects,
-  selectedText,
-}: {
-  rects: DocumentSelectionRect[];
-  selectedText: string;
-}) {
-  if (rects.length === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-10"
-      data-document-adjustment-skeleton
-    >
-      <span className="sr-only">{selectedText}</span>
-      {rects.map((rect) => (
-        <span
-          key={`${rect.left}:${rect.top}:${rect.width}:${rect.height}`}
-          className="absolute rounded bg-muted/90 shadow-[0_0_0_2px_hsl(var(--muted))] motion-safe:animate-pulse"
-          style={{
-            height: Math.max(rect.height, 10),
-            left: rect.left,
-            top: rect.top,
-            width: rect.width,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function DocumentTextAdjustmentPanel({
-  errorMessage,
-  instruction,
-  isApplying,
-  isSuggesting,
-  onApply,
-  onDiscardSuggestion,
-  onDismiss,
-  onInstructionChange,
-  onSubmit,
-  selection,
-  suggestion,
-}: {
-  errorMessage: string | null;
-  instruction: string;
-  isApplying: boolean;
-  isSuggesting: boolean;
-  onApply: () => void;
-  onDiscardSuggestion: () => void;
-  onDismiss: () => void;
-  onInstructionChange: (value: string) => void;
-  onSubmit: () => void;
-  selection: DocumentTextSelection;
-  suggestion: DocumentTextAdjustmentSuggestion | null;
-}) {
-  return (
-    <div
-      className="fixed top-1/2 left-1/2 z-50 w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl"
-      data-document-text-adjustment-panel
-    >
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Sparkles className="h-4 w-4 text-primary" />
-          Ajustar texto
-        </div>
-        <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={onDismiss}>
-          Fechar
-        </Button>
-      </div>
-
-      <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">{selection.selectedText}</p>
-
-      {suggestion ? (
-        <div className="space-y-3">
-          <div className="rounded-md border bg-background/80 p-3 text-sm leading-relaxed">
-            {suggestion.replacementText}
-          </div>
-          {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onDiscardSuggestion}
-              disabled={isApplying}
-            >
-              Descartar
-            </Button>
-            <Button type="button" size="sm" onClick={onApply} disabled={isApplying}>
-              {isApplying ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
-              Aplicar
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <Textarea
-            value={instruction}
-            onChange={(event) => onInstructionChange(event.target.value)}
-            placeholder="Ex.: deixe mais objetivo, mantendo o tom formal"
-            className="min-h-20 resize-none"
-            disabled={isSuggesting}
-          />
-          {errorMessage ? <p className="text-xs text-destructive">{errorMessage}</p> : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={onDismiss}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={onSubmit}
-              disabled={isSuggesting || isApplying}
-            >
-              {isSuggesting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles />}
-              Gerar ajuste
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function DocumentSheet({
-  adjustmentSkeletonSelection = null,
   draftContent,
   draftContentJson = null,
   isGenerating = false,
   liveWritingEndpointRef,
-  onTextSelection,
 }: {
-  adjustmentSkeletonSelection?: DocumentTextSelection | null;
   draftContent: string;
   draftContentJson?: DocumentEditorJson | null;
   isGenerating?: boolean;
   liveWritingEndpointRef?: RefObject<HTMLDivElement | null>;
-  onTextSelection?: (selection: {
-    rect: DOMRect;
-    rects: DocumentSelectionRect[];
-    selectedText: string;
-    selectionContext?: DocumentTextSelection["selectionContext"];
-  }) => void;
 }) {
   const bodyRef = useRef<HTMLElement | null>(null);
   const isJsonPreview = Boolean(draftContentJson);
-  const handleTextSelection = useCallback(() => {
-    if (!onTextSelection || !bodyRef.current) {
-      return;
-    }
-
-    const selection = window.getSelection();
-    const selectedText = selection?.toString().trim() ?? "";
-
-    if (!selection || selectedText.length === 0 || selection.rangeCount === 0) {
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    const sheetElement = bodyRef.current.closest("[data-document-sheet]");
-    const overlayRoot = sheetElement instanceof HTMLElement ? sheetElement : bodyRef.current;
-
-    if (
-      !bodyRef.current.contains(range.commonAncestorContainer) ||
-      range.getBoundingClientRect().width === 0
-    ) {
-      return;
-    }
-
-    onTextSelection({
-      rect: range.getBoundingClientRect(),
-      rects: getRangeSelectionRects({ range, root: overlayRoot }),
-      selectionContext: getRangeTextContext({ body: bodyRef.current, range }),
-      selectedText,
-    });
-  }, [onTextSelection]);
 
   return (
     <section
@@ -770,8 +521,6 @@ function DocumentSheet({
       data-document-sheet
       data-testid="document-preview-sheet"
       aria-label="Preview do documento"
-      onMouseUp={handleTextSelection}
-      onKeyUp={handleTextSelection}
     >
       <article
         ref={bodyRef}
@@ -794,12 +543,6 @@ function DocumentSheet({
         ) : (
           <DocumentMarkdownPreview content={draftContent} />
         )}
-        {adjustmentSkeletonSelection ? (
-          <DocumentAdjustmentSkeletonOverlay
-            rects={adjustmentSkeletonSelection.rects}
-            selectedText={adjustmentSkeletonSelection.selectedText}
-          />
-        ) : null}
         {isGenerating ? (
           <div
             ref={liveWritingEndpointRef}
@@ -817,8 +560,6 @@ export function DocumentPreviewPageUI() {
   const { documentId = "" } = useParams();
   const documentQuery = useDocumentDetail(documentId);
   const document = documentQuery.data;
-  const suggestionMutation = useDocumentTextAdjustmentSuggestion();
-  const applyAdjustmentMutation = useDocumentTextAdjustmentApply(documentId);
   const refetchDocument = useCallback(() => {
     void documentQuery.refetch();
   }, [documentQuery.refetch]);
@@ -838,133 +579,16 @@ export function DocumentPreviewPageUI() {
   useAppShellHeader(breadcrumbs);
 
   const previewSource = getDocumentPreviewSource(document);
-  const previewTextContent = previewSource?.textContent ?? null;
   const liveDraftContent =
     document?.status === "generating" ? getPreviewableDraftContent(livePreview.content) : null;
   const canUsePersistedDocument = document?.status === "completed" && Boolean(previewSource);
-  const canAdjustDocumentText = canUsePersistedDocument && Boolean(previewSource);
   const liveWritingEndpointRef = useRef<HTMLDivElement | null>(null);
-  const [textSelection, setTextSelection] = useState<DocumentTextSelection | null>(null);
-  const [adjustmentInstruction, setAdjustmentInstruction] = useState("");
-  const [adjustmentSuggestion, setAdjustmentSuggestion] =
-    useState<DocumentTextAdjustmentSuggestion | null>(null);
-  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
-  const isAdjustmentPending = suggestionMutation.isPending || applyAdjustmentMutation.isPending;
-  const adjustmentSkeletonSelection = isAdjustmentPending ? textSelection : null;
   const isLiveWritingVisible = document?.status === "generating" && Boolean(liveDraftContent);
   const { handleScroll, scrollContainerRef } = useLiveWritingAutoFollow({
     enabled: isLiveWritingVisible,
     endpointRef: liveWritingEndpointRef,
     visibleContentLength: liveDraftContent?.length ?? 0,
   });
-  const resetTextAdjustment = useCallback(() => {
-    setTextSelection(null);
-    setAdjustmentInstruction("");
-    setAdjustmentSuggestion(null);
-    setAdjustmentError(null);
-  }, []);
-  const handleDocumentTextSelection = useCallback(
-    ({
-      selectedText,
-      rects,
-      selectionContext,
-    }: {
-      rect: DOMRect;
-      rects: DocumentSelectionRect[];
-      selectedText: string;
-      selectionContext?: DocumentTextSelection["selectionContext"];
-    }) => {
-      if (!canAdjustDocumentText) {
-        return;
-      }
-
-      setTextSelection({
-        rects,
-        selectedText,
-        selectionContext:
-          selectionContext ??
-          (previewTextContent ? getSelectionContext(previewTextContent, selectedText) : undefined),
-      });
-      setAdjustmentInstruction("");
-      setAdjustmentSuggestion(null);
-      setAdjustmentError(null);
-    },
-    [canAdjustDocumentText, previewTextContent],
-  );
-  const handleSuggestAdjustment = useCallback(() => {
-    if (!textSelection || suggestionMutation.isPending || applyAdjustmentMutation.isPending) {
-      return;
-    }
-
-    const instruction = adjustmentInstruction.trim();
-
-    if (!instruction) {
-      setAdjustmentError("Digite o que deseja alterar neste trecho.");
-      return;
-    }
-
-    setAdjustmentError(null);
-    setAdjustmentSuggestion(null);
-    suggestionMutation.mutate(
-      {
-        documentId,
-        data: {
-          selectedText: textSelection.selectedText,
-          instruction,
-          selectionContext: textSelection.selectionContext,
-        },
-      },
-      {
-        onSuccess: (response) => {
-          setAdjustmentSuggestion(response);
-        },
-        onError: (error) => {
-          setAdjustmentError(
-            getDocumentMutationErrorMessage(error, "Não foi possível gerar o ajuste."),
-          );
-        },
-      },
-    );
-  }, [
-    adjustmentInstruction,
-    applyAdjustmentMutation.isPending,
-    documentId,
-    suggestionMutation,
-    textSelection,
-  ]);
-  const handleApplyAdjustment = useCallback(() => {
-    if (!adjustmentSuggestion || applyAdjustmentMutation.isPending) {
-      return;
-    }
-
-    setAdjustmentError(null);
-    applyAdjustmentMutation.mutate(
-      {
-        documentId,
-        data: {
-          sourceTarget: adjustmentSuggestion.sourceTarget,
-          replacementText: adjustmentSuggestion.replacementText,
-          sourceContentHash: adjustmentSuggestion.sourceContentHash,
-        },
-      },
-      {
-        onSuccess: () => {
-          resetTextAdjustment();
-        },
-        onError: (error) => {
-          setAdjustmentError(
-            getDocumentMutationErrorMessage(error, "Não foi possível aplicar o ajuste."),
-          );
-        },
-      },
-    );
-  }, [adjustmentSuggestion, applyAdjustmentMutation, documentId, resetTextAdjustment]);
-
-  useEffect(() => {
-    if (!canAdjustDocumentText) {
-      resetTextAdjustment();
-    }
-  }, [canAdjustDocumentText, resetTextAdjustment]);
 
   if (!documentId) {
     return (
@@ -1059,32 +683,10 @@ export function DocumentPreviewPageUI() {
               icon="alert"
             />
           ) : previewSource ? (
-            <>
-              <DocumentSheet
-                adjustmentSkeletonSelection={adjustmentSkeletonSelection}
-                draftContent={previewSource.textContent ?? ""}
-                draftContentJson={previewSource.kind === "json" ? previewSource.content : null}
-                onTextSelection={canAdjustDocumentText ? handleDocumentTextSelection : undefined}
-              />
-              {textSelection ? (
-                <DocumentTextAdjustmentPanel
-                  selection={textSelection}
-                  instruction={adjustmentInstruction}
-                  suggestion={adjustmentSuggestion}
-                  errorMessage={adjustmentError}
-                  isSuggesting={suggestionMutation.isPending}
-                  isApplying={applyAdjustmentMutation.isPending}
-                  onInstructionChange={setAdjustmentInstruction}
-                  onSubmit={handleSuggestAdjustment}
-                  onApply={handleApplyAdjustment}
-                  onDiscardSuggestion={() => {
-                    setAdjustmentSuggestion(null);
-                    setAdjustmentError(null);
-                  }}
-                  onDismiss={resetTextAdjustment}
-                />
-              ) : null}
-            </>
+            <DocumentSheet
+              draftContent={previewSource.textContent ?? ""}
+              draftContentJson={previewSource.kind === "json" ? previewSource.content : null}
+            />
           ) : (
             <DocumentPreviewStateCard
               title="Documento sem conteúdo"
