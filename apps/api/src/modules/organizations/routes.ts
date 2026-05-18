@@ -5,11 +5,17 @@ import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
 import {
+  getOrganizationLetterheadImage,
+  uploadOrganizationLetterhead,
+} from "./organization-letterhead";
+import {
   createOrganizationSchema,
   getCurrentOrganizationSchema,
+  getOrganizationLetterheadImageSchema,
   getOrganizationSchema,
   getOrganizationsSchema,
   updateOrganizationSchema,
+  uploadOrganizationLetterheadSchema,
 } from "./organizations.schemas";
 import { updateOrganization } from "./update-organization";
 
@@ -71,6 +77,58 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
       const { organizationId } = request.params;
 
       return getOrganization({ actor, db: app.db, organizationId });
+    },
+  );
+
+  app.post(
+    "/:organizationId/letterhead",
+    {
+      schema: uploadOrganizationLetterheadSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const { organizationId } = request.params;
+      const organization = await uploadOrganizationLetterhead({
+        actor,
+        body: request.body as Record<string, unknown> | undefined,
+        db: app.db,
+        maxBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,
+        organizationId,
+        storage: app.storage,
+      });
+
+      return reply.status(201).send(organization);
+    },
+  );
+
+  app.get(
+    "/:organizationId/letterhead/image",
+    {
+      schema: getOrganizationLetterheadImageSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const { organizationId } = request.params;
+      const letterhead = await getOrganizationLetterheadImage({
+        actor,
+        db: app.db,
+        organizationId,
+      });
+      const storedObject = await app.storage.getObject({ key: letterhead.storageKey });
+
+      if (storedObject.contentLength != null) {
+        reply.header("content-length", String(storedObject.contentLength));
+      }
+
+      reply.header("cache-control", "private, max-age=300");
+      reply.header(
+        "content-disposition",
+        `inline; filename*=UTF-8''${encodeURIComponent(letterhead.fileName)}`,
+      );
+
+      return reply
+        .type(storedObject.contentType ?? "application/octet-stream")
+        .send(storedObject.body);
     },
   );
 

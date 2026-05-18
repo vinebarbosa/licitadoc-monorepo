@@ -4,6 +4,7 @@ import type { departments, organizations, processes } from "../../db";
 import { documents } from "../../db";
 import type { GeneratedDocumentType } from "../../shared/text-generation/types";
 import { documentTextToTiptapJson, isTiptapDocumentJson } from "../../shared/tiptap-json";
+import { serializeOrganizationLetterhead } from "../organizations/organizations.shared";
 import type { SerializedProcessItem } from "../processes/processes.shared";
 import { resolveDocumentGenerationRecipe } from "./document-generation-recipes";
 
@@ -61,7 +62,10 @@ export function serializeDocumentSummary(document: StoredDocument, process?: Sto
   };
 }
 
-export function serializeDocumentDetail(document: StoredDocument) {
+export function serializeDocumentDetail(
+  document: StoredDocument,
+  organization?: StoredOrganization | null,
+) {
   const draftContentJson = isTiptapDocumentJson(document.draftContentJson)
     ? document.draftContentJson
     : document.draftContent?.trim()
@@ -72,6 +76,7 @@ export function serializeDocumentDetail(document: StoredDocument) {
     ...serializeDocumentSummary(document),
     draftContent: document.draftContent ?? null,
     draftContentJson,
+    letterhead: serializeOrganizationLetterhead(organization ?? null),
     storageKey: document.storageKey ?? null,
     responsibles: document.responsibles,
   };
@@ -524,7 +529,7 @@ export function normalizeEtpEstimate(rawValue: string | null | undefined) {
     return {
       available: false,
       displayValue: "não informado",
-      guidance: "Estimativa não informada no contexto; será objeto de apuração posterior.",
+      guidance: "Estimativa pendente de apuração em etapa própria.",
       rawValue: null,
     };
   }
@@ -535,8 +540,7 @@ export function normalizeEtpEstimate(rawValue: string | null | undefined) {
     return {
       available: false,
       displayValue: "não informado",
-      guidance:
-        "Valor ausente ou informado como zero; tratar como ausência de estimativa e indicar apuração posterior.",
+      guidance: "Estimativa pendente de apuração em etapa própria.",
       rawValue: value,
     };
   }
@@ -557,8 +561,7 @@ export function normalizeMinutaPrice(rawValue: string | null | undefined) {
     return {
       available: false,
       displayValue: "R$ XX.XXX,XX",
-      guidance:
-        "Preço não informado no contexto; manter placeholder e não simular valor contratual.",
+      guidance: "Preço pendente; manter placeholder contratual.",
       rawValue: null,
     };
   }
@@ -569,8 +572,7 @@ export function normalizeMinutaPrice(rawValue: string | null | undefined) {
     return {
       available: false,
       displayValue: "R$ XX.XXX,XX",
-      guidance:
-        "Valor ausente ou informado como zero; tratar como ausência de preço e manter placeholder.",
+      guidance: "Preço pendente; manter placeholder contratual.",
       rawValue: value,
     };
   }
@@ -581,6 +583,34 @@ export function normalizeMinutaPrice(rawValue: string | null | undefined) {
     guidance: "Preço disponível no contexto; usar somente este valor, sem extrapolar.",
     rawValue: value,
   };
+}
+
+function getMinutaDocumentFacingPlaceholder(token: string) {
+  const normalizedToken = normalizeSearchText(token);
+
+  if (/price|preco|valor/.test(normalizedToken)) {
+    return "R$ XX.XXX,XX";
+  }
+
+  if (/date|data|issuedat|startdate|enddate|signaturedate/.test(normalizedToken)) {
+    return "XX/XX/XXXX";
+  }
+
+  if (/contract\.number|procedure|process\.processnumber|number/.test(normalizedToken)) {
+    return "XXX/2026";
+  }
+
+  if (/state|uf/.test(normalizedToken)) {
+    return "XX";
+  }
+
+  return "XXX";
+}
+
+function replaceMinutaTemplatePlaceholders(text: string) {
+  return text.replace(/\{\{\s*([^}]+?)\s*}}/g, (_match, token: string) =>
+    getMinutaDocumentFacingPlaceholder(token),
+  );
 }
 
 function buildGenericDocumentGenerationPrompt({
@@ -746,93 +776,15 @@ export function buildEtpGenerationContext({
   const estimate = dfdContext.estimate;
   const itemDescription = firstText(getExtractedValue(process, "item.description"));
   const processJustification = firstText(process.justification);
-  const itemEvidenceText = dfdContext.hasSourceItems
-    ? dfdContext.sourceItemsEvidenceText
-    : itemDescription;
-  const itemAnalysisProfile = itemEvidenceText
-    ? inferContractingAnalysisProfile(itemEvidenceText)
-    : null;
-  const processAnalysisProfile = inferContractingAnalysisProfile(
-    [dfdContext.object, itemEvidenceText, processJustification, dfdContext.processType]
-      .filter((value): value is string => Boolean(value))
-      .join(" "),
-  );
-  const analysisProfile =
-    itemAnalysisProfile && itemAnalysisProfile !== "prestacao_servicos_gerais"
-      ? itemAnalysisProfile
-      : processAnalysisProfile;
 
   return {
     ...dfdContext,
-    analysisProfile,
     estimate,
     itemDescription,
     itemQuantity: firstText(getExtractedValue(process, "item.quantity")),
     itemUnit: firstText(getExtractedValue(process, "item.unit")),
     processJustification,
   };
-}
-
-function inferContractingAnalysisProfile(contextText: string) {
-  const normalizedText = normalizeSearchText(contextText);
-
-  if (
-    /\b(tecnologia|software|sistema|sistemas|suporte de software|ti|tic|informatica|implantacao|integracao|manutencao de sistema)\b/.test(
-      normalizedText,
-    )
-  ) {
-    return "tecnologia_software";
-  }
-
-  if (
-    /\b(consultoria|assessoria|apoio tecnico|suporte tecnico administrativo|recursos humanos|orientacao tecnica|servico consultivo)\b/.test(
-      normalizedText,
-    )
-  ) {
-    return "consultoria_assessoria";
-  }
-
-  if (
-    /\b(obra|engenharia|construcao|reforma|servico de engenharia|projeto executivo)\b/.test(
-      normalizedText,
-    )
-  ) {
-    return "obra_engenharia";
-  }
-
-  if (/\b(locacao|aluguel|equipamento|equipamentos)\b/.test(normalizedText)) {
-    return "locacao_equipamentos";
-  }
-
-  if (
-    /\b(fornecimento|aquisicao|compra|material|materiais|produto|produtos|bem|bens)\b/.test(
-      normalizedText,
-    )
-  ) {
-    return "fornecimento_bens";
-  }
-
-  if (
-    /\b(apresentacao artistica|atracao artistica|show|banda|artista|musical|carnaval|festa popular)\b/.test(
-      normalizedText,
-    )
-  ) {
-    return "apresentacao_artistica";
-  }
-
-  if (/\b(evento|eventos|organizacao de evento|festividade|programacao)\b/.test(normalizedText)) {
-    return "eventos_gerais";
-  }
-
-  if (
-    /\b(servico continuado|servicos continuados|continuado|continuada|rotina|rotinas)\b/.test(
-      normalizedText,
-    )
-  ) {
-    return "prestacao_servicos_gerais";
-  }
-
-  return "prestacao_servicos_gerais";
 }
 
 export function buildTrGenerationContext({
@@ -853,20 +805,9 @@ export function buildTrGenerationContext({
     processItems,
     responsibleUserName,
   });
-  const contractingType = inferContractingAnalysisProfile(
-    [
-      etpContext.object,
-      etpContext.hasSourceItems ? etpContext.sourceItemsEvidenceText : etpContext.itemDescription,
-      etpContext.processJustification,
-      etpContext.processType,
-    ]
-      .filter((value): value is string => Boolean(value))
-      .join(" "),
-  );
 
   return {
     ...etpContext,
-    contractingType,
   };
 }
 
@@ -1016,15 +957,10 @@ function buildDfdGenerationPrompt({
     "- Use requisitos essenciais mínimos em 3 a 6 bullets curtos e diretamente ligados ao objeto.",
     "- Não inclua seções, títulos ou conteúdo de ETP, ESTUDO TÉCNICO PRELIMINAR, TR ou TERMO DE REFERÊNCIA.",
     "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
-    "- Não gere linha de assinatura, sublinhado, tracejado ou linha separadora entre a data e o nome.",
-    "- Não use HTML, <div>, align, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final.",
-    "- Não desenvolva estudo de mercado, metodologia de pesquisa de preços, análise de alternativas, estudo de viabilidade, matriz de riscos ou riscos sofisticados.",
-    "- Não inclua obrigações contratuais detalhadas, fiscalização contratual, critérios de pagamento, critérios de medição, aceite, SLA, sanções ou cláusulas de execução.",
-    "- Se algum dado estiver ausente, explicite a ausência sem inventar fatos.",
+    "- Evite estudo de mercado, metodologia de pesquisa de preços, análise de alternativas, estudo de viabilidade, matriz de riscos ou riscos sofisticados.",
+    "- Evite obrigações contratuais detalhadas, fiscalização contratual, critérios de pagamento, medição, aceite, SLA, sanções ou cláusulas de execução.",
     "- Não use crases ou código inline para valores dos campos do DFD.",
-    "- Não declare compatibilidade com mercado, fundamento legal, duração, quantidade, local, exclusividade, reconhecimento artístico, dotação orçamentária ou atributos de fornecedor sem suporte no contexto.",
-    "- Não declare economicidade comprovada, vantajosidade, validação de pesquisa de mercado ou legalidade conclusiva.",
-    "- Se valor, execução, orçamento, mercado ou fornecedor estiverem ausentes, use redação simples de pendência de apuração, confirmação ou definição posterior.",
+    "- Mantenha a inteligência administrativa invisível no texto final.",
   ].join("\n");
 }
 
@@ -1050,6 +986,85 @@ function removeFixedClauseMarkerComments(text: string) {
     .trim();
 }
 
+const MINUTA_FIXED_CLAUSE_TOPICS = [
+  {
+    aliases: [
+      "DAS PRERROGATIVAS",
+      "DAS PRERROGATIVAS DA ADMINISTRAÇÃO",
+      "DOS DIREITOS DA CONTRATANTE",
+      "DOS DIREITOS DA ADMINISTRAÇÃO",
+    ],
+    canonicalHeading: "CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS",
+    label: "DAS PRERROGATIVAS",
+    topic: "prerogatives",
+  },
+  {
+    aliases: [
+      "DA ALTERAÇÃO E REAJUSTE",
+      "DAS ALTERAÇÕES",
+      "DA ALTERAÇÃO",
+      "DO REAJUSTE",
+      "DAS ALTERAÇÕES E REAJUSTES",
+      "DA ALTERAÇÃO, REAJUSTE E REPACTUAÇÃO",
+    ],
+    canonicalHeading: "CLÁUSULA DÉCIMA QUARTA - DA ALTERAÇÃO E REAJUSTE",
+    label: "DA ALTERAÇÃO E REAJUSTE",
+    topic: "alteration_adjustment",
+  },
+  {
+    aliases: [
+      "DAS CONDIÇÕES DE HABILITAÇÃO",
+      "DA MANUTENÇÃO DAS CONDIÇÕES DE HABILITAÇÃO",
+      "DA MANUTENÇÃO DAS CONDIÇÕES DE HABILITAÇÃO E QUALIFICAÇÃO",
+      "DAS CONDIÇÕES DE HABILITAÇÃO E QUALIFICAÇÃO",
+    ],
+    canonicalHeading: "CLÁUSULA DÉCIMA QUINTA - DAS CONDIÇÕES DE HABILITAÇÃO",
+    label: "DAS CONDIÇÕES DE HABILITAÇÃO",
+    topic: "habilitation_conditions",
+  },
+  {
+    aliases: ["DA PUBLICIDADE", "DA PUBLICAÇÃO", "DA PUBLICAÇÃO E PUBLICIDADE"],
+    canonicalHeading: "CLÁUSULA DÉCIMA SEXTA - DA PUBLICIDADE",
+    label: "DA PUBLICIDADE",
+    topic: "publicity",
+  },
+  {
+    aliases: ["DOS CASOS OMISSOS"],
+    canonicalHeading: "CLÁUSULA DÉCIMA SÉTIMA - DOS CASOS OMISSOS",
+    label: "DOS CASOS OMISSOS",
+    topic: "omitted_cases",
+  },
+  {
+    aliases: ["DO FORO", "DO FORO COMPETENTE"],
+    canonicalHeading: "CLÁUSULA DÉCIMA OITAVA - DO FORO",
+    label: "DO FORO",
+    topic: "forum",
+  },
+] as const;
+
+type MinutaFixedClauseTopic = (typeof MINUTA_FIXED_CLAUSE_TOPICS)[number]["topic"];
+
+type MinutaClauseBlock = {
+  end: number;
+  heading: string;
+  start: number;
+};
+
+export type MinutaClauseStructureAnalysis = {
+  aliasFixedClauseHeadings: Array<{
+    canonicalHeading: string;
+    heading: string;
+    topic: MinutaFixedClauseTopic;
+    topicLabel: string;
+  }>;
+  duplicateFixedTopics: Array<{
+    headings: string[];
+    topic: MinutaFixedClauseTopic;
+    topicLabel: string;
+  }>;
+  hasClosingBeforeLaterClause: boolean;
+};
+
 function getMarkdownHeading(block: string) {
   const heading = block
     .split(/\r?\n/)
@@ -1065,6 +1080,195 @@ function normalizeHeadingForComparison(value: string) {
 
 function isClauseHeadingLine(value: string) {
   return /^clausula\b/.test(normalizeHeadingForComparison(value));
+}
+
+function getMinutaFixedClauseTopicConfig(topic: MinutaFixedClauseTopic) {
+  return MINUTA_FIXED_CLAUSE_TOPICS.find((entry) => entry.topic === topic) ?? null;
+}
+
+function getMinutaFixedClauseTopicFromHeading(value: string): MinutaFixedClauseTopic | null {
+  if (!isClauseHeadingLine(value)) {
+    return null;
+  }
+
+  const normalizedHeading = normalizeHeadingForComparison(value);
+
+  for (const entry of MINUTA_FIXED_CLAUSE_TOPICS) {
+    const aliases = [entry.canonicalHeading, ...entry.aliases];
+    const matchesAlias = aliases.some((alias) =>
+      normalizedHeading.includes(normalizeHeadingForComparison(alias)),
+    );
+
+    if (matchesAlias) {
+      return entry.topic;
+    }
+  }
+
+  return null;
+}
+
+function isCanonicalMinutaFixedClauseHeading(value: string, topic: MinutaFixedClauseTopic) {
+  const config = getMinutaFixedClauseTopicConfig(topic);
+
+  if (!config) {
+    return false;
+  }
+
+  return (
+    normalizeHeadingForComparison(value) === normalizeHeadingForComparison(config.canonicalHeading)
+  );
+}
+
+function findMinutaClauseBlocks(lines: string[]): MinutaClauseBlock[] {
+  const starts = lines
+    .map((line, index) => ({ index, line }))
+    .filter(({ line }) => isClauseHeadingLine(line));
+
+  return starts.map((start, index) => ({
+    end: starts[index + 1]?.index ?? lines.length,
+    heading: start.line.trim(),
+    start: start.index,
+  }));
+}
+
+function isMinutaSignatureDateLine(value: string) {
+  const trimmed = value.trim();
+
+  return /^(?:\{\{[^}]+}}\s*\/\s*\{\{[^}]+}}|[A-Za-zÀ-ÿ .'-]+\/[A-Z]{2}),\s+/.test(trimmed);
+}
+
+function isMinutaClosingStartLine(value: string) {
+  const normalized = normalizeSearchText(value);
+
+  return (
+    /^e,?\s+por\s+estarem\b/.test(normalized) ||
+    /^por\s+estarem\b/.test(normalized) ||
+    /^testemunhas:?$/.test(normalized) ||
+    isSignatureSeparatorLine(value) ||
+    isMinutaSignatureDateLine(value)
+  );
+}
+
+function extractMinutaClosingBlocks(text: string) {
+  const bodyLines: string[] = [];
+  const closingBlocks: string[] = [];
+  const lines = text.split(/\r?\n/);
+
+  for (let index = 0; index < lines.length; ) {
+    if (!isMinutaClosingStartLine(lines[index] ?? "")) {
+      bodyLines.push(lines[index] ?? "");
+      index += 1;
+      continue;
+    }
+
+    const blockLines: string[] = [];
+
+    while (index < lines.length && !isClauseHeadingLine(lines[index] ?? "")) {
+      blockLines.push(lines[index] ?? "");
+      index += 1;
+    }
+
+    const block = blockLines.join("\n").trim();
+
+    if (block) {
+      closingBlocks.push(block);
+    }
+  }
+
+  return {
+    body: bodyLines.join("\n").trim(),
+    closingBlock: closingBlocks.at(-1) ?? null,
+  };
+}
+
+function hasMinutaClosingBeforeLaterClause(text: string) {
+  const lines = removeFixedClauseMarkerComments(text).split(/\r?\n/);
+
+  return lines.some(
+    (line, index) =>
+      isMinutaClosingStartLine(line) &&
+      lines.slice(index + 1).some((candidate) => isClauseHeadingLine(candidate)),
+  );
+}
+
+function appendMarkdownBlock(lines: string[], block: string) {
+  const blockLines = block.trim().split(/\r?\n/);
+
+  while (lines.length > 0 && !lines.at(-1)?.trim()) {
+    lines.pop();
+  }
+
+  if (lines.length > 0) {
+    lines.push("");
+  }
+
+  lines.push(...blockLines);
+}
+
+function insertMinutaClauseAfterFirstClause(text: string, clauseBlock: string) {
+  const lines = text.split(/\r?\n/);
+  const firstClause = findMinutaClauseBlocks(lines).find((block) =>
+    normalizeHeadingForComparison(block.heading).includes("clausula primeira"),
+  );
+  const insertIndex = firstClause?.end ?? lines.length;
+  const outputLines = [...lines.slice(0, insertIndex)];
+
+  appendMarkdownBlock(outputLines, clauseBlock);
+
+  const remainingLines = lines.slice(insertIndex);
+
+  if (remainingLines.some((line) => line.trim())) {
+    outputLines.push("");
+    outputLines.push(...remainingLines);
+  }
+
+  return outputLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function analyzeMinutaClauseStructure(text: string): MinutaClauseStructureAnalysis {
+  const lines = removeFixedClauseMarkerComments(text).split(/\r?\n/);
+  const headingsByTopic = new Map<MinutaFixedClauseTopic, string[]>();
+  const aliasFixedClauseHeadings: MinutaClauseStructureAnalysis["aliasFixedClauseHeadings"] = [];
+
+  for (const block of findMinutaClauseBlocks(lines)) {
+    const topic = getMinutaFixedClauseTopicFromHeading(block.heading);
+
+    if (!topic) {
+      continue;
+    }
+
+    const config = getMinutaFixedClauseTopicConfig(topic);
+
+    if (!config) {
+      continue;
+    }
+
+    headingsByTopic.set(topic, [...(headingsByTopic.get(topic) ?? []), block.heading]);
+
+    if (!isCanonicalMinutaFixedClauseHeading(block.heading, topic)) {
+      aliasFixedClauseHeadings.push({
+        canonicalHeading: config.canonicalHeading,
+        heading: block.heading,
+        topic,
+        topicLabel: config.label,
+      });
+    }
+  }
+
+  return {
+    aliasFixedClauseHeadings,
+    duplicateFixedTopics: [...headingsByTopic.entries()]
+      .filter(([, headings]) => headings.length > 1)
+      .map(([topic, headings]) => ({
+        headings,
+        topic,
+        topicLabel: getMinutaFixedClauseTopicConfig(topic)?.label ?? topic,
+      })),
+    hasClosingBeforeLaterClause: hasMinutaClosingBeforeLaterClause(text),
+  };
 }
 
 function isAdministrativeClosingHeading(value: string) {
@@ -1133,34 +1337,69 @@ function enforceMinutaFixedClauses(text: string) {
     return text;
   }
 
-  const fixedClauses = extractFixedClauseBlocks(recipe.template);
-  let lines = removeFixedClauseMarkerComments(text).split(/\r?\n/);
-
-  for (const clause of fixedClauses) {
+  const fixedClauses = extractFixedClauseBlocks(recipe.template).map((clause) => {
     const canonicalBlock = removeFixedClauseMarkerComments(clause.markdown);
     const heading = getMarkdownHeading(canonicalBlock) ?? clause.title;
-    const normalizedHeading = normalizeHeadingForComparison(heading);
-    const startIndex = lines.findIndex((line) => {
-      const normalizedLine = normalizeHeadingForComparison(line);
 
-      return normalizedLine === normalizedHeading || normalizedLine.includes(normalizedHeading);
-    });
+    return {
+      canonicalBlock,
+      topic: getMinutaFixedClauseTopicFromHeading(heading),
+    };
+  });
+  const fixedTopics = new Set(
+    fixedClauses
+      .map((clause) => clause.topic)
+      .filter((topic): topic is MinutaFixedClauseTopic => topic !== null),
+  );
+  const { body, closingBlock } = extractMinutaClosingBlocks(removeFixedClauseMarkerComments(text));
+  const lines = body ? body.split(/\r?\n/) : [];
+  const fixedRanges = findMinutaClauseBlocks(lines)
+    .map((block) => ({
+      ...block,
+      topic: getMinutaFixedClauseTopicFromHeading(block.heading),
+    }))
+    .filter((block) => block.topic !== null && fixedTopics.has(block.topic))
+    .sort((left, right) => left.start - right.start);
+  const outputLines: string[] = [];
+  let rangeIndex = 0;
+  let fixedTailInserted = false;
 
-    if (startIndex === -1) {
-      lines = [...lines, "", canonicalBlock];
+  const appendFixedTail = () => {
+    if (fixedTailInserted) {
+      return;
+    }
+
+    for (const clause of fixedClauses) {
+      appendMarkdownBlock(outputLines, clause.canonicalBlock);
+    }
+
+    fixedTailInserted = true;
+  };
+
+  for (let index = 0; index < lines.length; ) {
+    const range = fixedRanges[rangeIndex];
+
+    if (range && index === range.start) {
+      appendFixedTail();
+      index = range.end;
+      rangeIndex += 1;
       continue;
     }
 
-    const nextClauseRelativeIndex = lines
-      .slice(startIndex + 1)
-      .findIndex((line) => isClauseHeadingLine(line));
-    const endIndex =
-      nextClauseRelativeIndex === -1 ? lines.length : startIndex + 1 + nextClauseRelativeIndex;
-
-    lines.splice(startIndex, endIndex - startIndex, ...canonicalBlock.split(/\r?\n/));
+    outputLines.push(lines[index] ?? "");
+    index += 1;
   }
 
-  return lines.join("\n").trim();
+  appendFixedTail();
+
+  if (closingBlock) {
+    appendMarkdownBlock(outputLines, closingBlock);
+  }
+
+  return outputLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function buildEtpGenerationPrompt({
@@ -1201,7 +1440,6 @@ function buildEtpGenerationPrompt({
     "",
     "## Contexto estruturado do processo",
     "- Tipo de documento: ETP",
-    `- Perfil de análise inferido para o ETP: ${context.analysisProfile}`,
     `- Tipo do processo administrativo: ${toDisplayText(context.processType)}`,
     `- Número interno do processo: ${process.processNumber}`,
     `- Número da solicitação: ${toDisplayText(context.requestNumber)}`,
@@ -1235,15 +1473,11 @@ function buildEtpGenerationPrompt({
     "- Siga a estrutura do modelo canônico, mantendo a seção ESTIMATIVA DO VALOR DA CONTRATAÇÃO.",
     "- Não inclua seções, títulos ou conteúdo de DFD, DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA, TR ou TERMO DE REFERÊNCIA.",
     "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
-    "- Não gere linha de assinatura, sublinhado, tracejado ou linha separadora entre a data e o nome.",
-    "- Não use HTML, <div>, align, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final.",
     "- Você pode reutilizar ou adaptar contexto de DFD/SD apenas como conteúdo narrativo, sem copiar headings de DFD.",
-    "- Use o perfil de análise inferido apenas para ajustar a ênfase técnica do ETP; ele não autoriza criar fatos ausentes no contexto.",
-    "- Preserve a consistência entre objeto, município, organização, unidade administrativa, item da SD, estimativa disponível e perfil de análise inferido.",
-    "- Não cite artista, fornecedor, órgão, município, objeto, tipo de documento de origem ou categoria de contratação diferente do contexto estruturado.",
-    "- Não misture informações de DFD, TR, minuta, exemplos anteriores, documentos de referência ou outra geração quando essas informações não estiverem no contexto.",
-    "- Se a estimativa estiver indisponível, desenvolva metodologia de apuração posterior com linguagem institucional, evitando repetir mecanicamente não informado ou não consta no contexto.",
-    "- Não invente valores, não simule pesquisa de mercado e não declare consultas realizadas sem fonte no contexto.",
+    "- Use o pacote de contexto enriquecido e o plano documental para ajustar a ênfase técnica do ETP; eles não autorizam criar fatos ausentes.",
+    "- Preserve a consistência entre objeto, município, organização, unidade administrativa, itens da SD e estimativa disponível.",
+    "- Desenvolva estimativa, riscos, alternativas e fiscalização com profundidade proporcional ao plano documental.",
+    "- Evite repetir mecanicamente expressões de ausência de dados; use redação institucional natural.",
     "- Use referências à Lei nº 14.133/2021 e a boas práticas do TCU apenas como orientação geral de planejamento; não invente artigo, acórdão ou conclusão jurídica específica.",
   ].join("\n");
 }
@@ -1287,7 +1521,6 @@ function buildTrGenerationPrompt({
     "## Contexto estruturado do processo",
     "- Tipo de documento: TR",
     `- Tipo do processo administrativo: ${toDisplayText(context.processType)}`,
-    `- Tipo de contratação inferido para obrigações: ${context.contractingType}`,
     `- Número interno do processo: ${process.processNumber}`,
     `- Número da solicitação: ${toDisplayText(context.requestNumber)}`,
     `- Data de emissão (pt-BR): ${context.issueDateBr}`,
@@ -1312,12 +1545,6 @@ function buildTrGenerationPrompt({
     `- Status atual do processo: ${process.status}`,
     `- Avisos da origem: ${context.warnings.length > 0 ? context.warnings.join("; ") : "nenhum"}`,
     "",
-    "## Orientação para obrigações",
-    `- Use prioritariamente o bloco Tipo: ${context.contractingType} da seção Obrigações por tipo de contratação.`,
-    "- Adapte as obrigações ao objeto e ao contexto específico em linguagem operacional, executável e fiscalizável.",
-    "- Não copie obrigações incompatíveis com o objeto.",
-    "- Não misture blocos de tipos diferentes sem necessidade demonstrada no contexto.",
-    "",
     "## Instruções adicionais do operador",
     instructions ?? "Nenhuma instrução adicional informada.",
     "",
@@ -1331,13 +1558,10 @@ function buildTrGenerationPrompt({
     "- Não inclua seções, títulos ou conteúdo de DFD, DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA, ETP ou ESTUDO TÉCNICO PRELIMINAR.",
     "- Não inclua headings como DADOS DA SOLICITAÇÃO, LEVANTAMENTO DE MERCADO ou ANÁLISE DE ALTERNATIVAS.",
     "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
-    "- Não gere linha de assinatura, sublinhado, tracejado ou linha separadora entre a data e o nome.",
-    "- Não use HTML, <div>, align, CSS inline, tabelas, comentários, cercas de código ou diretivas de renderizador para alinhar o bloco final.",
     "- Não transforme o TR em ETP, parecer jurídico, minuta contratual ou checklist genérico.",
     "- Você pode reutilizar ou adaptar contexto de DFD/ETP/SD apenas como conteúdo operacional, sem copiar headings desses documentos.",
-    "- Se a estimativa estiver indisponível, indique que o valor será apurado em etapa própria, sem afirmar pesquisa realizada, economicidade, vantajosidade ou compatibilidade de mercado.",
-    "- Se detalhes operacionais estiverem ausentes, descreva que deverão ser alinhados, confirmados ou consolidados antes da execução ou no instrumento subsequente.",
-    "- Não invente valores, dados técnicos, rider técnico, datas, locais, durações, infraestrutura, cronogramas, quantidades, equipes, condições de pagamento, SLA, sanções específicas, percentuais, fornecedor, credenciais, dotação, fundamento legal ou pesquisa de preços.",
+    "- Use redação operacional natural para lacunas: placeholder, providência objetiva ou frase curta.",
+    "- Varie a densidade das seções, dando mais corpo ao que afeta execução, recebimento, fiscalização e pagamento.",
   ].join("\n");
 }
 
@@ -1378,12 +1602,11 @@ function buildMinutaGenerationPrompt({
     recipe.instructions,
     "",
     "## Modelo Markdown canônico",
-    recipe.template,
+    replaceMinutaTemplatePlaceholders(removeFixedClauseMarkerComments(recipe.template)),
     "",
     "## Contexto estruturado do processo",
     "- Tipo de documento: MINUTA",
     `- Tipo do processo administrativo: ${toDisplayText(context.processType)}`,
-    `- Tipo de contratação inferido para obrigações: ${context.contractingType}`,
     `- Número interno do processo: ${process.processNumber}`,
     `- Número da minuta/contrato: ${context.contractNumber ?? "XXX/2026"}`,
     `- Número do procedimento: ${context.procedureNumber ?? "XXX/2026"}`,
@@ -1393,14 +1616,14 @@ function buildMinutaGenerationPrompt({
     `- Objeto da contratação: ${toDisplayText(context.object)}`,
     `- Justificativa do processo: ${toDisplayText(context.processJustification)}`,
     `- Unidade orçamentária principal: ${toDisplayText(budgetUnit)}`,
-    `- Dotação orçamentária: ${context.budgetAllocation ?? "{{budget.allocation_or_placeholder}}"}`,
+    `- Dotação orçamentária: ${context.budgetAllocation ?? "XXX"}`,
     `- Departamentos vinculados: ${context.departmentSummary}`,
     `- Organização contratante: ${toDisplayText(context.organizationName)}`,
     `- CNPJ da contratante: ${toDisplayText(context.organizationCnpj)}`,
-    `- Endereço da contratante: ${organization.address ?? "{{organization.address_or_placeholder}}"}`,
+    `- Endereço da contratante: ${organization.address ?? "XXX"}`,
     `- Município/UF: ${organization.city}/${organization.state}`,
-    `- Autoridade da contratante: ${organization.authorityName ?? "{{organization.authorityName_or_placeholder}}"}`,
-    `- Cargo da autoridade: ${organization.authorityRole ?? "{{organization.authorityRole_or_placeholder}}"}`,
+    `- Autoridade da contratante: ${organization.authorityName ?? "XXX"}`,
+    `- Cargo da autoridade: ${organization.authorityRole ?? "XXX"}`,
     `- Contratada: ${context.contractorName ?? "[CONTRATADA]"}`,
     `- CPF/CNPJ da contratada: ${context.contractorCnpj ?? "[CNPJ DA CONTRATADA]"}`,
     `- Endereço da contratada: ${context.contractorAddress ?? "[ENDEREÇO DA CONTRATADA]"}`,
@@ -1416,18 +1639,11 @@ function buildMinutaGenerationPrompt({
     `- Status atual do processo: ${process.status}`,
     `- Avisos da origem: ${context.warnings.length > 0 ? context.warnings.join("; ") : "nenhum"}`,
     "",
-    "## Orientação para obrigações",
-    "- Derive obrigações prioritariamente de TR quando houver conteúdo disponível no contexto.",
-    `- Use prioritariamente o bloco Tipo: ${context.contractingType} da seção Obrigações por tipo de contratação quando não houver TR suficiente.`,
-    "- Adapte as obrigações ao objeto e ao contexto específico, sempre em linguagem contratual.",
-    "- Não copie obrigações incompatíveis com o objeto.",
-    "- Não misture blocos de tipos diferentes sem necessidade demonstrada no contexto.",
-    "",
-    "## Regras para cláusulas FIXED",
-    `- Cláusulas FIXED do template: ${fixedClauseTitles}.`,
-    "- Copie as cláusulas FIXED exatamente como estão no template.",
-    "- A única alteração permitida nas cláusulas FIXED é substituir placeholders por dados válidos presentes no contexto.",
-    "- Não reescreva, resuma, simplifique, reorganize nem altere termos jurídicos das cláusulas FIXED.",
+    "## Regras para cláusulas fixas",
+    `- Cláusulas fixas do template: ${fixedClauseTitles}.`,
+    "- Copie as cláusulas fixas exatamente como estão no template.",
+    "- A única alteração permitida nas cláusulas fixas é substituir placeholders por dados válidos presentes no contexto.",
+    "- Não reescreva, resuma, simplifique, reorganize nem altere termos jurídicos das cláusulas fixas.",
     "",
     "## Instruções adicionais do operador",
     instructions ?? "Nenhuma instrução adicional informada.",
@@ -1437,17 +1653,16 @@ function buildMinutaGenerationPrompt({
     "- Siga a estrutura do modelo canônico, mantendo todas as cláusulas contratuais.",
     "- Trate a Minuta como o instrumento que formaliza contratualmente a operação descrita pelo TR e pelos documentos do processo.",
     "- Converta contexto operacional em linguagem contratual: obrigações, condições de execução, fiscalização, recebimento, pagamento e consequências administrativas.",
-    "- Preserve a arquitetura de cláusulas FIXED, cláusulas semi-fixas, blocos condicionais e trechos contextuais.",
+    "- Preserve a arquitetura de cláusulas fixas, cláusulas semi-fixas, blocos condicionais e trechos contextuais.",
     "- Enriqueça as cláusulas semi-fixas de objeto, execução, pagamento, vigência, dotação, obrigações, fiscalização, recebimento, penalidades e extinção com contextualização contratual conservadora.",
-    "- Use os módulos condicionais do tipo de contratação inferido para dar textura contratual ao objeto, sem copiar exemplos incompatíveis.",
+    "- Use o pacote de contexto enriquecido e o plano documental para dar textura contratual ao objeto, sem copiar exemplos incompatíveis.",
     "- Mantenha obrigatoriamente a cláusula DO PREÇO.",
     "- Se o preço estiver indisponível ou informado como zero, use o placeholder R$ XX.XXX,XX.",
     "- Não inclua seções, títulos ou conteúdo de DFD, DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA, ETP, ESTUDO TÉCNICO PRELIMINAR, TR ou TERMO DE REFERÊNCIA.",
     "- Você pode reutilizar ou adaptar contexto de TR/ETP/SD apenas como conteúdo contratual, sem copiar headings desses documentos.",
     "- Não transforme a Minuta em TR, ETP, parecer jurídico, checklist ou contrato hiper detalhado.",
-    "- Não invente valores, nomes, CPF, CNPJ, endereços, datas, locais, prazos, dotações ou dados de execução.",
-    "- Não invente multas, percentuais, SLA, cronogramas, quantitativos, rider técnico, garantias, fundamento jurídico específico, documentos, regime, credenciais de fornecedor, pagamento, medições ou obrigações sem suporte contextual.",
-    "- Quando dados estiverem ausentes, preserve placeholders ou use redação contratual condicional, evitando repetição excessiva de não informado, quando aplicável ou a definir.",
+    "- Prefira cláusulas secas, placeholders preservados e pouca explicação sobre dados pendentes.",
+    "- Evite repetição de ressalvas e condicionamentos em cláusulas simples.",
   ].join("\n");
 }
 
@@ -1620,7 +1835,7 @@ export function sanitizeGeneratedDocumentDraft({
         "",
         "## 7. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA",
         "",
-        "Valor não informado no contexto; a estimativa será apurada posteriormente por pesquisa de mercado ou etapa própria.",
+        "A estimativa será apurada em etapa própria, com pesquisa de preços compatível com o objeto e registro dos critérios adotados.",
       ]
         .join("\n")
         .trim();
@@ -1630,19 +1845,19 @@ export function sanitizeGeneratedDocumentDraft({
   if (documentType === "minuta") {
     sanitized = sanitized.replace(/\bR\$\s*0+(?:[,.]0{1,2})?\b/g, "R$ XX.XXX,XX");
     sanitized = removeFixedClauseMarkerComments(sanitized);
+    sanitized = replaceMinutaTemplatePlaceholders(sanitized);
 
     if (!/clausula segunda\s+-\s+do preco/i.test(normalizeSearchText(sanitized))) {
-      sanitized = [
+      sanitized = insertMinutaClauseAfterFirstClause(
         sanitized,
-        "",
-        "## CLÁUSULA SEGUNDA - DO PREÇO",
-        "",
-        "2.1. O valor do presente contrato é de `R$ XX.XXX,XX`.",
-        "",
-        "2.2. O preço não consta no contexto ou foi informado como zero; por isso, deverá ser preenchido em etapa própria, sem simulação de valores.",
-      ]
-        .join("\n")
-        .trim();
+        [
+          "## CLÁUSULA SEGUNDA - DO PREÇO",
+          "",
+          "2.1. O valor do presente contrato é de R$ XX.XXX,XX.",
+          "",
+          "2.2. Nos preços estipulados estão inclusas todas as despesas necessárias ao fiel cumprimento do objeto.",
+        ].join("\n"),
+      );
     }
 
     sanitized = enforceMinutaFixedClauses(sanitized);

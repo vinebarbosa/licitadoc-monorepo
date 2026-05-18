@@ -12,7 +12,10 @@ import {
 } from "../../shared/text-generation/types";
 import { documentTextToTiptapJson } from "../../shared/tiptap-json";
 import type { DocumentGenerationEvents } from "./document-generation-events";
-import { sanitizeGeneratedDocumentDraft } from "./documents.shared";
+import {
+  executeDocumentGenerationPipeline,
+  getStoredPipelineFromMetadata,
+} from "./document-generation-pipeline";
 
 type AppDatabase = FastifyInstance["db"];
 
@@ -66,6 +69,8 @@ function getGenerationInput(metadata: Record<string, unknown>) {
   return {
     documentType: documentType as GeneratedDocumentType,
     organizationId,
+    pipeline: getStoredPipelineFromMetadata(metadata),
+    pipelineRequired: metadata.pipelineRequired === true,
     processId,
     prompt,
   };
@@ -171,14 +176,15 @@ export async function executeDocumentGeneration({
   }
 
   try {
-    const result = await textGeneration.generateText({
+    const result = await executeDocumentGenerationPipeline({
+      documentId: document.id,
       documentType: input.documentType,
+      organizationId: input.organizationId,
+      pipeline: input.pipeline,
+      pipelineRequired: input.pipelineRequired,
       prompt: input.prompt,
-      subject: {
-        documentId: document.id,
-        organizationId: input.organizationId,
-        processId: input.processId,
-      },
+      processId: input.processId,
+      textGeneration,
       onChunk: (chunk) => {
         if (chunk.textDelta.length > 0) {
           generationEvents?.publishChunk({
@@ -196,10 +202,7 @@ export async function executeDocumentGeneration({
         }
       },
     });
-    const draftContent = sanitizeGeneratedDocumentDraft({
-      documentType: input.documentType,
-      text: result.text,
-    });
+    const draftContent = result.text;
     const now = new Date();
 
     await db.transaction(async (tx) => {

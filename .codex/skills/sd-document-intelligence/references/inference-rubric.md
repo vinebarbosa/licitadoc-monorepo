@@ -6,6 +6,8 @@ Use esta referência para interpretar qualquer Solicitação de Despesa sem impo
 
 Nenhuma inferência vem antes da classificação semântica. Primeiro identifique o que o objeto é; depois decida quais riscos, alternativas, documentos e tom fazem sentido.
 
+No pipeline orquestrado, esta rubrica pertence à SD Document Intelligence / Context Enrichment Agent. O Extractor Agent apenas coleta fatos; Writer, Reviewer e Rewriter não devem refazer classificação pesada.
+
 ## Escala de Confiança
 
 - **Confirmado**: está escrito na SD.
@@ -166,6 +168,13 @@ Use a classificação para calibrar documentos:
 - **ação social/distribuição**: público, critério, quantitativo, controle e transparência.
 - **obra/engenharia**: projeto, local, responsabilidade técnica, medição e segurança.
 - **tecnologia**: integração, suporte, disponibilidade, segurança, dados, migração e continuidade.
+
+Papéis por documento:
+
+- **DFD**: formalização inicial, curto, sem estudo de mercado, alternativas extensas ou matriz de riscos.
+- **ETP**: análise proporcional de necessidade, solução, alternativas, riscos, estimativa, sustentabilidade e gestão/fiscalização.
+- **TR**: operacionalização do objeto, especificações, execução, recebimento, obrigações, fiscalização e pagamento.
+- **Minuta**: cláusulas contratuais, partes, preço/placeholders, obrigações, fiscalização, recebimento, sanções, vigência e assinaturas.
 
 ## Administrative Tone Engine
 

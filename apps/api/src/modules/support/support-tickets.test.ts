@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { describe, expect, it } from "vitest";
 import type { Actor } from "../../authorization/actor";
 import {
-  organizations,
+  type organizations,
   supportTicketAttachments,
   supportTicketMessages,
   supportTicketReads,
@@ -124,6 +124,7 @@ function createOrganizationRow(
     institutionalEmail: "contato@lajeado.gov.br",
     website: null,
     logoUrl: null,
+    letterheadUrl: null,
     authorityName: "Ana Martins",
     authorityRole: "Prefeita",
     isActive: true,

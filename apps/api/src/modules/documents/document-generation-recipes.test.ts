@@ -35,6 +35,7 @@ function createOrganizationRow(
     institutionalEmail: "contato@exemplo.ce.gov.br",
     website: null,
     logoUrl: null,
+    letterheadUrl: null,
     authorityName: "Maria Silva",
     authorityRole: "Prefeita",
     isActive: true,
@@ -89,6 +90,10 @@ function createProcessRow(
   };
 }
 
+function countLiteralOccurrences(value: string, needle: string) {
+  return value.split(needle).length - 1;
+}
+
 function createCanonicalProcessItems(): SerializedProcessItem[] {
   return [
     {
@@ -133,53 +138,45 @@ function createCanonicalProcessItems(): SerializedProcessItem[] {
 }
 
 function assertDfdRoleGuidance(prompt: string) {
-  assert.match(prompt, /documento inicial de formalização da demanda/i);
-  assert.match(prompt, /objetivo, administrativo, introdutório, proporcional e revisável/i);
+  assert.match(prompt, /registro inicial da demanda/i);
+  assert.match(prompt, /formal, direta, administrativa e revisável/i);
   assert.match(prompt, /1 ou 2 parágrafos/i);
-  assert.match(prompt, /3 a 6 bullets curtos/i);
-  assert.match(prompt, /Não desenvolva estudo de mercado, metodologia de pesquisa de preços/i);
-  assert.match(prompt, /análise de alternativas, estudo de viabilidade, matriz de riscos/i);
-  assert.match(prompt, /Não inclua obrigações contratuais detalhadas, fiscalização contratual/i);
-  assert.match(prompt, /critérios de pagamento, critérios de medição, aceite, SLA, sanções/i);
-  assert.match(prompt, /Não declare economicidade comprovada, vantajosidade/i);
-  assert.match(prompt, /valor será apurado na instrução processual/i);
+  assert.match(prompt, /3 a 6 bullets/i);
+  assert.match(prompt, /Evite estudo de mercado, metodologia de pesquisa de preços/i);
+  assert.match(prompt, /análise de alternativas e matriz de riscos/i);
+  assert.match(prompt, /fiscalização detalhada, pagamento, medição, SLA, sanções/i);
+  assert.match(prompt, /Mantenha a inteligência administrativa invisível/i);
 }
 
 function assertTrOperationalGuidance(prompt: string) {
   assert.match(prompt, /documento técnico-operacional/i);
-  assert.match(prompt, /executado, acompanhado, fiscalizado, recebido e entregue/i);
-  assert.match(prompt, /operacionalizar sem inventar/i);
-  assert.match(prompt, /ESPECIFICAÇÕES TÉCNICAS DO SERVIÇO.*principal seção operacional/is);
+  assert.match(prompt, /objeto, especificações, execução, recebimento/i);
+  assert.match(prompt, /linguagem formal, objetiva, operacional e fiscalizável/i);
+  assert.match(
+    prompt,
+    /ESPECIFICAÇÕES TÉCNICAS DO SERVIÇO funcionar como principal seção operacional/is,
+  );
   assert.match(prompt, /Obrigações da contratada e da contratante devem ser práticas/i);
-  assert.match(prompt, /execução, responsabilidades, fluxos, alinhamentos, condicionantes/i);
-  assert.match(prompt, /alinhados, confirmados ou consolidados antes da execução/i);
+  assert.match(prompt, /responsabilidades práticas da contratada e da contratante/i);
   assert.match(
     prompt,
     /Não transforme o TR em ETP, parecer jurídico, minuta contratual ou checklist genérico/i,
   );
-  assert.match(
-    prompt,
-    /sem afirmar pesquisa realizada, economicidade, vantajosidade ou compatibilidade de mercado/i,
-  );
-  assert.match(
-    prompt,
-    /Não invente valores, dados técnicos, rider técnico, datas, locais, durações/i,
-  );
-  assert.match(prompt, /SLA, sanções específicas, percentuais, fornecedor, credenciais, dotação/i);
+  assert.match(prompt, /placeholder, providência objetiva ou frase curta/i);
+  assert.match(prompt, /mais corpo ao que afeta execução, recebimento, fiscalização e pagamento/i);
 }
 
 function assertMinutaContractualGuidance(prompt: string) {
   assert.match(prompt, /formaliza contratualmente a operação/i);
-  assert.match(prompt, /transformar a operação em vínculo contratual/i);
-  assert.match(prompt, /Cláusulas FIXED.*Cláusulas semi-fixas.*Blocos condicionais/is);
+  assert.match(prompt, /partes, objeto, preço ou placeholder/i);
+  assert.match(prompt, /cláusulas fixas e assinaturas/i);
   assert.match(prompt, /CONTRATANTE.*CONTRATADA/is);
   assert.match(prompt, /execução.*obrigações.*pagamento.*fiscalização.*recebimento/is);
-  assert.match(prompt, /linguagem contratual/i);
-  assert.match(prompt, /Não transforme a Minuta em TR, ETP, parecer jurídico, checklist/i);
+  assert.match(prompt, /linguagem contratual formal, seca e revisável/i);
+  assert.match(prompt, /Minuta não é DFD, ETP, TR, parecer jurídico/i);
   assert.match(prompt, /Não inclua seções, títulos ou conteúdo de DFD/i);
-  assert.match(prompt, /Não invente multas, percentuais, SLA, cronogramas/i);
-  assert.match(prompt, /rider técnico, garantias, fundamento jurídico específico/i);
-  assert.match(prompt, /preserve placeholders ou use redação contratual condicional/i);
+  assert.match(prompt, /Prefira cláusulas secas, placeholders preservados/i);
+  assert.match(prompt, /Evite repetição de ressalvas e condicionamentos/i);
 }
 
 function assertUntitledSignatureClosingBlock(template: string) {
@@ -194,12 +191,8 @@ function assertUntitledSignatureClosingBlock(template: string) {
 
 function assertPlainMarkdownSignatureClosingGuidance(instructions: string) {
   assert.match(instructions, /bloco final de local\/data e assinatura não deve ter título/i);
-  assert.match(instructions, /gere apenas linhas Markdown simples/i);
-  assert.match(instructions, /local\/data, nome do responsável e cargo/i);
-  assert.match(instructions, /Não gere linha de assinatura, sublinhado, tracejado/i);
-  assert.match(instructions, /Não use HTML, `<div>`, `align`, CSS inline, tabelas/i);
-  assert.match(instructions, /comentários, cercas de código ou diretivas de renderizador/i);
-  assert.match(instructions, /O alinhamento visual será aplicado pelo sistema/i);
+  assert.match(instructions, /Gere assinatura em linhas Markdown simples/i);
+  assert.match(instructions, /sem linha de assinatura, sublinhado, tracejado, HTML/i);
   assert.doesNotMatch(instructions, /local\/data alinhável à direita/i);
   assert.doesNotMatch(instructions, /cargo centralizados/i);
 }
@@ -208,47 +201,32 @@ test("resolveDocumentGenerationRecipe returns the repository-managed DFD assets"
   const recipe = resolveDocumentGenerationRecipe("dfd");
 
   assert.ok(recipe);
-  assert.match(recipe.instructions, /retorne somente o dfd final em markdown/i);
-  assert.match(recipe.instructions, /documento inicial de formalização da demanda/i);
-  assert.match(
-    recipe.instructions,
-    /Ele não é Estudo Técnico Preliminar \(ETP\), Termo de Referência \(TR\)/i,
+  assert.match(recipe.baseInstructions, /Regras globais de redação documental/i);
+  assert.match(recipe.baseInstructions, /invisibilidade da inteligência/i);
+  assert.match(recipe.baseInstructions, /Valores `0`, `0,00`, `0.00` e `R\$ 0,00`/i);
+  assert.match(recipe.documentInstructions, /registro inicial da demanda/i);
+  assert.doesNotMatch(
+    recipe.documentInstructions,
+    /anti-alucinação|valor zerado|pacote de contexto/i,
   );
-  assert.match(recipe.instructions, /densidade moderada/i);
-  assert.match(recipe.instructions, /3 a 6 bullets curtos/i);
-  assert.match(
-    recipe.instructions,
-    /Não desenvolva estudo de mercado, metodologia de pesquisa de preços/i,
-  );
-  assert.match(
-    recipe.instructions,
-    /análise de alternativas, matriz de riscos, fiscalização contratual/i,
-  );
-  assert.match(recipe.instructions, /Guia de adaptação ao objeto/);
-  assert.match(recipe.instructions, /eventos ou serviços culturais/i);
-  assert.match(recipe.instructions, /serviços técnicos ou administrativos/i);
-  assert.match(recipe.instructions, /aquisição de bens ou equipamentos/i);
-  assert.match(recipe.instructions, /obras ou engenharia/i);
-  assert.match(recipe.instructions, /tecnologia/i);
-  assert.match(recipe.instructions, /saúde ou educação/i);
-  assert.match(recipe.instructions, /Não copie exemplos de uma categoria/i);
-  assert.match(recipe.instructions, /não declare compatibilidade com preços de mercado/i);
-  assert.match(recipe.instructions, /não envolva dados em crases/i);
+  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
+  assert.match(recipe.instructions, /registro inicial da demanda/i);
+  assert.match(recipe.instructions, /DFD não é ETP, TR, minuta contratual/i);
+  assert.match(recipe.instructions, /3 a 6 bullets/i);
+  assert.match(recipe.instructions, /análise de alternativas e matriz de riscos/i);
+  assert.doesNotMatch(recipe.instructions, /Guia de adaptação ao objeto/);
+  assert.doesNotMatch(recipe.instructions, /eventos ou serviços culturais/i);
+  assert.doesNotMatch(recipe.instructions, /serviços técnicos ou administrativos/i);
+  assert.doesNotMatch(recipe.instructions, /obras ou engenharia/i);
+  assert.match(recipe.instructions, /Não use valor zero como preço/i);
   assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
-  assert.match(recipe.instructions, /Itens da SD revisados/);
-  assert.match(recipe.instructions, /demanda como um todo/i);
-  assert.match(recipe.instructions, /não transforme o DFD em enumeração exaustiva item a item/i);
+  assert.match(recipe.instructions, /lista funcionar melhor como conjunto/i);
+  assert.match(recipe.instructions, /conjunto da demanda/i);
+  assert.match(recipe.instructions, /Enumeração exaustiva item a item/i);
   assert.doesNotMatch(recipe.instructions, /objectSemanticSummary|primaryGroups|summaryLabel/);
   assert.match(recipe.template, /## 1\. DADOS DA SOLICITAÇÃO/);
-  assert.match(recipe.template, /normalmente em 1 ou 2 parágrafos/i);
-  assert.match(recipe.template, /Não desenvolva análise estratégica ampla, estudo de viabilidade/i);
-  assert.match(
-    recipe.template,
-    /Não aprofunde requisitos técnicos, planejamento de execução, fiscalização/i,
-  );
-  assert.match(recipe.template, /Não declare economicidade comprovada, vantajosidade/i);
-  assert.match(recipe.template, /Liste de 3 a 6 requisitos essenciais/i);
-  assert.match(recipe.template, /Não inclua cláusulas contratuais detalhadas/i);
+  assert.match(recipe.template, /{{dfd\.context_and_need}}/);
+  assert.match(recipe.template, /{{dfd\.essential_requirement_1}}/);
   assert.doesNotMatch(recipe.template, /objectSemanticSummary|primaryGroups|summaryLabel/);
   assert.doesNotMatch(recipe.template, /grupos concretos identificados na solicitação/i);
   assert.doesNotMatch(recipe.template, /item dominante/i);
@@ -267,56 +245,22 @@ test("resolveDocumentGenerationRecipe returns the repository-managed ETP assets"
   const recipe = resolveDocumentGenerationRecipe("etp");
 
   assert.ok(recipe);
-  assert.match(recipe.instructions, /retorne somente o etp final em markdown/i);
-  assert.match(recipe.instructions, /r\$ 0,00.*ausência de estimativa/i);
-  assert.match(recipe.instructions, /pesquisa realizada sem suporte no contexto/i);
-  assert.match(recipe.instructions, /resposta genérica de IA/i);
-  assert.match(
-    recipe.instructions,
-    /complexidade, risco, valor, criticidade e impacto operacional/i,
+  assert.match(recipe.baseInstructions, /Regras globais de redação documental/i);
+  assert.match(recipe.documentInstructions, /documento analítico da fase preparatória/i);
+  assert.doesNotMatch(
+    recipe.documentInstructions,
+    /anti-alucinação|valor zerado|pacote de contexto/i,
   );
-  assert.match(
-    recipe.instructions,
-    /compras simples.*as seções devem existir.*curtas, diretas e sem desenvolvimento artificial/is,
-  );
-  assert.match(recipe.instructions, /Não use o mesmo peso narrativo para todos os objetos/i);
-  assert.match(
-    recipe.instructions,
-    /objetos complexos, críticos, continuados, de maior valor.*análise mais robusta/is,
-  );
-  assert.match(recipe.instructions, /Não repita a mesma ideia em várias seções/i);
-  assert.match(
-    recipe.instructions,
-    /finalidade pública.*interesse público.*ação institucional.*integração comunitária.*viabilidade preliminar/is,
-  );
-  assert.match(
-    recipe.instructions,
-    /logística de entrega.*recebimento provisório\/definitivo.*conferência de quantidade.*armazenamento.*kits/is,
-  );
-  assert.match(recipe.instructions, /Lei nº 14\.133\/2021/i);
-  assert.match(recipe.instructions, /não invente artigo, inciso, acórdão/i);
-  assert.match(recipe.instructions, /Guia de adaptação ao objeto/);
-  assert.match(recipe.instructions, /apresentações artísticas ou eventos culturais/i);
-  assert.match(recipe.instructions, /metodologia futura de forma proporcional ao objeto/i);
-  assert.match(recipe.instructions, /a definição deverá ocorrer em etapa própria/i);
-  assert.match(recipe.instructions, /a continuidade dependerá de apuração complementar/i);
-  assert.match(recipe.instructions, /execução direta pela Administração/i);
-  assert.match(recipe.instructions, /Sistema de Registro de Preços/i);
-  assert.match(recipe.instructions, /adesão a ata/i);
-  assert.match(recipe.instructions, /lote único/i);
-  assert.match(recipe.instructions, /parcelamento por itens, lotes ou grupos/i);
-  assert.match(recipe.instructions, /fornecimento centralizado/i);
-  assert.match(recipe.instructions, /kits prontos versus montagem interna/i);
-  assert.match(recipe.instructions, /redução ou ajuste de escopo/i);
-  assert.match(recipe.instructions, /simplificação logística/i);
-  assert.match(recipe.instructions, /não apenas defender automaticamente a solução proposta/i);
-  assert.match(recipe.instructions, /gestão e fiscalização/i);
+  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
+  assert.match(recipe.instructions, /R\$ 0,00.*ausência de estimativa/i);
+  assert.match(recipe.instructions, /Profundidade proporcional ao plano documental/i);
+  assert.match(recipe.instructions, /As seções não precisam ter o mesmo tamanho/i);
+  assert.doesNotMatch(recipe.instructions, /Guia de adaptação ao objeto/);
+  assert.doesNotMatch(recipe.instructions, /execução direta pela Administração/i);
+  assert.doesNotMatch(recipe.instructions, /Sistema de Registro de Preços/i);
+  assert.doesNotMatch(recipe.instructions, /kits prontos versus montagem interna/i);
+  assert.match(recipe.instructions, /gestão\/fiscalização/i);
   assert.match(recipe.instructions, /riscos/i);
-  assert.match(recipe.instructions, /Benefícios esperados/i);
-  assert.match(recipe.instructions, /Preserve rigorosamente objeto, município, organização/i);
-  assert.match(recipe.instructions, /Itens da SD revisados/);
-  assert.match(recipe.instructions, /necessidade, da solução, da estimativa, das alternativas/i);
-  assert.match(recipe.instructions, /Não invente itens, grupos ou categorias/i);
   assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
   assert.match(recipe.template, /# ESTUDO TÉCNICO PRELIMINAR \(ETP\)/);
   assert.match(recipe.template, /## 5\. ESTIMATIVA DO VALOR DA CONTRATAÇÃO/);
@@ -324,11 +268,8 @@ test("resolveDocumentGenerationRecipe returns the repository-managed ETP assets"
   assert.match(recipe.template, /## 10\. BENEFÍCIOS ESPERADOS/);
   assert.match(recipe.template, /## 11\. CONCLUSÃO E RECOMENDAÇÃO/);
   assertUntitledSignatureClosingBlock(recipe.template);
-  assert.match(recipe.template, /metodologia de apuração/i);
-  assert.match(recipe.template, /não deve parecer uma justificativa automática/i);
-  assert.match(recipe.template, /medidas mitigatórias/i);
-  assert.match(recipe.template, /valor administrativo da contratação/i);
-  assert.match(recipe.template, /parágrafos institucionais, contínuos e bem conectados/i);
+  assert.match(recipe.template, /{{etp\.market_survey}}/);
+  assert.match(recipe.template, /{{etp\.risks_and_mitigations}}/);
   assert.equal(/`{{/i.test(recipe.template), false);
   assert.equal(/DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA/i.test(recipe.template), false);
   assert.equal(/TERMO DE REFERÊNCIA/i.test(recipe.template), false);
@@ -338,47 +279,27 @@ test("resolveDocumentGenerationRecipe returns the repository-managed TR assets",
   const recipe = resolveDocumentGenerationRecipe("tr");
 
   assert.ok(recipe);
-  assert.match(recipe.instructions, /retorne somente o tr final em markdown/i);
+  assert.match(recipe.baseInstructions, /Regras globais de redação documental/i);
+  assert.match(recipe.documentInstructions, /documento técnico-operacional da contratação/i);
+  assert.doesNotMatch(
+    recipe.documentInstructions,
+    /anti-alucinação|valor zerado|pacote de contexto/i,
+  );
+  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
   assert.match(recipe.instructions, /documento técnico-operacional da contratação/i);
-  assert.match(recipe.instructions, /execução contratual/i);
-  assert.match(recipe.instructions, /executado, acompanhado, fiscalizado, recebido e entregue/i);
-  assert.match(recipe.instructions, /operacionalizar sem inventar/i);
-  assert.match(recipe.instructions, /não predominantemente analítico/i);
-  assert.match(recipe.instructions, /Obrigações por tipo de contratação/);
-  assert.match(recipe.instructions, /Tipo: apresentacao_artistica/);
-  assert.match(recipe.instructions, /Tipo: prestacao_servicos_gerais/);
-  assert.match(recipe.instructions, /Tipo: consultoria_assessoria/);
-  assert.match(recipe.instructions, /Tipo: tecnologia_software/);
-  assert.match(recipe.instructions, /Tipo: fornecimento_bens/);
-  assert.match(recipe.instructions, /Tipo: obra_engenharia/);
-  assert.match(recipe.instructions, /Tipo: locacao_equipamentos/);
-  assert.match(recipe.instructions, /Tipo: eventos_gerais/);
+  assert.match(recipe.instructions, /especificações, execução, recebimento/i);
+  assert.match(recipe.instructions, /linguagem formal, objetiva, operacional e fiscalizável/i);
+  assert.doesNotMatch(recipe.instructions, /Obrigações por tipo de contratação/);
+  assert.doesNotMatch(recipe.instructions, /Tipo: apresentacao_artistica/);
   assert.match(recipe.instructions, /R\$ 0,00.*ausência de estimativa/i);
-  assert.match(recipe.instructions, /sem afirmar que pesquisa de mercado já foi realizada/i);
-  assert.match(recipe.instructions, /rider técnico, datas exatas, locais, durações/i);
-  assert.match(recipe.instructions, /percentuais, SLA, sanções específicas/i);
-  assert.match(recipe.instructions, /Itens da SD revisados/);
-  assert.match(recipe.instructions, /objeto, especificações, entrega, recebimento/i);
-  assert.match(recipe.instructions, /Não trate o primeiro item como representante único/i);
+  assert.match(recipe.instructions, /lista de itens/i);
+  assert.match(recipe.instructions, /especificações, execução, recebimento/i);
+  assert.match(recipe.instructions, /sem reduzir o conjunto ao primeiro item/i);
   assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
-  assert.match(
-    recipe.instructions,
-    /A gestão e fiscalização devem refletir o acompanhamento real/i,
-  );
+  assert.match(recipe.instructions, /responsabilidades práticas da contratada e da contratante/i);
   assert.match(recipe.template, /# TERMO DE REFERÊNCIA/);
-  assert.match(recipe.template, /principal seção operacional do TR/i);
-  assert.match(recipe.template, /dinâmica de execução, entrega, disponibilização ou prestação/i);
-  assert.match(
-    recipe.template,
-    /responsabilidades práticas de preparação, execução, comunicação e correção/i,
-  );
-  assert.match(recipe.template, /não se limite a registrar ausência/i);
-  assert.match(
-    recipe.template,
-    /pagamento deverá estar condicionado à execução regular do objeto/i,
-  );
-  assert.match(recipe.template, /comunicação de falhas, atrasos, impedimentos ou irregularidades/i);
-  assert.match(recipe.template, /Não invente percentuais, valores de multa, prazos/i);
+  assert.match(recipe.template, /{{tr\.technical_specifications}}/);
+  assert.match(recipe.template, /{{tr\.payment_conditions}}/);
   assert.match(recipe.template, /## 4\. OBRIGAÇÕES DA CONTRATADA/);
   assert.match(recipe.template, /## 5\. OBRIGAÇÕES DA CONTRATANTE/);
   assert.match(recipe.template, /## 7\. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
@@ -395,32 +316,19 @@ test("resolveDocumentGenerationRecipe returns the repository-managed Minuta asse
   const recipe = resolveDocumentGenerationRecipe("minuta");
 
   assert.ok(recipe);
-  assert.match(recipe.instructions, /retorne somente a minuta final em markdown/i);
-  assert.match(recipe.instructions, /cláusulas marcadas no template como `fixed` são imutáveis/i);
-  assert.match(recipe.instructions, /R\$ 0,00.*ausência de preço/i);
+  assert.match(recipe.baseInstructions, /Regras globais de redação documental/i);
+  assert.match(recipe.documentInstructions, /Minuta formaliza contratualmente a operação/i);
+  assert.doesNotMatch(
+    recipe.documentInstructions,
+    /anti-alucinação|valor zerado|pacote de contexto/i,
+  );
+  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
+  assert.match(recipe.instructions, /R\$ 0,00.*preço válido/i);
   assert.match(recipe.instructions, /A Minuta formaliza contratualmente a operação/i);
-  assert.match(recipe.instructions, /Cláusulas semi-fixas/);
-  assert.match(recipe.instructions, /Blocos condicionais/);
-  assert.match(recipe.instructions, /Trechos contextuais/);
-  assert.match(recipe.instructions, /Tipo: apresentacao_artistica/);
-  assert.match(recipe.instructions, /Tipo: prestacao_servicos_gerais/);
-  assert.match(recipe.instructions, /Tipo: tecnologia_software/);
-  assert.match(recipe.instructions, /Tipo: consultoria_assessoria/);
-  assert.match(recipe.instructions, /Tipo: fornecimento_bens/);
-  assert.match(recipe.instructions, /Tipo: obra_engenharia/);
-  assert.match(recipe.instructions, /Tipo: locacao_equipamentos/);
-  assert.match(recipe.instructions, /Tipo: eventos_gerais/);
-  assert.match(recipe.instructions, /não invente nomes, CPF, CNPJ, endereços/i);
-  assert.match(recipe.instructions, /Não invente multas, percentuais, SLA, cronogramas/i);
-  assert.match(recipe.instructions, /programação oficial do evento/i);
-  assert.match(recipe.instructions, /LGPD, segurança da informação/i);
-  assert.match(recipe.instructions, /entregáveis, relatórios, reuniões/i);
-  assert.match(recipe.instructions, /entrega, recebimento, inspeção, conformidade/i);
-  assert.match(recipe.instructions, /diário de obra/i);
-  assert.match(recipe.instructions, /serviço continuado/i);
-  assert.match(recipe.instructions, /Itens da SD revisados/);
-  assert.match(recipe.instructions, /cláusulas de objeto, execução, recebimento e obrigações/i);
-  assert.match(recipe.instructions, /Não copie detalhamento técnico próprio de TR/i);
+  assert.match(recipe.instructions, /Preservação das cláusulas fixas/i);
+  assert.match(recipe.instructions, /placeholders/i);
+  assert.doesNotMatch(recipe.instructions, /Tipo: apresentacao_artistica/);
+  assert.match(recipe.instructions, /Detalhamento técnico próprio de TR/i);
   assert.match(recipe.template, /# MINUTA DO CONTRATO/);
   assert.match(recipe.template, /CONTRATANTE/);
   assert.match(recipe.template, /CONTRATADA/);
@@ -449,11 +357,10 @@ test("resolveDocumentGenerationRecipe returns the repository-managed Minuta asse
   assert.match(recipe.template, /FIXED_CLAUSE_START: CLÁUSULA DÉCIMA SÉTIMA/);
   assert.match(recipe.template, /FIXED_CLAUSE_START: CLÁUSULA DÉCIMA OITAVA/);
   assert.match(recipe.template, /objeto contratual será executado em conformidade/i);
-  assert.match(recipe.template, /dinâmica operacional compatível com o objeto contratado/i);
+  assert.match(recipe.template, /{{contract\.execution_contextual_clause}}/);
   assert.match(recipe.template, /liquidação da despesa, o ateste/i);
   assert.match(recipe.template, /registrar ocorrências.*atestar a execução/is);
   assert.match(recipe.template, /correção, substituição ou refazimento/i);
-  assert.match(recipe.template, /Não invente multa, percentual, valor, prazo/i);
   assert.equal(/DADOS DA SOLICITAÇÃO/i.test(recipe.template), false);
   assert.equal(/LEVANTAMENTO DE MERCADO/i.test(recipe.template), false);
   assert.equal(/^## .*ANÁLISE DE ALTERNATIVAS/im.test(recipe.template), false);
@@ -474,6 +381,86 @@ test("repository-managed recipe assets use accented formal Portuguese", () => {
     assert.doesNotMatch(recipe.instructions, /\bnao\b/i);
     assert.doesNotMatch(recipe.template, /\b(NAO|nao|CONTRATACAO|REFERENCIA|CLAUSULA)\b/);
   }
+});
+
+test("repository-managed templates are render-only assets without AI behavior rules", () => {
+  const recipes = ["dfd", "etp", "tr", "minuta"] as const;
+  const deniedTemplatePhrases = [
+    /não invente/i,
+    /quando houver/i,
+    /na ausência/i,
+    /quando suportado/i,
+    /não inclua/i,
+    /não faça/i,
+    /o contexto não apresenta/i,
+    /não constam informações/i,
+    /deverá ser confirmado/i,
+    /pacote de contexto/i,
+    /pipeline/i,
+  ];
+
+  for (const documentType of recipes) {
+    const recipe = resolveDocumentGenerationRecipe(documentType);
+
+    assert.ok(recipe);
+
+    for (const phrase of deniedTemplatePhrases) {
+      assert.doesNotMatch(recipe.template, phrase);
+    }
+  }
+});
+
+test("document-specific instructions do not regain sd-document-intelligence responsibilities", () => {
+  const recipes = ["dfd", "etp", "tr", "minuta"] as const;
+  const deniedDocumentInstructionPhrases = [
+    /Semantic Procurement Classifier/i,
+    /Nenhuma inferência antes/i,
+    /EnrichedContextPackage/i,
+    /pacote de contexto enriquecido/i,
+    /procurementType/i,
+    /operationalNature/i,
+    /publicInterestProfile/i,
+    /probableLegalPath/i,
+    /valor zerado/i,
+    /Valores `0`/i,
+    /não invente/i,
+    /anti-alucinação/i,
+  ];
+
+  for (const documentType of recipes) {
+    const recipe = resolveDocumentGenerationRecipe(documentType);
+
+    assert.ok(recipe);
+
+    for (const phrase of deniedDocumentInstructionPhrases) {
+      assert.doesNotMatch(recipe.documentInstructions, phrase);
+    }
+  }
+});
+
+test("repository-managed recipes preserve required structural slots", () => {
+  const dfd = resolveDocumentGenerationRecipe("dfd");
+  const etp = resolveDocumentGenerationRecipe("etp");
+  const tr = resolveDocumentGenerationRecipe("tr");
+  const minuta = resolveDocumentGenerationRecipe("minuta");
+
+  assert.ok(dfd);
+  assert.ok(etp);
+  assert.ok(tr);
+  assert.ok(minuta);
+
+  assert.match(dfd.template, /{{dfd\.context_and_need}}/);
+  assert.match(dfd.template, /{{dfd\.essential_requirement_3}}/);
+
+  assert.match(etp.template, /{{etp\.estimated_value}}/);
+  assert.match(etp.template, /{{etp\.conclusion_and_recommendation}}/);
+
+  assert.match(tr.template, /{{tr\.technical_specifications}}/);
+  assert.match(tr.template, /{{tr\.administrative_sanctions}}/);
+
+  assert.match(minuta.template, /{{contract\.price_or_placeholder}}/);
+  assert.match(minuta.template, /FIXED_CLAUSE_START: CLÁUSULA DÉCIMA TERCEIRA/);
+  assert.match(minuta.template, /TESTEMUNHAS:/);
 });
 
 test("buildDfdGenerationContext prefers canonical labels and preserves source metadata", () => {
@@ -830,14 +817,14 @@ test("buildEtpGenerationContext normalizes zero estimates as unavailable", () =>
 
   assert.equal(context.requestNumber, "6");
   assert.equal(context.itemDescription, "Apresentacao artistica musical");
-  assert.equal(context.analysisProfile, "apresentacao_artistica");
+  assert.equal("analysisProfile" in context, false);
   assert.equal(context.estimate.available, false);
   assert.equal(context.estimate.displayValue, "não informado");
   assert.equal(context.estimate.rawValue, "R$ 0,00");
-  assert.match(context.estimate.guidance, /ausência de estimativa/i);
+  assert.match(context.estimate.guidance, /apuração em etapa própria/i);
 });
 
-test("buildEtpGenerationContext infers analysis profile from the full reviewed item list", () => {
+test("buildEtpGenerationContext preserves reviewed item list without semantic profiling", () => {
   const context = buildEtpGenerationContext({
     departments: [createDepartmentRow()],
     organization: createOrganizationRow(),
@@ -864,7 +851,7 @@ test("buildEtpGenerationContext infers analysis profile from the full reviewed i
     }),
   });
 
-  assert.equal(context.analysisProfile, "tecnologia_software");
+  assert.equal("analysisProfile" in context, false);
   assert.equal(context.hasSourceItems, true);
 });
 
@@ -893,7 +880,7 @@ test("normalizeMinutaPrice treats empty and zero-like values as placeholder pric
   assert.equal(price.displayValue, "R$ 12.345,67");
 });
 
-test("buildTrGenerationContext infers contracting type from process context", () => {
+test("buildTrGenerationContext preserves estimate context without contracting-type inference", () => {
   const artisticContext = buildTrGenerationContext({
     departments: [createDepartmentRow()],
     organization: createOrganizationRow(),
@@ -910,7 +897,7 @@ test("buildTrGenerationContext infers contracting type from process context", ()
     }),
   });
 
-  assert.equal(artisticContext.contractingType, "apresentacao_artistica");
+  assert.equal("contractingType" in artisticContext, false);
   assert.equal(artisticContext.estimate.available, false);
 
   const goodsContext = buildTrGenerationContext({
@@ -921,7 +908,7 @@ test("buildTrGenerationContext infers contracting type from process context", ()
     }),
   });
 
-  assert.equal(goodsContext.contractingType, "fornecimento_bens");
+  assert.equal("contractingType" in goodsContext, false);
 
   const softwareContext = buildTrGenerationContext({
     departments: [createDepartmentRow()],
@@ -931,7 +918,7 @@ test("buildTrGenerationContext infers contracting type from process context", ()
     }),
   });
 
-  assert.equal(softwareContext.contractingType, "tecnologia_software");
+  assert.equal("contractingType" in softwareContext, false);
 
   const advisoryContext = buildTrGenerationContext({
     departments: [createDepartmentRow()],
@@ -941,7 +928,7 @@ test("buildTrGenerationContext infers contracting type from process context", ()
     }),
   });
 
-  assert.equal(advisoryContext.contractingType, "consultoria_assessoria");
+  assert.equal("contractingType" in advisoryContext, false);
 });
 
 test("buildMinutaGenerationContext normalizes price and extracts contractor placeholders", () => {
@@ -968,7 +955,7 @@ test("buildMinutaGenerationContext normalizes price and extracts contractor plac
     }),
   });
 
-  assert.equal(context.contractingType, "apresentacao_artistica");
+  assert.equal("contractingType" in context, false);
   assert.equal(context.price.available, false);
   assert.equal(context.price.displayValue, "R$ XX.XXX,XX");
   assert.equal(context.contractorName, "Empresa Artistica Exemplo");
@@ -1004,7 +991,7 @@ test("buildDocumentGenerationPrompt uses the canonical DFD recipe and process co
   assert.match(prompt, /Priorizar linguagem objetiva e sem juridiquese excessivo\./);
   assert.match(prompt, /Não inclua seções, títulos ou conteúdo de ETP/);
   assert.match(prompt, /Não use crases ou código inline para valores dos campos do DFD/);
-  assert.match(prompt, /Não declare compatibilidade com mercado, fundamento legal, duração/);
+  assert.match(prompt, /Mantenha a inteligência administrativa invisível/i);
   assertDfdRoleGuidance(prompt);
 });
 
@@ -1184,10 +1171,10 @@ test("buildDocumentGenerationPrompt guides cultural DFDs without validating zero
   assert.match(prompt, /- Quantidade do item da origem: 1/);
   assert.match(prompt, /- Valor total\/estimado de referência: 0,00/);
   assert.match(prompt, /- Estimativa disponível: não/);
-  assert.match(prompt, /Valor ausente ou informado como zero/i);
-  assert.match(prompt, /não declare compatibilidade com preços de mercado/i);
-  assert.match(prompt, /eventos ou serviços culturais/i);
-  assert.match(prompt, /objeto, acesso público, contexto do evento/i);
+  assert.match(prompt, /Estimativa pendente de apuração em etapa própria/i);
+  assert.match(prompt, /Não use valor zero como preço/i);
+  assert.match(prompt, /Use apenas fatos do contexto estruturado e do pacote enriquecido/i);
+  assert.match(prompt, /invisibilidade da inteligência/i);
   assertDfdRoleGuidance(prompt);
   assert.equal(/FORR[OÓ] TSUNAMI/i.test(prompt), false);
   assert.equal(/Carnaval/i.test(prompt), false);
@@ -1223,8 +1210,8 @@ test("buildDocumentGenerationPrompt guides administrative service DFDs without e
     }),
   });
 
-  assert.match(prompt, /serviços técnicos ou administrativos/i);
-  assert.match(prompt, /necessidade administrativa, apoio às rotinas, continuidade/i);
+  assert.match(prompt, /Use apenas fatos do contexto estruturado e do pacote enriquecido/i);
+  assert.match(prompt, /invisibilidade da inteligência/i);
   assert.match(prompt, /assessoria e suporte em recursos humanos/);
   assert.match(prompt, /- Quantidade do item da origem: 12/);
   assert.match(prompt, /- Unidade do item da origem: MES/);
@@ -1263,8 +1250,8 @@ test("buildDocumentGenerationPrompt guides goods acquisition DFDs with quantity 
     }),
   });
 
-  assert.match(prompt, /aquisição de bens ou equipamentos/i);
-  assert.match(prompt, /especificação mínima, quantidade e unidade quando fornecidas, entrega/i);
+  assert.match(prompt, /Use apenas fatos do contexto estruturado e do pacote enriquecido/i);
+  assert.match(prompt, /invisibilidade da inteligência/i);
   assert.match(prompt, /- Descrição do item da origem: materiais de expediente/);
   assert.match(prompt, /- Quantidade do item da origem: 500/);
   assert.match(prompt, /- Valor total\/estimado de referência: R\$ 12\.000,00/);
@@ -1281,7 +1268,6 @@ test("buildDocumentGenerationPrompt keeps representative DFD scenarios proportio
         name: "Secretaria Municipal de Cultura",
         budgetUnitCode: "06.001",
       }),
-      expected: /eventos ou serviços culturais/i,
       itemDescription: "apresentacao artistica musical para evento municipal",
       object: "Contratacao de apresentacao artistica em evento municipal",
       processType: "Servico",
@@ -1291,7 +1277,6 @@ test("buildDocumentGenerationPrompt keeps representative DFD scenarios proportio
         name: "Secretaria Municipal de Administracao",
         budgetUnitCode: "03.001",
       }),
-      expected: /serviços técnicos ou administrativos/i,
       itemDescription: "assessoria tecnica em recursos humanos",
       object: "Contratacao de assessoria tecnica em recursos humanos",
       processType: "Servico",
@@ -1301,7 +1286,6 @@ test("buildDocumentGenerationPrompt keeps representative DFD scenarios proportio
         name: "Secretaria Municipal de Educacao",
         budgetUnitCode: "05.001",
       }),
-      expected: /aquisição de bens ou equipamentos/i,
       itemDescription: "material de expediente",
       object: "Aquisicao de material de expediente",
       processType: "Material",
@@ -1311,7 +1295,6 @@ test("buildDocumentGenerationPrompt keeps representative DFD scenarios proportio
         name: "Secretaria Municipal de Saude",
         budgetUnitCode: "07.001",
       }),
-      expected: /aquisição de bens ou equipamentos/i,
       itemDescription: "equipamento hospitalar",
       object: "Aquisicao de equipamento para unidade de saude",
       processType: "Material",
@@ -1321,7 +1304,6 @@ test("buildDocumentGenerationPrompt keeps representative DFD scenarios proportio
         name: "Secretaria Municipal de Administracao",
         budgetUnitCode: "03.001",
       }),
-      expected: /tecnologia/i,
       itemDescription: "servico de suporte de tecnologia da informacao",
       object: "Contratacao de servico de tecnologia da informacao",
       processType: "Servico",
@@ -1331,7 +1313,6 @@ test("buildDocumentGenerationPrompt keeps representative DFD scenarios proportio
         name: "Secretaria Municipal de Infraestrutura",
         budgetUnitCode: "09.001",
       }),
-      expected: /obras ou engenharia/i,
       itemDescription: "reforma de predio publico",
       object: "Contratacao de reforma de predio publico",
       processType: "Obra",
@@ -1359,11 +1340,15 @@ test("buildDocumentGenerationPrompt keeps representative DFD scenarios proportio
       }),
     });
 
-    assert.match(prompt, scenario.expected);
+    assert.match(prompt, new RegExp(scenario.object.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(
+      prompt,
+      new RegExp(scenario.itemDescription.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+    assert.match(prompt, /Use apenas fatos do contexto estruturado e do pacote enriquecido/i);
     assertDfdRoleGuidance(prompt);
-    assert.match(prompt, /Não declare compatibilidade com mercado, fundamento legal, duração/);
-    assert.match(prompt, /exclusividade, reconhecimento artístico, dotação orçamentária/);
-    assert.match(prompt, /sem inventar fatos/);
+    assert.match(prompt, /Mantenha a inteligência administrativa invisível/i);
+    assert.match(prompt, /Não invente número, valor, data, cargo/i);
   }
 });
 
@@ -1392,17 +1377,15 @@ test("buildDocumentGenerationPrompt uses the canonical ETP recipe and safe estim
   assert.match(prompt, /## Modelo Markdown canônico/);
   assert.match(prompt, /# ESTUDO TÉCNICO PRELIMINAR \(ETP\)/);
   assert.match(prompt, /- Tipo de documento: ETP/);
-  assert.match(prompt, /- Perfil de análise inferido para o ETP: apresentacao_artistica/);
+  assert.doesNotMatch(prompt, /Perfil de análise inferido para o ETP/);
   assert.match(prompt, /- Número da solicitação: 6/);
   assert.match(prompt, /- Estimativa disponível: não/);
   assert.match(prompt, /- Valor bruto de referência: R\$ 0,00/);
   assert.match(prompt, /- Valor a usar na seção de estimativa: não informado/);
-  assert.match(prompt, /Use o perfil de análise inferido apenas para ajustar a ênfase técnica/);
+  assert.match(prompt, /Use o pacote de contexto enriquecido e o plano documental/i);
   assert.match(prompt, /Preserve a consistência entre objeto, município, organização/);
-  assert.match(prompt, /Não cite artista, fornecedor, órgão, município, objeto/);
-  assert.match(prompt, /Não misture informações de DFD, TR, minuta/);
-  assert.match(prompt, /desenvolva metodologia de apuração posterior com linguagem institucional/);
-  assert.match(prompt, /Não invente valores, não simule pesquisa de mercado/);
+  assert.match(prompt, /Desenvolva estimativa, riscos, alternativas e fiscalização/i);
+  assert.match(prompt, /Evite repetir mecanicamente expressões de ausência de dados/i);
   assert.match(prompt, /Lei nº 14\.133\/2021 e a boas práticas do TCU/);
   assert.match(prompt, /reutilizar ou adaptar contexto de DFD\/SD apenas como conteúdo narrativo/);
 });
@@ -1446,7 +1429,7 @@ test("buildDocumentGenerationPrompt uses accented document-facing labels while p
   );
 });
 
-test("buildDocumentGenerationPrompt uses the canonical TR recipe and obligation guidance", () => {
+test("buildDocumentGenerationPrompt uses the canonical TR recipe and pipeline context boundaries", () => {
   const prompt = buildDocumentGenerationPrompt({
     departments: [createDepartmentRow()],
     documentType: "tr",
@@ -1472,41 +1455,35 @@ test("buildDocumentGenerationPrompt uses the canonical TR recipe and obligation 
   assert.match(prompt, /## Modelo Markdown canônico/);
   assert.match(prompt, /# TERMO DE REFERÊNCIA/);
   assert.match(prompt, /- Tipo de documento: TR/);
-  assert.match(prompt, /- Tipo de contratação inferido para obrigações: apresentacao_artistica/);
+  assert.doesNotMatch(prompt, /Tipo de contratação inferido para obrigações/);
   assert.match(prompt, /- Estimativa disponível: não/);
   assert.match(prompt, /- Valor bruto de referência: R\$ 0,00/);
   assert.match(prompt, /- Valor a usar na seção de valor estimado: não informado/);
-  assert.match(prompt, /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
-  assert.match(prompt, /Tipo: prestacao_servicos_gerais/);
-  assert.match(prompt, /Tipo: consultoria_assessoria/);
-  assert.match(prompt, /Tipo: tecnologia_software/);
-  assert.match(prompt, /Tipo: fornecimento_bens/);
+  assert.doesNotMatch(prompt, /Use prioritariamente o bloco Tipo:/);
+  assert.doesNotMatch(prompt, /Tipo: prestacao_servicos_gerais/);
+  assert.doesNotMatch(prompt, /Tipo: consultoria_assessoria/);
+  assert.doesNotMatch(prompt, /Tipo: tecnologia_software/);
+  assert.doesNotMatch(prompt, /Tipo: fornecimento_bens/);
   assert.match(prompt, /Não inclua headings como DADOS DA SOLICITAÇÃO/i);
   assertTrOperationalGuidance(prompt);
-  assert.match(prompt, /logística, operação, comunicação, conformidade, apoio técnico/i);
-  assert.match(prompt, /passagem de som ou ajustes técnicos quando houver suporte no contexto/i);
+  assert.match(prompt, /Maior densidade nas seções de especificações/i);
+  assert.match(prompt, /Use apenas fatos do contexto estruturado e do pacote enriquecido/i);
   assert.match(prompt, /Manter consistencia com DFD e ETP\./);
 });
 
 test("buildDocumentGenerationPrompt keeps representative TR scenarios operational and safe", () => {
   const scenarios = [
     {
-      expectedContractingType: "apresentacao_artistica",
-      expectedGuidance: /passagem de som ou ajustes técnicos quando houver suporte no contexto/i,
       itemDescription: "apresentacao artistica musical",
       object: "Contratacao de apresentacao artistica musical para evento municipal",
       processType: "Servico",
     },
     {
-      expectedContractingType: "tecnologia_software",
-      expectedGuidance: /implantação, configuração, suporte, manutenção, integração/i,
       itemDescription: "servico de suporte de tecnologia da informacao",
       object: "Contratacao de servico de tecnologia da informacao e suporte de software",
       processType: "Servico",
     },
     {
-      expectedContractingType: "consultoria_assessoria",
-      expectedGuidance: /relatórios ou produtos quando esses elementos forem previstos/i,
       itemDescription: "assessoria tecnica em recursos humanos",
       object: "Contratacao de consultoria e assessoria tecnica em recursos humanos",
       processType: "Servico",
@@ -1563,17 +1540,12 @@ test("buildDocumentGenerationPrompt keeps representative TR scenarios operationa
       }),
     });
 
-    assert.match(
-      prompt,
-      new RegExp(
-        `- Tipo de contratação inferido para obrigações: ${scenario.expectedContractingType}`,
-      ),
-    );
-    assert.match(prompt, scenario.expectedGuidance);
+    assert.doesNotMatch(prompt, /Tipo de contratação inferido para obrigações/);
+    assert.doesNotMatch(prompt, /Tipo: apresentacao_artistica/);
     assertTrOperationalGuidance(prompt);
-    assert.match(prompt, /levantamento de mercado, análise de alternativas, matriz de riscos/i);
+    assert.match(prompt, /Levantamento de mercado, análise de alternativas/i);
     assert.match(prompt, /Não inclua headings como DADOS DA SOLICITAÇÃO/i);
-    assert.match(prompt, /Não invente valores, dados técnicos, rider técnico/i);
+    assert.match(prompt, /Não invente número, valor, data, cargo/i);
   }
 });
 
@@ -1603,27 +1575,28 @@ test("buildDocumentGenerationPrompt uses the canonical Minuta recipe, placeholde
   assert.match(prompt, /## Modelo Markdown canônico/);
   assert.match(prompt, /# MINUTA DO CONTRATO/);
   assert.match(prompt, /- Tipo de documento: MINUTA/);
-  assert.match(prompt, /- Tipo de contratação inferido para obrigações: apresentacao_artistica/);
+  assert.doesNotMatch(prompt, /Tipo de contratação inferido para obrigações/);
   assert.match(prompt, /- Número da minuta\/contrato: XXX\/2026/);
   assert.match(prompt, /- Contratada: \[CONTRATADA\]/);
   assert.match(prompt, /- Preço disponível: não/);
   assert.match(prompt, /- Valor bruto de referência: R\$ 0,00/);
   assert.match(prompt, /- Valor a usar na cláusula DO PREÇO: R\$ XX\.XXX,XX/);
-  assert.match(prompt, /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
-  assert.match(prompt, /Cláusulas FIXED do template:/);
+  assert.match(prompt, /- Dotação orçamentária: XXX/);
+  assert.doesNotMatch(prompt, /\{\{budget\.allocation_or_placeholder}}/);
+  assert.doesNotMatch(prompt, /\{\{[^}]+}}/);
+  assert.doesNotMatch(prompt, /Use prioritariamente o bloco Tipo:/);
+  assert.match(prompt, /Cláusulas fixas do template:/);
   assert.match(prompt, /CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS/);
-  assert.match(prompt, /Copie as cláusulas FIXED exatamente como estão no template/);
+  assert.match(prompt, /Copie as cláusulas fixas exatamente como estão no template/);
+  assert.doesNotMatch(prompt, /FIXED_CLAUSE|<!--\s*FIXED_CLAUSE|FIXED\b/);
   assertMinutaContractualGuidance(prompt);
-  assert.match(prompt, /programação oficial do evento/i);
-  assert.match(prompt, /alinhamentos operacionais previamente definidos entre as partes/i);
+  assert.match(prompt, /Use o pacote de contexto enriquecido e o plano documental/i);
   assert.match(prompt, /Manter consistencia juridica com o TR\./);
 });
 
 test("buildDocumentGenerationPrompt keeps representative Minuta scenarios contextual and safe", () => {
   const scenarios = [
     {
-      expectedContractingType: "apresentacao_artistica",
-      expectedGuidance: /programação oficial do evento/i,
       itemDescription: "apresentacao artistica musical",
       object: "Contratacao de apresentacao artistica musical para evento municipal",
       processType: "Servico",
@@ -1657,8 +1630,6 @@ test("buildDocumentGenerationPrompt keeps representative Minuta scenarios contex
       processType: "Obra",
     },
     {
-      expectedContractingType: "prestacao_servicos_gerais",
-      expectedGuidance: /execução continuada ou não continuada conforme escopo/i,
       itemDescription: "servico continuado de apoio administrativo",
       object: "Contratacao de servico continuado de apoio administrativo",
       processType: "Servico",
@@ -1687,17 +1658,13 @@ test("buildDocumentGenerationPrompt keeps representative Minuta scenarios contex
       }),
     });
 
-    assert.match(
-      prompt,
-      new RegExp(
-        `- Tipo de contratação inferido para obrigações: ${scenario.expectedContractingType}`,
-      ),
-    );
-    assert.match(prompt, scenario.expectedGuidance);
+    assert.doesNotMatch(prompt, /Tipo de contratação inferido para obrigações/);
+    assert.doesNotMatch(prompt, /Tipo: apresentacao_artistica/);
     assertMinutaContractualGuidance(prompt);
-    assert.match(prompt, /Cláusulas FIXED do template:/);
+    assert.match(prompt, /Cláusulas fixas do template:/);
+    assert.doesNotMatch(prompt, /FIXED_CLAUSE|<!--\s*FIXED_CLAUSE|FIXED\b/);
     assert.match(prompt, /Não inclua seções, títulos ou conteúdo de DFD/i);
-    assert.match(prompt, /Não invente multas, percentuais, SLA, cronogramas/i);
+    assert.match(prompt, /Não invente número, valor, data, cargo/i);
     assert.equal(/^## .*TERMO DE REFERÊNCIA/im.test(prompt), false);
     assert.equal(/^## .*ESTUDO TÉCNICO PRELIMINAR/im.test(prompt), false);
   }
@@ -1740,6 +1707,190 @@ test("sanitizeGeneratedDocumentDraft preserves Minuta FIXED clauses from the tem
     /13\.1\. A CONTRATADA reconhece os direitos da CONTRATANTE relativos ao presente contrato/,
   );
   assert.match(draft, /## CLÁUSULA DÉCIMA OITAVA - DO FORO/);
+
+  for (const heading of [
+    "## CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS",
+    "## CLÁUSULA DÉCIMA QUARTA - DA ALTERAÇÃO E REAJUSTE",
+    "## CLÁUSULA DÉCIMA QUINTA - DAS CONDIÇÕES DE HABILITAÇÃO",
+    "## CLÁUSULA DÉCIMA SEXTA - DA PUBLICIDADE",
+    "## CLÁUSULA DÉCIMA SÉTIMA - DOS CASOS OMISSOS",
+    "## CLÁUSULA DÉCIMA OITAVA - DO FORO",
+  ]) {
+    assert.equal(countLiteralOccurrences(draft, heading), 1);
+  }
+});
+
+test("sanitizeGeneratedDocumentDraft converts unresolved Minuta placeholders to XXX style", () => {
+  const draft = sanitizeGeneratedDocumentDraft({
+    documentType: "minuta",
+    text: [
+      "# MINUTA DO CONTRATO N. {{contract.number_or_placeholder}}",
+      "",
+      "PROCESSO ADMINISTRATIVO N. {{process.processNumber_or_placeholder}}",
+      "",
+      "## CLÁUSULA PRIMEIRA - DO OBJETO",
+      "",
+      "1.1. O presente instrumento tem por objeto {{process.object_or_placeholder}}.",
+      "",
+      "## CLÁUSULA SEGUNDA - DO PREÇO",
+      "",
+      "2.1. O valor do presente contrato é de {{contract.price_or_placeholder}}.",
+      "",
+      "## CLÁUSULA SEXTA - DA DOTAÇÃO ORÇAMENTÁRIA",
+      "",
+      "6.1. As despesas decorrentes deste contrato correrão por conta da seguinte dotação orçamentária: {{budget.allocation_or_placeholder}}.",
+      "",
+      "{{organization.city}}/{{organization.state}}, {{contract.signatureDate_or_placeholder}}.",
+    ].join("\n"),
+  });
+
+  assert.doesNotMatch(draft, /\{\{[^}]+}}/);
+  assert.match(draft, /# MINUTA DO CONTRATO N\. XXX\/2026/);
+  assert.match(draft, /PROCESSO ADMINISTRATIVO N\. XXX\/2026/);
+  assert.match(draft, /1\.1\. O presente instrumento tem por objeto XXX\./);
+  assert.match(draft, /2\.1\. O valor do presente contrato é de R\$ XX\.XXX,XX\./);
+  assert.match(draft, /dotação orçamentária: XXX\./);
+  assert.match(draft, /XXX\/XX, XX\/XX\/XXXX\./);
+});
+
+test("sanitizeGeneratedDocumentDraft replaces Minuta fixed-clause aliases with canonical clauses", () => {
+  const draft = sanitizeGeneratedDocumentDraft({
+    documentType: "minuta",
+    text: [
+      "# MINUTA DO CONTRATO N. XXX/2026",
+      "",
+      "## CLÁUSULA PRIMEIRA - DO OBJETO",
+      "",
+      "Objeto contratual.",
+      "",
+      "## CLÁUSULA DÉCIMA TERCEIRA - DAS ALTERAÇÕES",
+      "",
+      "13.1. Este instrumento poderá ser alterado mediante termo aditivo.",
+      "",
+      "## CLÁUSULA DÉCIMA QUARTA - DA MANUTENÇÃO DAS CONDIÇÕES DE HABILITAÇÃO",
+      "",
+      "14.1. A contratada manterá as condições de habilitação.",
+      "",
+      "## CLÁUSULA DÉCIMA QUINTA - DA PUBLICAÇÃO",
+      "",
+      "15.1. A contratante providenciará a publicação.",
+    ].join("\n"),
+  });
+
+  assert.equal(/DAS ALTERAÇÕES/.test(draft), false);
+  assert.equal(/DA MANUTENÇÃO DAS CONDIÇÕES DE HABILITAÇÃO/.test(draft), false);
+  assert.equal(/DA PUBLICAÇÃO/.test(draft), false);
+  assert.equal(/termo aditivo/i.test(draft), false);
+  assert.equal(
+    countLiteralOccurrences(draft, "## CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS"),
+    1,
+  );
+  assert.equal(
+    countLiteralOccurrences(draft, "## CLÁUSULA DÉCIMA QUARTA - DA ALTERAÇÃO E REAJUSTE"),
+    1,
+  );
+  assert.equal(
+    countLiteralOccurrences(draft, "## CLÁUSULA DÉCIMA QUINTA - DAS CONDIÇÕES DE HABILITAÇÃO"),
+    1,
+  );
+  assert.equal(countLiteralOccurrences(draft, "## CLÁUSULA DÉCIMA SEXTA - DA PUBLICIDADE"), 1);
+});
+
+test("sanitizeGeneratedDocumentDraft removes duplicated Minuta tail before terminal signatures", () => {
+  const draft = sanitizeGeneratedDocumentDraft({
+    documentType: "minuta",
+    text: [
+      "# MINUTA DO CONTRATO N. XXX/2026",
+      "",
+      "## CLÁUSULA PRIMEIRA - DO OBJETO",
+      "",
+      "Objeto contratual.",
+      "",
+      "## CLÁUSULA DÉCIMA PRIMEIRA - DAS SANÇÕES ADMINISTRATIVAS",
+      "",
+      "11.1. O descumprimento sujeitará a CONTRATADA às sanções previstas na lei.",
+      "",
+      "## CLÁUSULA DÉCIMA SEGUNDA - DA EXTINÇÃO",
+      "",
+      "12.1. O contrato poderá ser extinto nas hipóteses legais.",
+      "",
+      "## CLÁUSULA DÉCIMA TERCEIRA - DAS ALTERAÇÕES",
+      "",
+      "13.1. O contrato poderá ser alterado mediante termo aditivo.",
+      "",
+      "## CLÁUSULA DÉCIMA QUARTA - DA MANUTENÇÃO DAS CONDIÇÕES DE HABILITAÇÃO",
+      "",
+      "14.1. A CONTRATADA manterá as condições de habilitação.",
+      "",
+      "## CLÁUSULA DÉCIMA QUINTA - DA PUBLICAÇÃO",
+      "",
+      "15.1. A CONTRATANTE providenciará a publicação do extrato.",
+      "",
+      "## CLÁUSULA DÉCIMA SEXTA - DOS CASOS OMISSOS",
+      "",
+      "16.1. Os casos omissos serão resolvidos conforme a Lei n. 14.133/2021.",
+      "",
+      "## CLÁUSULA DÉCIMA SÉTIMA - DO FORO",
+      "",
+      "17.1. Fica eleito o foro da comarca de [COMARCA COMPETENTE].",
+      "",
+      "E, por estarem de acordo, as partes assinam o presente instrumento.",
+      "",
+      "Pureza/RN, [DATA].",
+      "",
+      "__________________________________ JOÃO DA FONSECA MOURA NETO Prefeito CONTRATANTE",
+      "",
+      "__________________________________ [REPRESENTANTE LEGAL DA CONTRATADA] [CARGO] CONTRATADA",
+      "",
+      "__________________________________ TESTEMUNHA 1 CPF: [CPF]",
+      "",
+      "__________________________________ TESTEMUNHA 2 CPF: [CPF]",
+      "",
+      "## CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS",
+      "",
+      "13.1. Texto canônico anexado indevidamente.",
+      "",
+      "## CLÁUSULA DÉCIMA QUARTA - DA ALTERAÇÃO E REAJUSTE",
+      "",
+      "14.1. Texto canônico anexado indevidamente.",
+      "",
+      "## CLÁUSULA DÉCIMA QUINTA - DAS CONDIÇÕES DE HABILITAÇÃO",
+      "",
+      "15.1. Texto canônico anexado indevidamente.",
+      "",
+      "## CLÁUSULA DÉCIMA SEXTA - DA PUBLICIDADE",
+      "",
+      "16.1. Texto canônico anexado indevidamente.",
+      "",
+      "## CLÁUSULA DÉCIMA SÉTIMA - DOS CASOS OMISSOS",
+      "",
+      "17.1. Texto canônico anexado indevidamente.",
+      "",
+      "## CLÁUSULA DÉCIMA OITAVA - DO FORO",
+      "",
+      "18.1. Texto canônico anexado indevidamente.",
+    ].join("\n"),
+  });
+
+  for (const heading of [
+    "## CLÁUSULA DÉCIMA TERCEIRA - DAS PRERROGATIVAS",
+    "## CLÁUSULA DÉCIMA QUARTA - DA ALTERAÇÃO E REAJUSTE",
+    "## CLÁUSULA DÉCIMA QUINTA - DAS CONDIÇÕES DE HABILITAÇÃO",
+    "## CLÁUSULA DÉCIMA SEXTA - DA PUBLICIDADE",
+    "## CLÁUSULA DÉCIMA SÉTIMA - DOS CASOS OMISSOS",
+    "## CLÁUSULA DÉCIMA OITAVA - DO FORO",
+  ]) {
+    assert.equal(countLiteralOccurrences(draft, heading), 1);
+  }
+
+  assert.equal(/DAS ALTERAÇÕES/.test(draft), false);
+  assert.equal(/DA PUBLICAÇÃO/.test(draft), false);
+  assert.equal(/Texto canônico anexado indevidamente/i.test(draft), false);
+  assert.equal(countLiteralOccurrences(draft, "E, por estarem de acordo"), 1);
+  assert.ok(
+    draft.indexOf("E, por estarem de acordo") >
+      draft.indexOf("## CLÁUSULA DÉCIMA OITAVA - DO FORO"),
+  );
 });
 
 test("sanitizeGeneratedDocumentDraft appends accented fallbacks and keeps accent-insensitive matching", () => {
@@ -1761,10 +1912,10 @@ test("sanitizeGeneratedDocumentDraft appends accented fallbacks and keeps accent
   assert.match(trDraft, /## 7\. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
   assert.match(
     trDraft,
-    /Valor não informado no contexto; a estimativa será apurada posteriormente por pesquisa de mercado ou etapa própria\./,
+    /A estimativa será apurada em etapa própria, com pesquisa de preços compatível com o objeto/,
   );
   assert.match(minutaDraft, /## CLÁUSULA SEGUNDA - DO PREÇO/);
-  assert.match(minutaDraft, /O preço não consta no contexto ou foi informado como zero/);
+  assert.match(minutaDraft, /2\.1\. O valor do presente contrato é de R\$ XX\.XXX,XX\./);
 });
 
 test("sanitizeGeneratedDocumentDraft removes administrative closing headings", () => {

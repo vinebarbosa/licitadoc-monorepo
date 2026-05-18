@@ -1,8 +1,8 @@
+import type { SupportTicket } from "@/modules/support/model/support-tickets";
 import {
   getSupportTicketQueueCounts,
   seededSupportTickets,
 } from "@/modules/support/model/support-tickets";
-import type { SupportTicket } from "@/modules/support/model/support-tickets";
 
 export const healthOkResponse = {
   status: "ok",
@@ -47,6 +47,7 @@ export const organizationsListResponse = {
       institutionalEmail: "contato@saopaulo.gov.br",
       website: null,
       logoUrl: null,
+      letterhead: null,
       authorityName: "Maria Silva",
       authorityRole: "Prefeita",
       isActive: true,
@@ -334,6 +335,7 @@ A contratacao se justifica pela *necessidade de manutencao* dos sistemas institu
 
 Veja detalhes em [edital PE-2024-045](https://licitadoc.test/editais/pe-2024-045).`,
   draftContentJson: documentDetailJsonContent,
+  letterhead: null,
   storageKey: null,
 };
 

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
@@ -7,15 +9,15 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { randomUUID } from "node:crypto";
-import { Readable } from "node:stream";
 import type {
   FileStorageProvider,
   StoredObject,
   StoredObjectContent,
   StoreObjectInput,
+  StoreOrganizationLetterheadInput,
   StoreSupportImageInput,
 } from "./types";
+import { getOrganizationLetterheadStorageKey } from "./types";
 
 type S3FileStorageProviderOptions = {
   accessKeyId: string;
@@ -147,6 +149,35 @@ export class S3FileStorageProvider implements FileStorageProvider {
         Metadata: {
           originalfilename: input.fileName,
           uploadedbyuserid: input.uploadedByUserId,
+        },
+      }),
+    );
+
+    return {
+      bucket: this.bucket,
+      contentType: input.contentType,
+      etag: response.ETag?.replaceAll('"', "") ?? null,
+      key,
+      sizeBytes: input.buffer.byteLength,
+      uploadedAt: now.toISOString(),
+    };
+  }
+
+  async storeOrganizationLetterhead(input: StoreOrganizationLetterheadInput) {
+    await this.ensureBucket();
+
+    const now = new Date();
+    const key = getOrganizationLetterheadStorageKey(input.organizationId);
+
+    const response = await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: input.buffer,
+        ContentType: input.contentType,
+        Metadata: {
+          originalfilename: input.fileName,
+          organizationid: input.organizationId,
         },
       }),
     );

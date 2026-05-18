@@ -1,0 +1,4 @@
+interface:
+  display_name: "SD Document Intelligence"
+  short_description: "Classify SDs and plan documents"
+  default_prompt: "Use $sd-document-intelligence to classify an SD and produce a canonical enriched context package for document generation."

@@ -9,6 +9,8 @@ import {
 } from "../../shared/http/zod";
 import { supportedGeneratedDocumentTypes } from "../../shared/text-generation/types";
 import type { TiptapDocumentJson } from "../../shared/tiptap-json";
+import { organizationLetterheadSchema } from "../organizations/organizations.schemas";
+import { documentGenerationPipelineDebugSchema } from "./document-generation-pipeline.schemas";
 
 function normalizeNullableOptionalText(value?: string | null) {
   if (value == null) {
@@ -68,8 +70,12 @@ export const tiptapDocumentJsonSchema = z
 const documentDetailSchema = documentSummarySchema.extend({
   draftContent: z.string().nullable(),
   draftContentJson: tiptapDocumentJsonSchema.nullable(),
+  letterhead: organizationLetterheadSchema,
   storageKey: z.string().nullable(),
   responsibles: z.array(z.string()),
+});
+const createDocumentResponseSchema = documentDetailSchema.extend({
+  pipelineDebug: documentGenerationPipelineDebugSchema.optional(),
 });
 
 export const documentParamsSchema = z.object({
@@ -89,11 +95,13 @@ export const createDocumentBodySchema = withOpenApiExample(
         z.string().nullable().optional().transform(normalizeNullableOptionalText),
         OPENAPI_EXAMPLE_TEXT,
       ),
+      debug: withOpenApiExample(z.boolean().optional().default(false), false),
     })
     .strict(),
   {
     processId: OPENAPI_EXAMPLE_UUID,
     documentType: "dfd",
+    debug: false,
     name: null,
     instructions: "Priorizar linguagem objetiva para avaliacao preliminar.",
   },
@@ -198,7 +206,7 @@ export const createDocumentSchema = {
   summary: "Generate document draft",
   body: createDocumentBodySchema,
   response: {
-    201: documentDetailSchema,
+    201: createDocumentResponseSchema,
     ...pickErrorResponses(400, 401, 403, 404, 500),
   },
 } satisfies AppRouteSchema;

@@ -5,14 +5,30 @@ import type { organizations, users } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
+import { NotFoundError } from "../../shared/errors/not-found-error";
+import {
+  type FileStorageProvider,
+  getOrganizationLetterheadStorageKey,
+} from "../../shared/storage/types";
 import { createOrganization } from "./create-organization";
 import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
 import {
+  createNormalizedLetterheadFileForImport,
+  getLetterheadImageDimensions,
+  getOrganizationLetterheadImage,
+  uploadOrganizationLetterhead,
+} from "./organization-letterhead";
+import {
   createOrganizationBodySchema,
   updateOrganizationBodySchema,
 } from "./organizations.schemas";
+import {
+  PUREZA_CNPJ_DIGITS,
+  resolvePurezaOrganizationForLetterhead,
+  seedPurezaLetterhead,
+} from "./pureza-letterhead-seed";
 import { updateOrganization } from "./update-organization";
 
 function createOrganizationRow(
@@ -32,6 +48,7 @@ function createOrganizationRow(
     institutionalEmail: "contato@exemplo.ce.gov.br",
     website: "https://exemplo.ce.gov.br",
     logoUrl: "https://cdn.example.com/logo.png",
+    letterheadUrl: null,
     authorityName: "Maria Silva",
     authorityRole: "Prefeita",
     isActive: true,
@@ -82,6 +99,82 @@ function parseUpdateOrganizationInput(
   input: Parameters<typeof updateOrganizationBodySchema.parse>[0],
 ) {
   return updateOrganizationBodySchema.parse(input);
+}
+
+function createPngBuffer(width: number, height: number) {
+  const buffer = Buffer.alloc(24);
+  buffer.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  buffer.writeUInt32BE(13, 8);
+  buffer.write("IHDR", 12, "ascii");
+  buffer.writeUInt32BE(width, 16);
+  buffer.writeUInt32BE(height, 20);
+
+  return buffer;
+}
+
+function createLetterheadUploadBody({
+  buffer = createPngBuffer(1448, 2048),
+  fileName = "papel_timbrado.png",
+  mimeType = "image/png",
+}: {
+  buffer?: Buffer;
+  fileName?: string;
+  mimeType?: string;
+} = {}) {
+  return {
+    file: {
+      fieldname: "file",
+      filename: fileName,
+      mimetype: mimeType,
+      toBuffer: async () => buffer,
+      type: "file" as const,
+    },
+  };
+}
+
+function createLetterheadStorageStub({
+  deletedObjects = [],
+  storedObjects = [],
+}: {
+  deletedObjects?: Array<{ bucket: string; key: string }>;
+  storedObjects?: Array<{
+    contentType: string;
+    fileName: string;
+    organizationId: string;
+    sizeBytes: number;
+  }>;
+} = {}): FileStorageProvider {
+  return {
+    deleteObject: async (object) => {
+      deletedObjects.push(object);
+    },
+    getObject: async () => {
+      throw new Error("not implemented");
+    },
+    storeExpenseRequestPdf: async () => {
+      throw new Error("not implemented");
+    },
+    storeOrganizationLetterhead: async (input) => {
+      storedObjects.push({
+        contentType: input.contentType,
+        fileName: input.fileName,
+        organizationId: input.organizationId,
+        sizeBytes: input.buffer.byteLength,
+      });
+
+      return {
+        bucket: "licitadoc-expense-requests",
+        contentType: input.contentType,
+        etag: "etag-letterhead",
+        key: getOrganizationLetterheadStorageKey(input.organizationId),
+        sizeBytes: input.buffer.byteLength,
+        uploadedAt: "2026-05-18T12:00:00.000Z",
+      };
+    },
+    storeSupportTicketImage: async () => {
+      throw new Error("not implemented");
+    },
+  };
 }
 
 test("getOrganizations returns paginated organizations for admins", async () => {
@@ -814,4 +907,372 @@ test("updateOrganization translates unique conflicts for slug", async () => {
       }),
     ConflictError,
   );
+});
+
+test("serialize organization responses with null and populated letterhead url", async () => {
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () =>
+          createOrganizationRow({
+            letterheadUrl:
+              "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/letterhead/image",
+          }),
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getOrganization({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+  });
+
+  assert.deepEqual(response.letterhead, {
+    url: "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/letterhead/image",
+  });
+
+  const emptyDb = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow(),
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+  const emptyResponse = await getOrganization({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db: emptyDb,
+    organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+  });
+
+  assert.equal(emptyResponse.letterhead, null);
+});
+
+test("organization update schema rejects raw letterhead fields", () => {
+  assert.throws(() =>
+    parseUpdateOrganizationInput({
+      letterheadUrl: "/api/organizations/raw/letterhead/image",
+    }),
+  );
+});
+
+test("uploadOrganizationLetterhead stores only the active letterhead url", async () => {
+  const deletedObjects: Array<{ bucket: string; key: string }> = [];
+  const storedObjects: Array<{
+    contentType: string;
+    fileName: string;
+    organizationId: string;
+    sizeBytes: number;
+  }> = [];
+  let capturedUpdateValues: Record<string, unknown> | undefined;
+  const existingOrganization = createOrganizationRow({
+    letterheadUrl: `/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/letterhead/image`,
+  });
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => existingOrganization,
+      },
+    },
+    update: () => ({
+      set: (values: Record<string, unknown>) => {
+        capturedUpdateValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [
+              createOrganizationRow({
+                letterheadUrl: String(values.letterheadUrl),
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  } as unknown as FastifyInstance["db"];
+  const storage = createLetterheadStorageStub({ deletedObjects, storedObjects });
+
+  const response = await uploadOrganizationLetterhead({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: existingOrganization.id,
+    },
+    body: createLetterheadUploadBody(),
+    db,
+    maxBytes: 5 * 1024 * 1024,
+    organizationId: existingOrganization.id,
+    storage,
+  });
+
+  assert.equal(storedObjects.length, 1);
+  assert.equal(storedObjects[0]?.organizationId, existingOrganization.id);
+  assert.equal(storedObjects[0]?.contentType, "image/png");
+  assert.deepEqual(Object.keys(capturedUpdateValues ?? {}).sort(), ["letterheadUrl", "updatedAt"]);
+  assert.equal(
+    response.letterhead?.url,
+    `/api/organizations/${existingOrganization.id}/letterhead/image`,
+  );
+  assert.deepEqual(deletedObjects, []);
+});
+
+test("uploadOrganizationLetterhead rejects invalid or unauthorized uploads before storage", async () => {
+  let storeCalls = 0;
+  const storage: FileStorageProvider = {
+    ...createLetterheadStorageStub(),
+    storeOrganizationLetterhead: async () => {
+      storeCalls += 1;
+      throw new Error("should not store");
+    },
+  };
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow(),
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      uploadOrganizationLetterhead({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228",
+        },
+        body: createLetterheadUploadBody(),
+        db,
+        maxBytes: 5 * 1024 * 1024,
+        organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+        storage,
+      }),
+    ForbiddenError,
+  );
+
+  await assert.rejects(
+    () =>
+      uploadOrganizationLetterhead({
+        actor: {
+          id: "admin_user",
+          role: "admin",
+          organizationId: null,
+        },
+        body: createLetterheadUploadBody({ mimeType: "text/plain" }),
+        db,
+        maxBytes: 5 * 1024 * 1024,
+        organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+        storage,
+      }),
+    BadRequestError,
+  );
+
+  assert.equal(storeCalls, 0);
+});
+
+test("getOrganizationLetterheadImage enforces visibility and missing letterhead behavior", async () => {
+  const organizationWithLetterhead = createOrganizationRow({
+    letterheadUrl: "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/letterhead/image",
+  });
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => organizationWithLetterhead,
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getOrganizationLetterheadImage({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: organizationWithLetterhead.id,
+    },
+    db,
+    organizationId: organizationWithLetterhead.id,
+  });
+
+  assert.equal(
+    response.storageKey,
+    getOrganizationLetterheadStorageKey(organizationWithLetterhead.id),
+  );
+
+  await assert.rejects(
+    () =>
+      getOrganizationLetterheadImage({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228",
+        },
+        db,
+        organizationId: organizationWithLetterhead.id,
+      }),
+    ForbiddenError,
+  );
+
+  const emptyDb = {
+    query: {
+      organizations: {
+        findFirst: async () => createOrganizationRow(),
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      getOrganizationLetterheadImage({
+        actor: {
+          id: "admin_user",
+          role: "admin",
+          organizationId: null,
+        },
+        db: emptyDb,
+        organizationId: organizationWithLetterhead.id,
+      }),
+    NotFoundError,
+  );
+});
+
+test("letterhead image validation extracts PNG dimensions and rejects zero-byte files", () => {
+  const dimensions = getLetterheadImageDimensions(createPngBuffer(1448, 2048), "image/png");
+
+  assert.deepEqual(dimensions, { width: 1448, height: 2048 });
+  assert.throws(
+    () =>
+      createNormalizedLetterheadFileForImport({
+        buffer: Buffer.alloc(0),
+        contentType: "image/png",
+        fileName: "papel_timbrado.png",
+        maxBytes: 5 * 1024 * 1024,
+      }),
+    BadRequestError,
+  );
+});
+
+test("Pureza letterhead seed resolves by target organization and fails before upload when missing", async () => {
+  assert.equal(PUREZA_CNPJ_DIGITS, "08290223000142");
+
+  let capturedOrganizationId: string | undefined;
+  const organization = createOrganizationRow({
+    cnpj: "08.290.223/0001-42",
+    id: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
+    slug: "prefeitura-de-pureza",
+  });
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async (options?: {
+          where?: (table: unknown, operators: unknown) => unknown;
+        }) => {
+          capturedOrganizationId = "4fd5b7df-e2e5-4876-b4c3-b35306c6e733";
+          options?.where?.({ id: capturedOrganizationId }, { eq: () => true });
+          return organization;
+        },
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const resolvedOrganization = await resolvePurezaOrganizationForLetterhead({
+    db,
+    organizationId: organization.id,
+  });
+
+  assert.equal(resolvedOrganization?.id, organization.id);
+
+  const missingDb = {
+    query: {
+      organizations: {
+        findFirst: async () => null,
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+  let readCalls = 0;
+  let storeCalls = 0;
+  const storage: FileStorageProvider = {
+    ...createLetterheadStorageStub(),
+    storeOrganizationLetterhead: async () => {
+      storeCalls += 1;
+      throw new Error("should not store");
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      seedPurezaLetterhead({
+        db: missingDb,
+        maxBytes: 5 * 1024 * 1024,
+        readFile: async () => {
+          readCalls += 1;
+          return createPngBuffer(1448, 2048);
+        },
+        storage,
+      }),
+    NotFoundError,
+  );
+
+  assert.equal(readCalls, 0);
+  assert.equal(storeCalls, 0);
+});
+
+test("Pureza letterhead seed uploads the configured PNG when the organization is resolved", async () => {
+  let capturedUpdateValues: Record<string, unknown> | undefined;
+  const organization = createOrganizationRow({
+    cnpj: "08.290.223/0001-42",
+    slug: "prefeitura-de-pureza",
+  });
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => organization,
+      },
+    },
+    update: () => ({
+      set: (values: Record<string, unknown>) => {
+        capturedUpdateValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [
+              createOrganizationRow({
+                letterheadUrl: String(values.letterheadUrl),
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  } as unknown as FastifyInstance["db"];
+  const storedObjects: Array<{
+    contentType: string;
+    fileName: string;
+    organizationId: string;
+    sizeBytes: number;
+  }> = [];
+
+  const updatedOrganization = await seedPurezaLetterhead({
+    db,
+    filePath: "/tmp/papel_timbrado.png",
+    maxBytes: 5 * 1024 * 1024,
+    readFile: async () => createPngBuffer(1448, 2048),
+    storage: createLetterheadStorageStub({ storedObjects }),
+  });
+
+  assert.equal(storedObjects.length, 1);
+  assert.equal(storedObjects[0]?.fileName, "papel_timbrado.png");
+  assert.equal(
+    capturedUpdateValues?.letterheadUrl,
+    `/api/organizations/${organization.id}/letterhead/image`,
+  );
+  assert.equal(updatedOrganization.letterheadUrl, capturedUpdateValues?.letterheadUrl);
 });

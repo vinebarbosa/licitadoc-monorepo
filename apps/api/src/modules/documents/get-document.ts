@@ -21,5 +21,9 @@ export async function getDocument({ actor, db, documentId }: Input) {
 
   canReadStoredDocument(actor, document);
 
-  return serializeDocumentDetail(document);
+  const organization = await db.query.organizations.findFirst({
+    where: (table, { eq }) => eq(table.id, document.organizationId),
+  });
+
+  return serializeDocumentDetail(document, organization ?? null);
 }

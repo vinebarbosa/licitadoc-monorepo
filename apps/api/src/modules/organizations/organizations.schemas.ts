@@ -49,6 +49,8 @@ const OPENAPI_EXAMPLE_ORGANIZATION_OFFICIAL_NAME = "Municipio de Fortaleza";
 const OPENAPI_EXAMPLE_ORGANIZATION_ADDRESS = "Rua Exemplo, 123, Centro";
 const OPENAPI_EXAMPLE_ORGANIZATION_LOGO_URL = `${OPENAPI_EXAMPLE_URL}/logo.png`;
 const OPENAPI_EXAMPLE_ORGANIZATION_SLUG = "prefeitura-de-fortaleza";
+const OPENAPI_EXAMPLE_ORGANIZATION_LETTERHEAD_URL =
+  "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/letterhead/image";
 const createOrganizationBodyExample = {
   name: OPENAPI_EXAMPLE_ORGANIZATION_NAME,
   slug: OPENAPI_EXAMPLE_ORGANIZATION_SLUG,
@@ -156,6 +158,12 @@ const organizationAuthorityRoleSchema = withOpenApiExample(
   OPENAPI_EXAMPLE_ROLE_NAME,
 );
 
+export const organizationLetterheadSchema = z
+  .object({
+    url: z.string().meta({ example: OPENAPI_EXAMPLE_ORGANIZATION_LETTERHEAD_URL }),
+  })
+  .nullable();
+
 const organizationSchema = z.object({
   id: openApiUuidSchema(),
   name: z.string(),
@@ -170,6 +178,7 @@ const organizationSchema = z.object({
   institutionalEmail: openApiEmailSchema(OPENAPI_EXAMPLE_INSTITUTIONAL_EMAIL),
   website: z.string().nullable(),
   logoUrl: z.string().nullable(),
+  letterhead: organizationLetterheadSchema,
   authorityName: z.string(),
   authorityRole: z.string(),
   isActive: z.boolean(),
@@ -177,6 +186,21 @@ const organizationSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
+
+const organizationLetterheadUploadBodySchema = withOpenApiExample(
+  z
+    .object({
+      file: z.any().meta({
+        description: "Organization letterhead image file",
+        format: "binary",
+        isFile: true,
+      }),
+    })
+    .strict(),
+  {
+    file: "(binary image file)",
+  },
+);
 
 export const organizationParamsSchema = z.object({
   organizationId: openApiUuidSchema(),
@@ -315,4 +339,21 @@ export const updateOrganizationSchema = {
     200: organizationSchema,
     ...pickErrorResponses(400, 401, 403, 404, 409, 500),
   },
+} satisfies AppRouteSchema;
+
+export const uploadOrganizationLetterheadSchema = {
+  tags: ["Organizations"],
+  summary: "Upload organization print letterhead",
+  consumes: ["multipart/form-data"],
+  params: organizationParamsSchema,
+  body: organizationLetterheadUploadBodySchema,
+  response: {
+    201: organizationSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const getOrganizationLetterheadImageSchema = {
+  hide: true,
+  params: organizationParamsSchema,
 } satisfies AppRouteSchema;

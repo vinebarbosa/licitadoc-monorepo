@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import type { GeneratedDocumentType } from "../../shared/text-generation/types";
 
 export type DocumentGenerationRecipe = {
+  baseInstructions: string;
+  documentInstructions: string;
   documentType: GeneratedDocumentType;
   instructions: string;
   template: string;
@@ -28,28 +30,50 @@ function readRecipeAsset(fileName: string) {
   throw new Error(`Document generation recipe asset not found: ${fileName}.`);
 }
 
-const dfdRecipe: DocumentGenerationRecipe = Object.freeze({
+const baseWriterInstructions = readRecipeAsset("base-writer.instructions.md");
+
+function createRecipe({
+  documentType,
+  instructionsFile,
+  templateFile,
+}: {
+  documentType: GeneratedDocumentType;
+  instructionsFile: string;
+  templateFile: string;
+}): DocumentGenerationRecipe {
+  const documentInstructions = readRecipeAsset(instructionsFile);
+
+  return Object.freeze({
+    baseInstructions: baseWriterInstructions,
+    documentInstructions,
+    documentType,
+    instructions: [baseWriterInstructions, documentInstructions].join("\n\n"),
+    template: readRecipeAsset(templateFile),
+  });
+}
+
+const dfdRecipe = createRecipe({
   documentType: "dfd",
-  instructions: readRecipeAsset("dfd-instructions.md"),
-  template: readRecipeAsset("dfd-template.md"),
+  instructionsFile: "dfd-instructions.md",
+  templateFile: "dfd-template.md",
 });
 
-const etpRecipe: DocumentGenerationRecipe = Object.freeze({
+const etpRecipe = createRecipe({
   documentType: "etp",
-  instructions: readRecipeAsset("etp.instructions.md"),
-  template: readRecipeAsset("etp.template.md"),
+  instructionsFile: "etp.instructions.md",
+  templateFile: "etp.template.md",
 });
 
-const trRecipe: DocumentGenerationRecipe = Object.freeze({
+const trRecipe = createRecipe({
   documentType: "tr",
-  instructions: readRecipeAsset("tr.instructions.md"),
-  template: readRecipeAsset("tr.template.md"),
+  instructionsFile: "tr.instructions.md",
+  templateFile: "tr.template.md",
 });
 
-const minutaRecipe: DocumentGenerationRecipe = Object.freeze({
+const minutaRecipe = createRecipe({
   documentType: "minuta",
-  instructions: readRecipeAsset("minuta.instructions.md"),
-  template: readRecipeAsset("minuta.template.md"),
+  instructionsFile: "minuta.instructions.md",
+  templateFile: "minuta.template.md",
 });
 
 export function resolveDocumentGenerationRecipe(

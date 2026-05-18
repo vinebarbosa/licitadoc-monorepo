@@ -16,6 +16,7 @@ export const organizations = pgTable(
     institutionalEmail: text("institutional_email").notNull(),
     website: text("website"),
     logoUrl: text("logo_url"),
+    letterheadUrl: text("letterhead_url"),
     authorityName: text("authority_name").notNull(),
     authorityRole: text("authority_role").notNull(),
     isActive: boolean("is_active").notNull().default(true),

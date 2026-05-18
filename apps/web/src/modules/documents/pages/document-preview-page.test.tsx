@@ -79,6 +79,27 @@ function renderDocumentPreviewPage(
   );
 }
 
+const purezaLetterhead = {
+  url: "/api/organizations/organization-1/letterhead/image",
+};
+
+const purezaLetterheadResolvedUrl =
+  "http://localhost:3333/api/organizations/organization-1/letterhead/image";
+
+function expectPrintOnlyLetterhead(url = purezaLetterheadResolvedUrl) {
+  const sheet = screen.getByTestId("document-preview-sheet");
+
+  expect(sheet).toHaveAttribute("data-document-letterhead", "true");
+  expect(sheet.getAttribute("style") ?? "").not.toContain(url);
+  expect(screen.getByTestId("document-preview-scroll-container")).toHaveAttribute(
+    "data-document-letterhead",
+    "true",
+  );
+  expect(sheet.querySelector("[data-document-letterhead-screen-layer]")).toBeNull();
+  expect(sheet.querySelector("[data-document-letterhead-page-image]")).toBeNull();
+  expect(sheet.querySelector("[data-document-letterhead-print-layer]")).toHaveAttribute("src", url);
+}
+
 beforeEach(() => {
   MockEventSource.instances = [];
   vi.stubGlobal("EventSource", MockEventSource);
@@ -184,6 +205,9 @@ describe("DocumentPreviewPage", () => {
     expect(sheet).toHaveAttribute("data-institutional-document-output");
     expect(sheet).toHaveAttribute("data-institutional-document-no-branding", "true");
     expect(sheet).toHaveAttribute("data-institutional-document-sheet");
+    expect(sheet).not.toHaveAttribute("data-document-letterhead");
+    expect(sheet.querySelector("[data-document-letterhead-screen-layer]")).toBeNull();
+    expect(sheet.querySelector("[data-document-letterhead-print-layer]")).toBeNull();
     expect(sheet.querySelector(".document-preview-prosemirror")).toBeInTheDocument();
     expect(document.querySelector("[data-institutional-document-markdown]")).toBeNull();
     expect(screen.getByTestId("document-preview-scroll-container")).toHaveAttribute(
@@ -210,6 +234,30 @@ describe("DocumentPreviewPage", () => {
     expect(screen.getByRole("button", { name: "Exportar DOCX" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Exportar PDF" })).toBeEnabled();
     expect(screen.getByText(/Processo:/)).toBeInTheDocument();
+    expect(screen.getByText(/Contratacao de Servicos de TI/)).toBeInTheDocument();
+  });
+
+  it("keeps organization letterhead print-only for completed markdown previews", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json({
+          ...documentDetailResponse,
+          draftContentJson: null,
+          letterhead: purezaLetterhead,
+        }),
+      ),
+    );
+
+    renderDocumentPreviewPage();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 1, name: /DOCUMENTO DE FORMALIZACAO DE DEMANDA/ }),
+      ).toBeInTheDocument();
+    });
+
+    expectPrintOnlyLetterhead();
+    expect(document.querySelector("[data-institutional-document-markdown]")).toBeInTheDocument();
     expect(screen.getByText(/Contratacao de Servicos de TI/)).toBeInTheDocument();
   });
 
@@ -307,6 +355,7 @@ describe("DocumentPreviewPage", () => {
       http.get("http://localhost:3333/api/documents/:documentId", () =>
         HttpResponse.json({
           ...documentDetailResponse,
+          letterhead: purezaLetterhead,
           draftContentJson: {
             type: "doc",
             content: [
@@ -344,8 +393,11 @@ describe("DocumentPreviewPage", () => {
       const boundaryStyle = sheet.querySelector("[data-document-pagination-boundary-style]");
       const movedHeading = screen.getByRole("heading", { level: 2, name: "2. Conteudo seguinte" });
 
+      expectPrintOnlyLetterhead();
       expect(paginationSurface).toHaveAttribute("data-document-pagination-page-count", "2");
+      expect(paginationSurface).not.toHaveAttribute("data-document-letterhead-pagination");
       expect(sheet.querySelectorAll(".document-pagination-page-frame")).toHaveLength(2);
+      expect(sheet.querySelectorAll("[data-document-letterhead-page-image]")).toHaveLength(0);
       expect(movedHeading).toHaveAttribute("data-document-pagination-break-before", "true");
       expect(boundaryStyle?.textContent).toContain("@media screen");
       expect(boundaryStyle?.textContent).toContain("@media print");
@@ -789,6 +841,7 @@ Conteudo do documento.
     renderDocumentPreviewPage("/app/documento/document-2/preview");
 
     expect(await screen.findByText("Preview em geração")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Gerando preview" })).toBeInTheDocument();
     expectPreviewActions("document-2");
     expect(screen.getByRole("button", { name: "Imprimir" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Exportar DOCX" })).toBeDisabled();
@@ -1001,6 +1054,7 @@ Conteudo do documento.
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Raciocínio da IA")).not.toBeInTheDocument();
     expect(screen.getByText("Gerando documento em tempo real")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Gerando documento" })).toBeInTheDocument();
     expect(screen.getByTestId("document-preview-sheet")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Parcial" })).toBeInTheDocument();
     expect(screen.getByText(/Objeto parcial/)).toBeInTheDocument();

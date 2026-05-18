@@ -245,6 +245,7 @@ function createOrganizationRow(
     institutionalEmail: "contato@exemplo.ce.gov.br",
     website: null,
     logoUrl: null,
+    letterheadUrl: null,
     authorityName: "Maria Silva",
     authorityRole: "Prefeita",
     isActive: true,
@@ -1158,6 +1159,9 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
       storedCalls += 1;
       return storedObject;
     },
+    storeOrganizationLetterhead: async () => {
+      throw new Error("not implemented");
+    },
     storeSupportTicketImage: async () => {
       throw new Error("not implemented");
     },
@@ -1230,6 +1234,9 @@ test("createProcessFromExpenseRequestPdf reuses scope rules and stops when stora
     storeExpenseRequestPdf: async () => {
       throw new Error("storage down");
     },
+    storeOrganizationLetterhead: async () => {
+      throw new Error("not implemented");
+    },
     storeSupportTicketImage: async () => {
       throw new Error("not implemented");
     },
@@ -1299,6 +1306,9 @@ test("createProcessFromExpenseRequestPdf reuses scope rules and stops when stora
       sizeBytes: PUREZA_EXPENSE_REQUEST_PDF.byteLength,
       uploadedAt: "2026-04-21T12:00:00.000Z",
     }),
+    storeOrganizationLetterhead: async () => {
+      throw new Error("not implemented");
+    },
     storeSupportTicketImage: async () => {
       throw new Error("not implemented");
     },

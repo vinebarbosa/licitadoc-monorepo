@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
-  Clock,
   Download,
   FileText,
   Printer,
@@ -26,6 +25,7 @@ import {
 import { PageBackButton } from "@/shared/ui/page-back";
 import { Separator } from "@/shared/ui/separator";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { Spinner } from "@/shared/ui/spinner";
 import { useDocumentDetail, useDocumentGenerationEvents } from "../api/documents";
 import {
   type DocumentEditorJson,
@@ -40,6 +40,20 @@ import {
   institutionalDocumentTheme,
   institutionalDocumentThemeTokens,
 } from "./institutional-document-theme";
+
+const API_ASSET_BASE_URL = "http://localhost:3333";
+
+function resolveApiAssetUrl(url: string | null | undefined) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    return new URL(url, API_ASSET_BASE_URL).toString();
+  } catch {
+    return null;
+  }
+}
 
 function DocumentPreviewLoadingState() {
   return (
@@ -180,18 +194,24 @@ function DocumentPreviewStateCard({
 }: {
   title: string;
   description: string;
-  icon: "clock" | "alert" | "file";
+  icon: "loading" | "alert" | "file";
 }) {
-  const Icon = icon === "clock" ? Clock : icon === "alert" ? AlertTriangle : FileText;
+  const Icon = icon === "alert" ? AlertTriangle : FileText;
 
   return (
     <Card>
       <CardContent className="p-8">
         <Empty className="py-6">
           <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Icon className="h-6 w-6" />
-            </EmptyMedia>
+            {icon === "loading" ? (
+              <EmptyMedia className="mb-3 text-primary">
+                <Spinner className="size-12" aria-label="Gerando preview" />
+              </EmptyMedia>
+            ) : (
+              <EmptyMedia variant="icon">
+                <Icon className="h-6 w-6" />
+              </EmptyMedia>
+            )}
             <EmptyTitle>{title}</EmptyTitle>
             <EmptyDescription>{description}</EmptyDescription>
           </EmptyHeader>
@@ -494,11 +514,13 @@ function DocumentSheet({
   draftContent,
   draftContentJson = null,
   isGenerating = false,
+  letterheadUrl = null,
   liveWritingEndpointRef,
 }: {
   draftContent: string;
   draftContentJson?: DocumentEditorJson | null;
   isGenerating?: boolean;
+  letterheadUrl?: string | null;
   liveWritingEndpointRef?: RefObject<HTMLDivElement | null>;
 }) {
   const bodyRef = useRef<HTMLElement | null>(null);
@@ -519,9 +541,19 @@ function DocumentSheet({
       data-institutional-document-no-branding="true"
       data-institutional-document-sheet
       data-document-sheet
+      data-document-letterhead={letterheadUrl ? "true" : undefined}
       data-testid="document-preview-sheet"
       aria-label="Preview do documento"
     >
+      {letterheadUrl ? (
+        <img
+          src={letterheadUrl}
+          alt=""
+          className="document-letterhead-print-layer"
+          data-document-letterhead-print-layer
+          aria-hidden="true"
+        />
+      ) : null}
       <article
         ref={bodyRef}
         className={institutionalDocumentTheme.bodyClassName}
@@ -534,7 +566,7 @@ function DocumentSheet({
             data-institutional-document-live-status
             data-document-live-status
           >
-            <Clock className="h-4 w-4" />
+            <Spinner className="size-4" aria-label="Gerando documento" />
             Gerando documento em tempo real
           </div>
         ) : null}
@@ -579,6 +611,8 @@ export function DocumentPreviewPageUI() {
   useAppShellHeader(breadcrumbs);
 
   const previewSource = getDocumentPreviewSource(document);
+  const letterheadUrl =
+    document?.status === "completed" ? resolveApiAssetUrl(document.letterhead?.url) : null;
   const liveDraftContent =
     document?.status === "generating" ? getPreviewableDraftContent(livePreview.content) : null;
   const canUsePersistedDocument = document?.status === "completed" && Boolean(previewSource);
@@ -643,6 +677,7 @@ export function DocumentPreviewPageUI() {
       className="flex-1 overflow-auto bg-muted/30"
       data-institutional-document-preview-root
       data-document-preview-print-root
+      // data-document-letterhead={letterheadUrl ? "true" : undefined}
       data-testid="document-preview-scroll-container"
       onScroll={handleScroll}
     >
@@ -660,6 +695,7 @@ export function DocumentPreviewPageUI() {
                 <DocumentSheet
                   draftContent={liveDraftContent}
                   isGenerating
+                  letterheadUrl={null}
                   liveWritingEndpointRef={liveWritingEndpointRef}
                 />
               ) : (
@@ -672,7 +708,7 @@ export function DocumentPreviewPageUI() {
                         ? "A IA está analisando o processo. O documento aparecerá assim que o primeiro trecho final estiver disponível."
                         : "O documento ainda está sendo gerado. O preview aparecerá assim que o primeiro trecho estiver disponível."
                   }
-                  icon="clock"
+                  icon="loading"
                 />
               )}
             </>
@@ -686,6 +722,7 @@ export function DocumentPreviewPageUI() {
             <DocumentSheet
               draftContent={previewSource.textContent ?? ""}
               draftContentJson={previewSource.kind === "json" ? previewSource.content : null}
+              // letterheadUrl={letterheadUrl}
             />
           ) : (
             <DocumentPreviewStateCard

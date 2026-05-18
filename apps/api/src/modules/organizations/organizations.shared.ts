@@ -40,6 +40,7 @@ export function serializeOrganization(organization: StoredOrganization) {
     institutionalEmail: organization.institutionalEmail,
     website: organization.website ?? null,
     logoUrl: organization.logoUrl ?? null,
+    letterhead: serializeOrganizationLetterhead(organization),
     authorityName: organization.authorityName,
     authorityRole: organization.authorityRole,
     isActive: organization.isActive,
@@ -47,6 +48,16 @@ export function serializeOrganization(organization: StoredOrganization) {
     createdAt: organization.createdAt.toISOString(),
     updatedAt: organization.updatedAt.toISOString(),
   };
+}
+
+export function serializeOrganizationLetterhead(
+  organization: Pick<StoredOrganization, "id" | "letterheadUrl"> | null,
+) {
+  if (!organization?.letterheadUrl) {
+    return null;
+  }
+
+  return { url: organization.letterheadUrl };
 }
 
 export function getCnpjDigits(value: string) {

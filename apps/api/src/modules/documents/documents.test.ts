@@ -68,6 +68,7 @@ function createOrganizationRow(
     institutionalEmail: "contato@exemplo.ce.gov.br",
     website: null,
     logoUrl: null,
+    letterheadUrl: null,
     authorityName: "Maria Silva",
     authorityRole: "Prefeita",
     isActive: true,
@@ -507,7 +508,7 @@ test("createDocument generates and persists a completed draft", async () => {
       instructions: "Usar linguagem objetiva.",
     }),
     textGeneration: createTextGenerationProvider(async (input) => {
-      receivedPrompt = input.prompt;
+      receivedPrompt ??= input.prompt;
 
       return {
         providerKey: "stub",
@@ -543,8 +544,8 @@ test("createDocument generates and persists a completed draft", async () => {
   assert.match(receivedPrompt ?? "", /## Modelo Markdown canônico/);
   assert.match(receivedPrompt ?? "", /# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA \(DFD\)/);
   assert.match(receivedPrompt ?? "", /Não inclua heading de FECHO, ASSINATURA ou equivalente/);
-  assert.match(receivedPrompt ?? "", /Não gere linha de assinatura, sublinhado, tracejado/i);
-  assert.match(receivedPrompt ?? "", /Não use HTML, <div>, align, CSS inline, tabelas/i);
+  assert.match(receivedPrompt ?? "", /sem linha de assinatura, sublinhado, tracejado, HTML/i);
+  assert.match(receivedPrompt ?? "", /<div>.*align.*CSS inline.*tabelas/i);
   assert.match(receivedPrompt ?? "", /Usar linguagem objetiva\./);
 });
 
@@ -635,7 +636,7 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
       instructions: "Manter consistencia com o DFD.",
     }),
     textGeneration: createTextGenerationProvider(async (input) => {
-      receivedPrompt = input.prompt;
+      receivedPrompt ??= input.prompt;
 
       return {
         providerKey: "stub",
@@ -663,26 +664,23 @@ test("createDocument uses the canonical ETP recipe and zero-value safety", async
   });
 
   assert.match(receivedPrompt ?? "", /# ESTUDO TÉCNICO PRELIMINAR \(ETP\)/);
-  assert.match(
-    receivedPrompt ?? "",
-    /- Perfil de análise inferido para o ETP: apresentacao_artistica/,
-  );
+  assert.doesNotMatch(receivedPrompt ?? "", /Perfil de análise inferido para o ETP/);
   assert.match(receivedPrompt ?? "", /- Estimativa disponível: não/);
   assert.match(receivedPrompt ?? "", /- Valor bruto de referência: R\$ 0,00/);
-  assert.match(receivedPrompt ?? "", /não simule pesquisa de mercado/i);
+  assert.match(receivedPrompt ?? "", /Estimativa pendente de apuração em etapa própria/i);
   assert.match(
     receivedPrompt ?? "",
-    /perfil de análise inferido apenas para ajustar a ênfase técnica/i,
+    /pacote de contexto enriquecido e o plano documental para ajustar a ênfase técnica/i,
   );
   assert.match(
     receivedPrompt ?? "",
     /Preserve a consistência entre objeto, município, organização/,
   );
-  assert.match(receivedPrompt ?? "", /Não misture informações de DFD, TR, minuta/);
+  assert.match(receivedPrompt ?? "", /Não inclua seções, títulos ou conteúdo de DFD/i);
   assert.match(receivedPrompt ?? "", /Lei nº 14\.133\/2021 e a boas práticas do TCU/);
   assert.match(receivedPrompt ?? "", /Não inclua heading de FECHO, ASSINATURA ou equivalente/);
-  assert.match(receivedPrompt ?? "", /Não gere linha de assinatura, sublinhado, tracejado/i);
-  assert.match(receivedPrompt ?? "", /Não use HTML, <div>, align, CSS inline, tabelas/i);
+  assert.match(receivedPrompt ?? "", /sem linha de assinatura, sublinhado, tracejado, HTML/i);
+  assert.match(receivedPrompt ?? "", /<div>.*align.*CSS inline.*tabelas/i);
   assert.match(receivedPrompt ?? "", /Manter consistencia com o DFD\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
@@ -731,7 +729,7 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
       instructions: "Manter consistencia operacional com o ETP.",
     }),
     textGeneration: createTextGenerationProvider(async (input) => {
-      receivedPrompt = input.prompt;
+      receivedPrompt ??= input.prompt;
 
       return {
         providerKey: "stub",
@@ -743,7 +741,7 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
           "Conteudo gerado do TR.",
           "",
           "## 7. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA",
-          "Valor não informado no contexto; será apurado posteriormente por pesquisa de mercado.",
+          "A estimativa será apurada em etapa própria, com pesquisa de preços compatível com o objeto.",
           "",
           "Fortaleza/CE, 08 de janeiro de 2026.",
           "",
@@ -760,17 +758,14 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
 
   assert.match(receivedPrompt ?? "", /# TERMO DE REFERÊNCIA/);
   assert.match(receivedPrompt ?? "", /- Tipo de documento: TR/);
-  assert.match(
-    receivedPrompt ?? "",
-    /- Tipo de contratação inferido para obrigações: apresentacao_artistica/,
-  );
+  assert.doesNotMatch(receivedPrompt ?? "", /Tipo de contratação inferido para obrigações/);
   assert.match(receivedPrompt ?? "", /- Estimativa disponível: não/);
   assert.match(receivedPrompt ?? "", /- Valor bruto de referência: R\$ 0,00/);
-  assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
-  assert.match(receivedPrompt ?? "", /não invente valores/i);
+  assert.doesNotMatch(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo:/);
+  assert.match(receivedPrompt ?? "", /Não invente número, valor/i);
   assert.match(receivedPrompt ?? "", /Não inclua heading de FECHO, ASSINATURA ou equivalente/);
-  assert.match(receivedPrompt ?? "", /Não gere linha de assinatura, sublinhado, tracejado/i);
-  assert.match(receivedPrompt ?? "", /Não use HTML, <div>, align, CSS inline, tabelas/i);
+  assert.match(receivedPrompt ?? "", /sem linha de assinatura, sublinhado, tracejado, HTML/i);
+  assert.match(receivedPrompt ?? "", /<div>.*align.*CSS inline.*tabelas/i);
   assert.match(receivedPrompt ?? "", /Manter consistencia operacional com o ETP\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
@@ -778,7 +773,7 @@ test("createDocument uses the canonical TR recipe and zero-value safety", async 
   assertDraftJsonSignatureClosing(updatedDocument?.draftContentJson);
   assertDraftJsonSignatureClosing(response.draftContentJson);
   assert.match(response.draftContent ?? "", /VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
-  assert.match(response.draftContent ?? "", /Valor não informado no contexto/);
+  assert.match(response.draftContent ?? "", /estimativa será apurada em etapa própria/i);
 });
 
 test("createDocumentBodySchema rejects unsupported document types", () => {
@@ -2249,7 +2244,7 @@ test("executeDocumentGeneration skips runs that are no longer pending", async ()
     textGeneration,
   });
 
-  assert.equal(callCount, 1);
+  assert.equal(callCount, 2);
   assert.equal(db.getCurrentDocument().status, "completed");
   assert.equal(db.getCurrentGenerationRun()?.status, "completed");
 });
@@ -2525,7 +2520,7 @@ test("createDocument keeps a TR value-estimate section when generated content om
   });
 
   assert.match(response.draftContent ?? "", /## 7\. VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA/);
-  assert.match(response.draftContent ?? "", /pesquisa de mercado ou etapa própria/);
+  assert.match(response.draftContent ?? "", /pesquisa de preços compatível com o objeto/);
 });
 
 test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED clause rules", async () => {
@@ -2566,7 +2561,7 @@ test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED c
       instructions: "Manter consistencia contratual com o TR.",
     }),
     textGeneration: createTextGenerationProvider(async (input) => {
-      receivedPrompt = input.prompt;
+      receivedPrompt ??= input.prompt;
 
       return {
         providerKey: "stub",
@@ -2583,6 +2578,9 @@ test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED c
           "## CLAUSULA SEGUNDA - DO PRECO",
           "Valor R$ 0,00.",
           "",
+          "## CLÁUSULA SEXTA - DA DOTAÇÃO ORÇAMENTÁRIA",
+          "6.1. As despesas decorrentes deste contrato correrão por conta da seguinte dotação orçamentária: {{budget.allocation_or_placeholder}}.",
+          "",
           "## CLAUSULA DECIMA TERCEIRA - DAS PRERROGATIVAS",
           "Texto reescrito indevidamente.",
           "",
@@ -2598,15 +2596,16 @@ test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED c
 
   assert.match(receivedPrompt ?? "", /# MINUTA DO CONTRATO/);
   assert.match(receivedPrompt ?? "", /- Tipo de documento: MINUTA/);
-  assert.match(
-    receivedPrompt ?? "",
-    /- Tipo de contratação inferido para obrigações: apresentacao_artistica/,
-  );
+  assert.doesNotMatch(receivedPrompt ?? "", /Tipo de contratação inferido para obrigações/);
   assert.match(receivedPrompt ?? "", /- Preço disponível: não/);
   assert.match(receivedPrompt ?? "", /- Valor bruto de referência: R\$ 0,00/);
   assert.match(receivedPrompt ?? "", /- Valor a usar na cláusula DO PREÇO: R\$ XX\.XXX,XX/);
-  assert.match(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo: apresentacao_artistica/);
-  assert.match(receivedPrompt ?? "", /Cláusulas FIXED do template:/);
+  assert.match(receivedPrompt ?? "", /- Dotação orçamentária: XXX/);
+  assert.doesNotMatch(receivedPrompt ?? "", /\{\{budget\.allocation_or_placeholder}}/);
+  assert.doesNotMatch(receivedPrompt ?? "", /\{\{[^}]+}}/);
+  assert.doesNotMatch(receivedPrompt ?? "", /Use prioritariamente o bloco Tipo:/);
+  assert.match(receivedPrompt ?? "", /Cláusulas fixas do template:/);
+  assert.doesNotMatch(receivedPrompt ?? "", /FIXED_CLAUSE|<!--\s*FIXED_CLAUSE|FIXED\b/);
   assert.match(receivedPrompt ?? "", /Manter consistencia contratual com o TR\./);
   assert.equal(updatedDocument?.status, "completed");
   assert.equal(updatedDocument?.draftContent, response.draftContent);
@@ -2614,6 +2613,8 @@ test("createDocument uses the canonical Minuta recipe, placeholders, and FIXED c
   assert.equal(/TERMO DE REFERÊNCIA/i.test(response.draftContent ?? ""), false);
   assert.equal(/R\$ 0,00/i.test(response.draftContent ?? ""), false);
   assert.equal(/Texto reescrito indevidamente/i.test(response.draftContent ?? ""), false);
+  assert.doesNotMatch(response.draftContent ?? "", /\{\{[^}]+}}/);
+  assert.match(response.draftContent ?? "", /dotação orçamentária: XXX\./);
   assert.match(response.draftContent ?? "", /R\$ XX\.XXX,XX/);
   assert.match(
     response.draftContent ?? "",

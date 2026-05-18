@@ -5,12 +5,9 @@ import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { TextGenerationProvider } from "../../shared/text-generation/types";
 import { canReadStoredProcess } from "../processes/processes.policies";
 import { getProcessDepartmentIds, getProcessItems } from "../processes/processes.shared";
+import { createInitialDocumentGenerationPipeline } from "./document-generation-pipeline";
 import type { CreateDocumentInput } from "./documents.schemas";
-import {
-  buildDocumentGenerationPrompt,
-  getGeneratedDocumentName,
-  serializeDocumentDetail,
-} from "./documents.shared";
+import { getGeneratedDocumentName, serializeDocumentDetail } from "./documents.shared";
 
 type Input = {
   actor: Actor;
@@ -92,15 +89,17 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
     responsibleUserId: process.responsibleUserId,
   });
 
-  const prompt = buildDocumentGenerationPrompt({
+  const initialPipeline = createInitialDocumentGenerationPipeline({
     departments,
     documentType: document.documentType,
+    debugRequested: document.debug,
     instructions: document.instructions,
     organization,
     process,
     processItems,
     responsibleUserName,
   });
+  const prompt = initialPipeline.pipeline.prompt;
   const responsibleDisplayName = responsibleUserName ?? process.responsibleName;
 
   const { createdDocument, generationRunId } = await db.transaction(async (tx) => {
@@ -132,9 +131,12 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
         requestMetadata: {
           documentType: document.documentType,
           prompt,
+          pipeline: initialPipeline.pipeline,
+          pipelineRequired: true,
           processId: process.id,
           organizationId: process.organizationId,
           instructions: document.instructions,
+          debugRequested: document.debug,
         },
         responseMetadata: null,
         errorCode: null,
@@ -153,5 +155,12 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
     scheduleGeneration?.(generationRunId);
   }
 
-  return serializeDocumentDetail(createdDocument);
+  const serializedDocument = serializeDocumentDetail(createdDocument);
+
+  return document.debug
+    ? {
+        ...serializedDocument,
+        pipelineDebug: initialPipeline.debug,
+      }
+    : serializedDocument;
 }
