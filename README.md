@@ -67,6 +67,7 @@ Para manutencao da `apps/api`, consulte:
 
 - `apps/api/agents.md` para fluxo de trabalho, comandos e limites de mudanca no backend
 - `apps/api/architecture.md` para o mapa da arquitetura atual da API
+- `docs/api-vercel-cicd.md` para o CI/CD da API na Vercel via GitHub Actions
 
 ## Realtime de Chamados
 
