@@ -366,9 +366,46 @@ function parseUpdateProcessInput(input: Parameters<typeof updateProcessBodySchem
   return updateProcessBodySchema.parse(input);
 }
 
+function createDeleteMock() {
+  return {
+    where: async () => undefined,
+  };
+}
+
+function createProcessItemRowFromInsert(
+  values: Record<string, unknown>,
+): typeof processItems.$inferSelect {
+  return createProcessItemRow({
+    processId: String(values.processId),
+    position: Number(values.position),
+    kind: values.kind === "kit" ? "kit" : "simple",
+    code: String(values.code),
+    title: String(values.title),
+    description: values.description as string | null,
+    quantity: values.quantity as string | null,
+    unit: String(values.unit),
+    unitValue: values.unitValue as string | null,
+    totalValue: values.totalValue as string | null,
+  });
+}
+
+function createProcessItemComponentRowFromInsert(
+  values: Record<string, unknown>,
+): typeof processItemComponents.$inferSelect {
+  return createProcessItemComponentRow({
+    itemId: String(values.itemId),
+    position: Number(values.position),
+    title: String(values.title),
+    description: values.description as string | null,
+    quantity: values.quantity as string | null,
+    unit: String(values.unit),
+  });
+}
+
 test("process schemas canonicalize payloads and reject invalid updates", () => {
   const parsed = parseCreateProcessInput({
-    type: "  inexigibilidade  ",
+    procurementMethod: "  inexigibilidade  ",
+    biddingModality: "   ",
     processNumber: "  2026/001  ",
     externalId: "   ",
     issuedAt: "2026-01-08",
@@ -379,7 +416,8 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
   });
 
   assert.deepEqual(parsed, {
-    type: "inexigibilidade",
+    procurementMethod: "inexigibilidade",
+    biddingModality: null,
     processNumber: "2026/001",
     externalId: null,
     issuedAt: "2026-01-08T00:00:00.000Z",
@@ -387,15 +425,14 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
     object: "Contratacao de apresentacao artistica",
     justification: "Atender evento cultural",
     responsibleName: "Ana Souza",
-    sourceKind: null,
-    sourceReference: null,
     status: "draft",
     departmentIds: [DEPARTMENT_ID, SECOND_DEPARTMENT_ID],
+    items: [],
   });
 
   assert.equal(
     parseCreateProcessInput({
-      type: "inexigibilidade",
+      procurementMethod: "inexigibilidade",
       processNumber: "2026/002",
       issuedAt: "2026-01-08",
       title: "  Titulo enxuto  ",
@@ -630,6 +667,12 @@ test("createProcess lets admins create for any organization and links department
           };
         }
 
+        if (table === processItems) {
+          return {
+            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+          };
+        }
+
         insertedDepartmentLinks = values as Array<typeof processDepartments.$inferInsert>;
 
         return {
@@ -637,6 +680,7 @@ test("createProcess lets admins create for any organization and links department
         };
       },
     }),
+    delete: () => createDeleteMock(),
   };
 
   const db = {
@@ -652,7 +696,7 @@ test("createProcess lets admins create for any organization and links department
     },
     db,
     process: parseCreateProcessInput({
-      type: "inexigibilidade",
+      procurementMethod: "inexigibilidade",
       processNumber: "2026/001",
       externalId: "externo-123",
       organizationId: ORGANIZATION_ID,
@@ -678,48 +722,40 @@ test("createProcess lets admins create for any organization and links department
   assert.deepEqual(response.departmentIds, [DEPARTMENT_ID, SECOND_DEPARTMENT_ID]);
 });
 
-test("createProcess preserves native expense request item and kit metadata", async () => {
+test("createProcess preserves native expense request item and kit components", async () => {
   let insertedProcessValues: Record<string, unknown> | undefined;
-  const nativeSourceMetadata = {
-    extractedFields: {
-      item: {
-        kind: "simple",
-        title: "Pote plastico",
-        quantity: "10",
-        unit: "unidade",
-        unitValue: "R$ 8,00",
-        totalValue: "R$ 80,00",
-      },
-      items: [
+  const insertedItems: Array<typeof processItems.$inferSelect> = [];
+  const insertedComponents: Array<typeof processItemComponents.$inferSelect> = [];
+  const nativeItems = [
+    {
+      kind: "simple" as const,
+      code: "0005909",
+      title: "Pote plastico",
+      description: "Pote plastico com tampa",
+      quantity: "10",
+      unit: "unidade",
+      unitValue: "8.00",
+      totalValue: "80.00",
+    },
+    {
+      kind: "kit" as const,
+      code: "0005910",
+      title: "Kit escolar",
+      description: null,
+      quantity: "100",
+      unit: "kit",
+      unitValue: null,
+      totalValue: null,
+      components: [
         {
-          kind: "simple",
-          title: "Pote plastico",
-          quantity: "10",
+          title: "Caderno",
+          description: "Caderno brochura capa dura",
+          quantity: "2",
           unit: "unidade",
-          unitValue: "R$ 8,00",
-          totalValue: "R$ 80,00",
-        },
-        {
-          kind: "kit",
-          title: "Kit escolar",
-          quantity: "100",
-          unit: "kit",
-          components: [
-            {
-              title: "Caderno",
-              description: "Caderno brochura capa dura",
-              quantity: "2",
-              unit: "unidade",
-            },
-          ],
         },
       ],
     },
-    source: {
-      inputMode: "native_form",
-    },
-    warnings: [],
-  };
+  ];
 
   const tx = {
     query: {
@@ -732,6 +768,14 @@ test("createProcess preserves native expense request item and kit metadata", asy
         where: async () => {
           if (table === departments) {
             return [{ id: DEPARTMENT_ID }];
+          }
+
+          if (table === processItems) {
+            return insertedItems;
+          }
+
+          if (table === processItemComponents) {
+            return insertedComponents;
           }
 
           return [];
@@ -748,10 +792,29 @@ test("createProcess preserves native expense request item and kit metadata", asy
             returning: async () => [
               createProcessRow({
                 organizationId: String(nextValues.organizationId),
-                sourceKind: nextValues.sourceKind as string | null,
-                sourceMetadata: nextValues.sourceMetadata as Record<string, unknown>,
+                procurementMethod: nextValues.procurementMethod as string | null,
               }),
             ],
+          };
+        }
+
+        if (table === processItems) {
+          const row = createProcessItemRowFromInsert(values as Record<string, unknown>);
+          insertedItems.push(row);
+
+          return {
+            returning: async () => [row],
+          };
+        }
+
+        if (table === processItemComponents) {
+          const rows = (values as Array<Record<string, unknown>>).map(
+            createProcessItemComponentRowFromInsert,
+          );
+          insertedComponents.push(...rows);
+
+          return {
+            returning: async () => rows,
           };
         }
 
@@ -760,6 +823,7 @@ test("createProcess preserves native expense request item and kit metadata", asy
         };
       },
     }),
+    delete: () => createDeleteMock(),
   };
 
   const db = {
@@ -775,20 +839,18 @@ test("createProcess preserves native expense request item and kit metadata", asy
     },
     db,
     process: parseCreateProcessInput({
-      type: "pregao",
+      procurementMethod: "pregao",
       processNumber: "PROC-NATIVE-ITEMS",
       issuedAt: "2026-01-08",
       object: "Aquisicao de itens nativos",
       justification: "Atendimento da demanda.",
       responsibleName: "Ana Souza",
       departmentIds: [DEPARTMENT_ID],
-      sourceKind: "expense_request",
-      sourceReference: "PROC-NATIVE-ITEMS",
-      sourceMetadata: nativeSourceMetadata,
+      items: nativeItems,
     }),
   });
 
-  assert.deepEqual(insertedProcessValues?.sourceMetadata, nativeSourceMetadata);
+  assert.equal(insertedProcessValues?.procurementMethod, "pregao");
   assert.equal("sourceMetadata" in response, false);
   assert.ok(JSON.stringify(response.items).includes("Kit escolar"));
   assert.ok(JSON.stringify(response.items).includes("Caderno brochura"));
@@ -820,11 +882,18 @@ test("createProcess scopes members to their own organization and rejects foreign
           };
         }
 
+        if (table === processItems) {
+          return {
+            returning: async () => [createProcessItemRow()],
+          };
+        }
+
         return {
           returning: async () => [],
         };
       },
     }),
+    delete: () => createDeleteMock(),
   };
 
   const db = {
@@ -840,7 +909,7 @@ test("createProcess scopes members to their own organization and rejects foreign
     },
     db,
     process: parseCreateProcessInput({
-      type: "inexigibilidade",
+      procurementMethod: "inexigibilidade",
       processNumber: "2026/001",
       organizationId: ORGANIZATION_ID,
       issuedAt: "2026-01-08",
@@ -868,7 +937,7 @@ test("createProcess scopes members to their own organization and rejects foreign
         },
         db: failingDb,
         process: parseCreateProcessInput({
-          type: "inexigibilidade",
+          procurementMethod: "inexigibilidade",
           processNumber: "2026/002",
           issuedAt: "2026-01-08",
           object: "Contratacao de apresentacao artistica",
@@ -929,6 +998,12 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
           };
         }
 
+        if (table === processItems) {
+          return {
+            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+          };
+        }
+
         insertedDepartmentLinks = values as Array<typeof processDepartments.$inferInsert>;
 
         return {
@@ -936,6 +1011,7 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
         };
       },
     }),
+    delete: () => createDeleteMock(),
   };
   const db = {
     query: {
@@ -970,8 +1046,6 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
     insertedProcessValues?.title,
     "Apresentacao artistica musical da banda FORRO TSUNAMI",
   );
-  assert.equal(insertedProcessValues?.sourceKind, "expense_request");
-  assert.equal(insertedProcessValues?.sourceReference, "SD-6-2026");
   assert.deepEqual(insertedDepartmentLinks, [
     { processId: PROCESS_ID, departmentId: DEPARTMENT_ID },
   ]);
@@ -981,7 +1055,7 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
   assert.equal("sourceMetadata" in response, false);
 });
 
-test("createProcessFromExpenseRequestText persists source file traceability when provided", async () => {
+test("createProcessFromExpenseRequestText creates a process when source file metadata is provided", async () => {
   let insertedProcessValues: Record<string, unknown> | undefined;
   const department = createDepartmentRow();
   const tx = {
@@ -1023,11 +1097,18 @@ test("createProcessFromExpenseRequestText persists source file traceability when
           };
         }
 
+        if (table === processItems) {
+          return {
+            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+          };
+        }
+
         return {
           returning: async () => [],
         };
       },
     }),
+    delete: () => createDeleteMock(),
   };
   const db = {
     query: {
@@ -1064,18 +1145,8 @@ test("createProcessFromExpenseRequestText persists source file traceability when
     },
   });
 
-  const sourceMetadata = insertedProcessValues?.sourceMetadata as Record<string, unknown>;
-  assert.ok(sourceMetadata);
+  assert.equal(insertedProcessValues?.processNumber, "SD-6-2026");
   assert.equal("sourceKind" in response, false);
-  assert.deepEqual((sourceMetadata.sourceFile ?? null) as Record<string, unknown>, {
-    contentType: "application/pdf",
-    etag: "etag-1",
-    fileName: "SD.pdf",
-    sizeBytes: 2048,
-    storageBucket: "licitadoc-expense-requests",
-    storageKey: "expense-requests/2026/04/sd.pdf",
-    uploadedAt: "2026-04-21T12:00:00.000Z",
-  });
 });
 
 test("createProcessFromExpenseRequestPdf uploads first, creates process, and cleans up on failure", async () => {
@@ -1130,11 +1201,18 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
           };
         }
 
+        if (table === processItems) {
+          return {
+            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+          };
+        }
+
         return {
           returning: async () => [],
         };
       },
     }),
+    delete: () => createDeleteMock(),
   };
   const db = {
     query: {
@@ -1186,19 +1264,7 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
   assert.equal(storedCalls, 1);
   assert.equal(deletedObjects.length, 0);
   assert.equal(response.processNumber, "SD-6-2026");
-  assert.deepEqual(
-    ((insertedProcessValues?.sourceMetadata as Record<string, unknown>).sourceFile ??
-      null) as Record<string, unknown>,
-    {
-      contentType: "application/pdf",
-      etag: "etag-1",
-      fileName: "SD.pdf",
-      sizeBytes: PUREZA_EXPENSE_REQUEST_PDF.byteLength,
-      storageBucket: "licitadoc-expense-requests",
-      storageKey: "expense-requests/2026/04/sd.pdf",
-      uploadedAt: "2026-04-21T12:00:00.000Z",
-    },
-  );
+  assert.equal(insertedProcessValues?.processNumber, "SD-6-2026");
 
   await assert.rejects(
     () =>
@@ -1275,11 +1341,18 @@ test("createProcessFromExpenseRequestPdf reuses scope rules and stops when stora
         where: async () => [{ id: DEPARTMENT_ID }],
       }),
     }),
-    insert: () => ({
-      values: () => ({
-        returning: async () => [createProcessRow()],
+    insert: (table: unknown) => ({
+      values: (values: Record<string, unknown> | Array<Record<string, unknown>>) => ({
+        returning: async () => {
+          if (table === processItems) {
+            return [createProcessItemRowFromInsert(values as Record<string, unknown>)];
+          }
+
+          return [createProcessRow()];
+        },
       }),
     }),
+    delete: () => createDeleteMock(),
   };
   const db = {
     query: {
@@ -1360,11 +1433,18 @@ test("createProcessFromExpenseRequest resolves admin organization by CNPJ", asyn
           };
         }
 
+        if (table === processItems) {
+          return {
+            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+          };
+        }
+
         return {
           returning: async () => [],
         };
       },
     }),
+    delete: () => createDeleteMock(),
   };
   const db = {
     query: {
