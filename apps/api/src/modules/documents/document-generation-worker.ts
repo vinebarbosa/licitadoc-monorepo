@@ -140,17 +140,21 @@ export async function executeDocumentGeneration({
   generationRunId: string;
   textGeneration: TextGenerationProvider;
 }) {
-  const generationRun = await db.query.documentGenerationRuns.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, generationRunId),
-  });
+  const [generationRun] = await db
+    .select()
+    .from(documentGenerationRuns)
+    .where(eq(documentGenerationRuns.id, generationRunId))
+    .limit(1);
 
   if (!generationRun || generationRun.status !== "generating") {
     return;
   }
 
-  const document = await db.query.documents.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, generationRun.documentId),
-  });
+  const [document] = await db
+    .select()
+    .from(documents)
+    .where(eq(documents.id, generationRun.documentId))
+    .limit(1);
 
   if (!document || document.status !== "generating") {
     return;
@@ -285,9 +289,10 @@ export function createDocumentGenerationQueue({
   }
 
   async function recoverPending() {
-    const pendingRuns = await db.query.documentGenerationRuns.findMany({
-      where: (table, { eq: equals }) => equals(table.status, "generating"),
-    });
+    const pendingRuns = await db
+      .select({ id: documentGenerationRuns.id })
+      .from(documentGenerationRuns)
+      .where(eq(documentGenerationRuns.status, "generating"));
 
     for (const generationRun of pendingRuns) {
       schedule(generationRun.id);
