@@ -24,7 +24,7 @@ export const registerAuthRoutes: FastifyPluginAsync = async (app) => {
         });
 
         // Process authentication request
-        const response = await app.auth.handler(authRequest);
+        const response = (await app.auth.handler(authRequest)) as globalThis.Response;
 
         // Forward response to client
         reply.status(response.status);
