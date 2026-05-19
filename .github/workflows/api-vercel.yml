@@ -44,6 +44,7 @@ permissions:
 env:
   NODE_VERSION: "24"
   PNPM_VERSION: "10.0.0"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   typecheck:
@@ -83,6 +84,7 @@ jobs:
   build:
     name: Build API
     runs-on: ubuntu-latest
+    needs: typecheck
 
     steps:
       - name: Checkout
@@ -117,6 +119,7 @@ jobs:
   test:
     name: Test API
     runs-on: ubuntu-latest
+    needs: build
 
     steps:
       - name: Checkout
@@ -151,10 +154,7 @@ jobs:
   deploy-preview:
     name: Deploy API preview
     runs-on: ubuntu-latest
-    needs:
-      - typecheck
-      - build
-      - test
+    needs: test
     if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'preview') }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -189,7 +189,12 @@ jobs:
 
       - name: Install pnpm
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
-        run: npm install --global pnpm@${PNPM_VERSION}
+        run: |
+          npm install --global pnpm@${PNPM_VERSION}
+          pnpm_bin_dir="$(dirname "$(command -v pnpm)")"
+          echo "PNPM_BIN_DIR=${pnpm_bin_dir}" >> "${GITHUB_ENV}"
+          echo "${pnpm_bin_dir}" >> "${GITHUB_PATH}"
+          pnpm --version
 
       - name: Install Vercel CLI
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
@@ -201,7 +206,7 @@ jobs:
 
       - name: Build Vercel preview output
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
-        run: vercel build --cwd apps/api --token="${VERCEL_TOKEN}"
+        run: PATH="${PNPM_BIN_DIR}:${PATH}" vercel build --cwd apps/api --token="${VERCEL_TOKEN}"
 
       - name: Deploy Vercel preview
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
@@ -218,10 +223,7 @@ jobs:
   deploy-production:
     name: Deploy API production
     runs-on: ubuntu-latest
-    needs:
-      - typecheck
-      - build
-      - test
+    needs: test
     if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production' && github.ref == 'refs/heads/main') }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -245,7 +247,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install pnpm
-        run: npm install --global pnpm@${PNPM_VERSION}
+        run: |
+          npm install --global pnpm@${PNPM_VERSION}
+          pnpm_bin_dir="$(dirname "$(command -v pnpm)")"
+          echo "PNPM_BIN_DIR=${pnpm_bin_dir}" >> "${GITHUB_ENV}"
+          echo "${pnpm_bin_dir}" >> "${GITHUB_PATH}"
+          pnpm --version
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
@@ -254,7 +261,7 @@ jobs:
         run: vercel pull --yes --environment=production --cwd apps/api --token="${VERCEL_TOKEN}"
 
       - name: Build Vercel production output
-        run: vercel build --prod --cwd apps/api --token="${VERCEL_TOKEN}"
+        run: PATH="${PNPM_BIN_DIR}:${PATH}" vercel build --prod --cwd apps/api --token="${VERCEL_TOKEN}"
 
       - name: Deploy Vercel production
         id: deploy
