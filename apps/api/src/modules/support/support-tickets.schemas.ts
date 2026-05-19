@@ -102,7 +102,6 @@ export const supportTicketsQuerySchema = z.object({
   source: supportTicketSourceSchema.optional(),
   assignee: z.enum(["all", "unassigned", "mine"]).optional(),
 });
-export type SupportTicketsQuery = z.output<typeof supportTicketsQuerySchema>;
 
 const nonEmptyTextSchema = z
   .string()

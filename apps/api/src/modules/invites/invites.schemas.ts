@@ -46,7 +46,6 @@ export const invitePaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
 });
-export type InvitePaginationQuery = z.output<typeof invitePaginationQuerySchema>;
 
 const createInviteBodyExample = {
   email: OPENAPI_EXAMPLE_EMAIL,

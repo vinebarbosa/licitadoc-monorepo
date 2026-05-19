@@ -14,7 +14,6 @@ import {
   getOrganizationLetterheadImageSchema,
   getOrganizationSchema,
   getOrganizationsSchema,
-  type OrganizationsPaginationQuery,
   updateOrganizationSchema,
   uploadOrganizationLetterheadSchema,
 } from "./organizations.schemas";
@@ -39,7 +38,7 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
     },
   );
 
-  app.get<{ Querystring: OrganizationsPaginationQuery }>(
+  app.get(
     "/",
     {
       schema: getOrganizationsSchema,

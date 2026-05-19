@@ -67,7 +67,6 @@ Para manutencao da `apps/api`, consulte:
 
 - `apps/api/agents.md` para fluxo de trabalho, comandos e limites de mudanca no backend
 - `apps/api/architecture.md` para o mapa da arquitetura atual da API
-- `docs/api-container-deployment.md` para build e deploy da API em container Docker
 
 ## Realtime de Chamados
 

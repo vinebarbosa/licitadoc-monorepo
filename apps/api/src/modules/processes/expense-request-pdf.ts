@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Actor } from "../../authorization/actor";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import type { FileStorageProvider } from "../../shared/storage/types";
@@ -25,14 +26,7 @@ type PdfLoadingTask = {
   promise: Promise<PdfDocument>;
 };
 
-type PdfLoader = (input: {
-  data: Uint8Array;
-  disableWorker: boolean;
-}) => PdfLoadingTask | Promise<PdfLoadingTask>;
-
-type PdfJsModule = {
-  getDocument: PdfLoader;
-};
+type PdfLoader = (input: { data: Uint8Array; disableWorker: boolean }) => PdfLoadingTask;
 
 type MultipartFileValue = {
   fieldname: string;
@@ -148,20 +142,14 @@ function toBadRequestMessage(error: unknown) {
   return "Expense request PDF could not be read.";
 }
 
-async function loadDefaultPdfDocument(input: { data: Uint8Array; disableWorker: boolean }) {
-  const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as PdfJsModule;
-
-  return pdfjs.getDocument(input);
-}
-
 export async function extractTextFromPdf(
   buffer: Buffer,
-  loadPdfDocument: PdfLoader = loadDefaultPdfDocument,
+  loadPdfDocument: PdfLoader = getDocument as PdfLoader,
 ) {
   let loadingTask: PdfLoadingTask | null = null;
 
   try {
-    loadingTask = await loadPdfDocument({
+    loadingTask = loadPdfDocument({
       data: new Uint8Array(buffer),
       disableWorker: true,
     });

@@ -48,7 +48,6 @@ export const usersPaginationQuerySchema = z.object({
   ),
   organizationId: withOpenApiExample(openApiUuidSchema().optional(), OPENAPI_EXAMPLE_UUID),
 });
-export type UsersPaginationQuery = z.output<typeof usersPaginationQuerySchema>;
 
 export const updateUserBodySchema = withOpenApiExample(
   z

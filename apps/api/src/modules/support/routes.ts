@@ -18,7 +18,6 @@ import {
   getSupportTicketsSchema,
   markSupportTicketReadSchema,
   publishSupportTicketTypingSchema,
-  type SupportTicketsQuery,
   updateSupportTicketSchema,
   uploadSupportTicketImageSchema,
 } from "./support-tickets.schemas";
@@ -44,7 +43,7 @@ export const registerSupportTicketRoutes: FastifyPluginAsyncZodOpenApi = async (
     },
   );
 
-  app.get<{ Querystring: SupportTicketsQuery }>(
+  app.get(
     "/",
     {
       schema: getSupportTicketsSchema,
@@ -66,7 +65,7 @@ export const registerSupportTicketRoutes: FastifyPluginAsyncZodOpenApi = async (
     },
   );
 
-  app.get<{ Querystring: SupportTicketsQuery }>(
+  app.get(
     "/me",
     {
       schema: getMySupportTicketsSchema,

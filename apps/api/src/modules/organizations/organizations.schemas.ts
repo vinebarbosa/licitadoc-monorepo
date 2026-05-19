@@ -210,7 +210,6 @@ export const organizationsPaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
 });
-export type OrganizationsPaginationQuery = z.output<typeof organizationsPaginationQuerySchema>;
 
 export const createOrganizationBodySchema = withOpenApiExample(
   z
