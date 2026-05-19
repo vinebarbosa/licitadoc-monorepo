@@ -98,6 +98,7 @@ export const departmentsPaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
 });
+export type DepartmentsPaginationQuery = z.output<typeof departmentsPaginationQuerySchema>;
 
 export const createDepartmentBodySchema = withOpenApiExample(
   z

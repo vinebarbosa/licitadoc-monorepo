@@ -14,6 +14,7 @@ import {
   createProcessSchema,
   getProcessesSchema,
   getProcessSchema,
+  type ProcessesPaginationQuery,
   updateProcessSchema,
 } from "./processes.schemas";
 import { updateProcess } from "./update-process";
@@ -36,7 +37,7 @@ export const registerProcessRoutes: FastifyPluginAsyncZodOpenApi = async (app) =
     },
   );
 
-  app.get(
+  app.get<{ Querystring: ProcessesPaginationQuery }>(
     "/",
     {
       schema: getProcessesSchema,

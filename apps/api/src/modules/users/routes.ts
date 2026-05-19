@@ -10,12 +10,13 @@ import {
   deleteUserSchema,
   getUserSchema,
   getUsersSchema,
+  type UsersPaginationQuery,
   updateUserSchema,
 } from "./users.schemas";
 
 export const registerUserRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
   // User creation stays in the invite + auth flow; this module only manages stored users.
-  app.get(
+  app.get<{ Querystring: UsersPaginationQuery }>(
     "/",
     {
       schema: getUsersSchema,

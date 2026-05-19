@@ -381,6 +381,7 @@ export const processesPaginationQuerySchema = z.object({
   procurementMethod: z.string().optional().transform(normalizeNullableOptionalText),
   biddingModality: z.string().optional().transform(normalizeNullableOptionalText),
 });
+export type ProcessesPaginationQuery = z.output<typeof processesPaginationQuerySchema>;
 
 export const createProcessBodySchema = withOpenApiExample(
   z
