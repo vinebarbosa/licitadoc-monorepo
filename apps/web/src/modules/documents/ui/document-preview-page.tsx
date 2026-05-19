@@ -5,12 +5,14 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Pencil,
   Printer,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import { useAppShellHeader } from "@/modules/app-shell";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -35,6 +37,10 @@ import {
   getPreviewableDraftContent,
 } from "../model/documents";
 import { DocumentMarkdownPreview } from "./document-markdown-preview";
+import {
+  exportPagedPreviewToPdf,
+  getPagedPreviewPageElements,
+} from "./document-preview-pdf-export";
 import { getDocumentTiptapExtensions } from "./document-tiptap-extensions";
 import { DocumentTiptapPreview } from "./document-tiptap-preview";
 import {
@@ -101,7 +107,19 @@ function DocumentPreviewLoadingState() {
   );
 }
 
-function DocumentPreviewActions({ canPrint = false }: { canPrint?: boolean }) {
+function DocumentPreviewActions({
+  canExportPdf = false,
+  canPrint = false,
+  documentId,
+  isExportingPdf = false,
+  onExportPdf,
+}: {
+  canExportPdf?: boolean;
+  canPrint?: boolean;
+  documentId: string;
+  isExportingPdf?: boolean;
+  onExportPdf: () => void;
+}) {
   const navigate = useNavigate();
 
   function handleBack() {
@@ -125,6 +143,12 @@ function DocumentPreviewActions({ canPrint = false }: { canPrint?: boolean }) {
       </div>
 
       <div className="flex gap-2">
+        <Button asChild type="button" variant="outline" size="sm">
+          <Link to={`/app/documento/${documentId}`}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Editar
+          </Link>
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -139,9 +163,14 @@ function DocumentPreviewActions({ canPrint = false }: { canPrint?: boolean }) {
           <FileText className="h-4 w-4 mr-2" />
           Exportar DOCX
         </Button>
-        <Button type="button" size="sm" disabled={!canPrint} onClick={() => window.print()}>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!canExportPdf || isExportingPdf}
+          onClick={onExportPdf}
+        >
           <Download className="h-4 w-4 mr-2" />
-          Exportar PDF
+          {isExportingPdf ? "Exportando..." : "Exportar PDF"}
         </Button>
       </div>
     </div>
@@ -636,6 +665,7 @@ function DocumentPagedBody({
 
 export function DocumentPreviewPageUI() {
   const { documentId = "" } = useParams();
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const documentQuery = useDocumentDetail(documentId);
   const document = documentQuery.data;
   const refetchDocument = useCallback(() => {
@@ -669,6 +699,24 @@ export function DocumentPreviewPageUI() {
     endpointRef: liveWritingEndpointRef,
     visibleContentLength: liveDraftContent?.length ?? 0,
   });
+  const handleExportPdf = useCallback(async () => {
+    if (!document || isExportingPdf) {
+      return;
+    }
+
+    setIsExportingPdf(true);
+
+    try {
+      await exportPagedPreviewToPdf({
+        fileName: document.name,
+        pages: getPagedPreviewPageElements(scrollContainerRef.current),
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível exportar o PDF.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [document, isExportingPdf, scrollContainerRef]);
 
   if (!documentId) {
     return (
@@ -729,7 +777,13 @@ export function DocumentPreviewPageUI() {
     >
       <div className="p-4 sm:p-6" data-document-preview-workspace>
         <div className="mx-auto max-w-5xl space-y-6" data-document-preview-content>
-          <DocumentPreviewActions canPrint={canUsePersistedDocument} />
+          <DocumentPreviewActions
+            canExportPdf={canUsePersistedDocument}
+            canPrint={canUsePersistedDocument}
+            documentId={document.id}
+            isExportingPdf={isExportingPdf}
+            onExportPdf={handleExportPdf}
+          />
 
           {document.status === "generating" ? (
             <>

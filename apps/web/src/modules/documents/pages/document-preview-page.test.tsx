@@ -2,6 +2,28 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { exportPagedPreviewToPdfMock, toastErrorMock } = vi.hoisted(() => ({
+  exportPagedPreviewToPdfMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+}));
+
+vi.mock("@/modules/documents/ui/document-preview-pdf-export", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/modules/documents/ui/document-preview-pdf-export")>();
+
+  return {
+    ...actual,
+    exportPagedPreviewToPdf: exportPagedPreviewToPdfMock,
+  };
+});
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: toastErrorMock,
+  },
+}));
+
 import { DocumentPreviewPage } from "@/modules/documents";
 import {
   documentDetailResponse,
@@ -104,6 +126,9 @@ function expectPrintOnlyLetterhead(url = purezaLetterheadResolvedUrl) {
 
 beforeEach(() => {
   MockEventSource.instances = [];
+  exportPagedPreviewToPdfMock.mockReset();
+  exportPagedPreviewToPdfMock.mockResolvedValue(undefined);
+  toastErrorMock.mockReset();
   vi.stubGlobal("EventSource", MockEventSource);
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal(
@@ -130,7 +155,10 @@ function expectPreviewActions(documentId: string) {
   expect(screen.getByRole("button", { name: "Voltar" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /Voltar para documentos/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /Voltar para edição/ })).not.toBeInTheDocument();
-  expect(document.querySelector(`a[href="/app/documento/${documentId}"]`)).toBeNull();
+  expect(screen.getByRole("link", { name: "Editar" })).toHaveAttribute(
+    "href",
+    `/app/documento/${documentId}`,
+  );
   expect(screen.getByRole("button", { name: "Imprimir" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Exportar DOCX" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Exportar PDF" })).toBeInTheDocument();
@@ -263,7 +291,7 @@ describe("DocumentPreviewPage", () => {
     expect(screen.getAllByText(/Contratacao de Servicos de TI/).length).toBeGreaterThan(0);
   });
 
-  it("prints the official paged preview output from print and PDF actions", async () => {
+  it("prints from print action and exports the official paged preview output from PDF action", async () => {
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => undefined);
 
     server.use(
@@ -293,7 +321,96 @@ describe("DocumentPreviewPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Imprimir" }));
     fireEvent.click(screen.getByRole("button", { name: "Exportar PDF" }));
 
-    expect(printSpy).toHaveBeenCalledTimes(2);
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(exportPagedPreviewToPdfMock).toHaveBeenCalledTimes(1);
+    });
+    expect(exportPagedPreviewToPdfMock).toHaveBeenCalledWith({
+      fileName: documentDetailResponse.name,
+      pages: expect.any(Array),
+    });
+    expect(exportPagedPreviewToPdfMock.mock.calls[0]?.[0].pages).toHaveLength(1);
+    printSpy.mockRestore();
+  });
+
+  it("guards PDF export while a download is already running", async () => {
+    let resolveExport: () => void = () => undefined;
+    exportPagedPreviewToPdfMock.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveExport = resolve;
+      }),
+    );
+
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json({
+          ...documentDetailResponse,
+          draftContentJson: null,
+          letterhead: purezaLetterhead,
+        }),
+      ),
+    );
+
+    renderDocumentPreviewPage();
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /DOCUMENTO DE FORMALIZACAO DE DEMANDA/,
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Exportar PDF" }));
+
+    const pendingButton = await screen.findByRole("button", { name: "Exportando..." });
+    expect(pendingButton).toBeDisabled();
+
+    fireEvent.click(pendingButton);
+
+    expect(exportPagedPreviewToPdfMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveExport();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Exportar PDF" })).toBeEnabled();
+    });
+  });
+
+  it("shows an error toast when PDF export fails", async () => {
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => undefined);
+    exportPagedPreviewToPdfMock.mockRejectedValueOnce(
+      new Error("O preview paginado ainda não está pronto para exportação."),
+    );
+
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json({
+          ...documentDetailResponse,
+          draftContentJson: null,
+          letterhead: purezaLetterhead,
+        }),
+      ),
+    );
+
+    renderDocumentPreviewPage();
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /DOCUMENTO DE FORMALIZACAO DE DEMANDA/,
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Exportar PDF" }));
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "O preview paginado ainda não está pronto para exportação.",
+      );
+    });
+    expect(printSpy).not.toHaveBeenCalled();
     printSpy.mockRestore();
   });
 
@@ -628,7 +745,6 @@ describe("DocumentPreviewPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
 
     expect(await screen.findByText("Documentos")).toBeInTheDocument();
-    expect(document.querySelector('a[href="/app/documento/document-1"]')).toBeNull();
   });
 
   it("renders institutional administrative fields and list emphasis", async () => {
