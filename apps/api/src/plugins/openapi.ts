@@ -1,5 +1,4 @@
 import swagger from "@fastify/swagger";
-import ScalarApiReference from "@scalar/fastify-api-reference";
 import fp from "fastify-plugin";
 import { fastifyZodOpenApiPlugin, fastifyZodOpenApiTransformers } from "fastify-zod-openapi";
 import { loadAuthOpenApiDocument, mergeOpenApiDocuments } from "./openapi-helpers";
@@ -61,11 +60,15 @@ export const registerOpenApiPlugin = fp(async (app) => {
     authOpenApiDocument = (await loadAuthOpenApiDocument(app)) as Record<string, unknown> | null;
   });
 
-  await app.register(ScalarApiReference, {
-    routePrefix: "/docs",
-    configuration: {
-      title: "Licitadoc API",
-      url: "/openapi.json",
-    },
-  });
+  if (process.env.NODE_ENV !== "production") {
+    const { default: ScalarApiReference } = await import("@scalar/fastify-api-reference");
+
+    await app.register(ScalarApiReference, {
+      routePrefix: "/docs",
+      configuration: {
+        title: "Licitadoc API",
+        url: "/openapi.json",
+      },
+    });
+  }
 });
