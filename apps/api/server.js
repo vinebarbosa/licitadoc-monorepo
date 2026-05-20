@@ -1,4 +1,4 @@
 import Fastify from "fastify";
-import "./app/server";
+import "./dist/server.js";
 
 void Fastify;
