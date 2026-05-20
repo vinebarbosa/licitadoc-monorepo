@@ -1,6 +1,8 @@
 import { config as loadEnv } from "dotenv";
 import { parseApiEnv } from "../plugins/env";
 import { S3FileStorageProvider } from "../shared/storage/s3-provider";
+import type { FileStorageProvider } from "../shared/storage/types";
+import { VercelBlobStorageProvider } from "../shared/storage/vercel-blob-provider";
 
 async function streamToBuffer(stream: NodeJS.ReadableStream) {
   const chunks: Buffer[] = [];
@@ -16,14 +18,20 @@ async function main() {
   loadEnv();
 
   const env = parseApiEnv(process.env);
-  const storage = new S3FileStorageProvider({
-    accessKeyId: env.STORAGE_S3_ACCESS_KEY_ID,
-    bucket: env.STORAGE_S3_BUCKET,
-    endpoint: env.STORAGE_S3_ENDPOINT,
-    forcePathStyle: env.STORAGE_S3_FORCE_PATH_STYLE,
-    region: env.STORAGE_S3_REGION,
-    secretAccessKey: env.STORAGE_S3_SECRET_ACCESS_KEY,
-  });
+  const storage: FileStorageProvider =
+    env.STORAGE_PROVIDER === "vercel-blob"
+      ? new VercelBlobStorageProvider({
+          access: env.STORAGE_VERCEL_BLOB_ACCESS,
+          token: env.BLOB_READ_WRITE_TOKEN,
+        })
+      : new S3FileStorageProvider({
+          accessKeyId: env.STORAGE_S3_ACCESS_KEY_ID,
+          bucket: env.STORAGE_S3_BUCKET,
+          endpoint: env.STORAGE_S3_ENDPOINT,
+          forcePathStyle: env.STORAGE_S3_FORCE_PATH_STYLE,
+          region: env.STORAGE_S3_REGION,
+          secretAccessKey: env.STORAGE_S3_SECRET_ACCESS_KEY,
+        });
   const expectedBody = Buffer.from(`licitadoc storage verification ${new Date().toISOString()}`);
   const storedObject = await storage.storeSupportTicketImage({
     buffer: expectedBody,
@@ -41,7 +49,7 @@ async function main() {
     }
 
     console.log("Storage verification succeeded.");
-    console.log(`Endpoint: ${env.STORAGE_S3_ENDPOINT}`);
+    console.log(`Provider: ${env.STORAGE_PROVIDER}`);
     console.log(`Bucket: ${storedObject.bucket}`);
     console.log(`Object key: ${storedObject.key}`);
   } finally {
@@ -58,8 +66,7 @@ main().catch((error) => {
   const env = parseApiEnv(process.env);
 
   console.error("Storage verification failed.");
-  console.error(`Endpoint: ${env.STORAGE_S3_ENDPOINT}`);
-  console.error(`Bucket: ${env.STORAGE_S3_BUCKET}`);
+  console.error(`Provider: ${env.STORAGE_PROVIDER}`);
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });

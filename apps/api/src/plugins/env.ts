@@ -31,13 +31,15 @@ const envSchema = z.object({
   TEXT_GENERATION_API_KEY: z.string().optional(),
   TEXT_GENERATION_BASE_URL: z.string().optional(),
   TEXT_GENERATION_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
-  STORAGE_PROVIDER: z.string().default("s3"),
+  STORAGE_PROVIDER: z.enum(["s3", "vercel-blob"]).default("s3"),
   STORAGE_S3_ENDPOINT: z.string().default("http://localhost:4566"),
   STORAGE_S3_REGION: z.string().default("us-east-1"),
   STORAGE_S3_BUCKET: z.string().default("licitadoc-expense-requests"),
   STORAGE_S3_ACCESS_KEY_ID: z.string().default("test"),
   STORAGE_S3_SECRET_ACCESS_KEY: z.string().default("test"),
   STORAGE_S3_FORCE_PATH_STYLE: parseBooleanEnv(true),
+  STORAGE_VERCEL_BLOB_ACCESS: z.enum(["private", "public"]).default("public"),
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
   EXPENSE_REQUEST_PDF_MAX_BYTES: z.coerce
     .number()
     .int()
