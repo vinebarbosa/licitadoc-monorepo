@@ -187,18 +187,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm
+      - name: Install pnpm and Vercel CLI
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
         run: |
           npm install --global pnpm@${PNPM_VERSION}
-          pnpm_bin_dir="$(dirname "$(command -v pnpm)")"
-          echo "PNPM_BIN_DIR=${pnpm_bin_dir}" >> "${GITHUB_ENV}"
-          echo "${pnpm_bin_dir}" >> "${GITHUB_PATH}"
+          export PNPM_HOME="${RUNNER_TEMP}/pnpm-home"
+          mkdir -p "${PNPM_HOME}"
+          echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
+          echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
+          echo "$(dirname "$(command -v pnpm)")" >> "${GITHUB_PATH}"
+          pnpm config set global-bin-dir "${PNPM_HOME}"
+          pnpm add --global vercel@latest
           pnpm --version
-
-      - name: Install Vercel CLI
-        if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
-        run: npm install --global vercel@latest
+          "${PNPM_HOME}/vercel" --version
 
       - name: Pull Vercel preview settings
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
@@ -206,7 +207,10 @@ jobs:
 
       - name: Build Vercel preview output
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
-        run: PATH="${PNPM_BIN_DIR}:${PATH}" vercel build --cwd apps/api --token="${VERCEL_TOKEN}"
+        run: |
+          command -v pnpm
+          pnpm --version
+          vercel build --cwd apps/api --token="${VERCEL_TOKEN}"
 
       - name: Deploy Vercel preview
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
@@ -246,22 +250,27 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm
+      - name: Install pnpm and Vercel CLI
         run: |
           npm install --global pnpm@${PNPM_VERSION}
-          pnpm_bin_dir="$(dirname "$(command -v pnpm)")"
-          echo "PNPM_BIN_DIR=${pnpm_bin_dir}" >> "${GITHUB_ENV}"
-          echo "${pnpm_bin_dir}" >> "${GITHUB_PATH}"
+          export PNPM_HOME="${RUNNER_TEMP}/pnpm-home"
+          mkdir -p "${PNPM_HOME}"
+          echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
+          echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
+          echo "$(dirname "$(command -v pnpm)")" >> "${GITHUB_PATH}"
+          pnpm config set global-bin-dir "${PNPM_HOME}"
+          pnpm add --global vercel@latest
           pnpm --version
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+          "${PNPM_HOME}/vercel" --version
 
       - name: Pull Vercel production settings
         run: vercel pull --yes --environment=production --cwd apps/api --token="${VERCEL_TOKEN}"
 
       - name: Build Vercel production output
-        run: PATH="${PNPM_BIN_DIR}:${PATH}" vercel build --prod --cwd apps/api --token="${VERCEL_TOKEN}"
+        run: |
+          command -v pnpm
+          pnpm --version
+          vercel build --prod --cwd apps/api --token="${VERCEL_TOKEN}"
 
       - name: Deploy Vercel production
         id: deploy
