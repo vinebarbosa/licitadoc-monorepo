@@ -18,6 +18,7 @@ import {
   createNormalizedLetterheadFileForImport,
   getLetterheadImageDimensions,
   getOrganizationLetterheadImage,
+  normalizeLetterheadUpload,
   uploadOrganizationLetterhead,
 } from "./organization-letterhead";
 import {
@@ -99,6 +100,26 @@ function parseUpdateOrganizationInput(
   input: Parameters<typeof updateOrganizationBodySchema.parse>[0],
 ) {
   return updateOrganizationBodySchema.parse(input);
+}
+
+function createOrganizationPayload(overrides: Record<string, unknown> = {}) {
+  return parseCreateOrganizationInput({
+    name: "Prefeitura de Exemplo",
+    slug: "Prefeitura de Exemplo",
+    officialName: "Prefeitura Municipal de Exemplo",
+    cnpj: "12.345.678/0001-99",
+    city: "Exemplo",
+    state: "ce",
+    address: "Rua Principal, 100",
+    zipCode: "60000-000",
+    phone: "(85) 3333-0000",
+    institutionalEmail: "CONTATO@EXEMPLO.CE.GOV.BR",
+    website: "https://exemplo.ce.gov.br",
+    logoUrl: "   ",
+    authorityName: "Maria Silva",
+    authorityRole: "Prefeita",
+    ...overrides,
+  });
 }
 
 function createPngBuffer(width: number, height: number) {
@@ -394,16 +415,12 @@ test("getCurrentOrganization rejects admins without a current organization", asy
 });
 
 test("organization schemas canonicalize create payloads while preserving formatting", () => {
-  const parsed = parseCreateOrganizationInput({
+  const parsed = createOrganizationPayload({
     name: "  Prefeitura de Exemplo  ",
     slug: "  Prefeitura de Exemplo  ",
     officialName: "  Prefeitura Municipal de Exemplo  ",
-    cnpj: "12.345.678/0001-99",
     city: "  Exemplo  ",
-    state: "ce",
     address: "  Rua Principal, 100  ",
-    zipCode: "60000-000",
-    phone: "  (85) 3333-0000  ",
     institutionalEmail: "  CONTATO@EXEMPLO.CE.GOV.BR  ",
     website: "   ",
     logoUrl: null,
@@ -510,22 +527,7 @@ test("createOrganization creates the prefeitura and links the current organizati
       organizationId: null,
     },
     db,
-    organization: parseCreateOrganizationInput({
-      name: "Prefeitura de Exemplo",
-      slug: "Prefeitura de Exemplo",
-      officialName: "Prefeitura Municipal de Exemplo",
-      cnpj: "12.345.678/0001-99",
-      city: "Exemplo",
-      state: "ce",
-      address: "Rua Principal, 100",
-      zipCode: "60000-000",
-      phone: "(85) 3333-0000",
-      institutionalEmail: "CONTATO@EXEMPLO.CE.GOV.BR",
-      website: "https://exemplo.ce.gov.br",
-      logoUrl: "   ",
-      authorityName: "Maria Silva",
-      authorityRole: "Prefeita",
-    }),
+    organization: createOrganizationPayload(),
   });
 
   assert.equal(insertedValues?.slug, "prefeitura-de-exemplo");
@@ -542,6 +544,149 @@ test("createOrganization creates the prefeitura and links the current organizati
   assert.equal(updatedUserValues?.temporaryPasswordCreatedAt, null);
   assert.equal(updatedUserValues?.temporaryPasswordExpiresAt, null);
   assert.equal(response.createdByUserId, "owner_user");
+});
+
+test("createOrganization stores an optional onboarding letterhead before completing onboarding", async () => {
+  let updatedUserValues: Record<string, unknown> | undefined;
+  let capturedLetterheadValues: Record<string, unknown> | undefined;
+  const storedObjects: Array<{
+    contentType: string;
+    fileName: string;
+    organizationId: string;
+    sizeBytes: number;
+  }> = [];
+  const createdOrganization = createOrganizationRow();
+
+  const tx = {
+    select: createNoConflictSelect(),
+    query: {
+      users: {
+        findFirst: async () => createUserRow(),
+      },
+    },
+    insert: () => ({
+      values: () => ({
+        returning: async () => [createdOrganization],
+      }),
+    }),
+    update: () => ({
+      set: (values: Record<string, unknown>) => {
+        if ("letterheadUrl" in values) {
+          capturedLetterheadValues = values;
+
+          return {
+            where: () => ({
+              returning: async () => [
+                createOrganizationRow({
+                  letterheadUrl: String(values.letterheadUrl),
+                }),
+              ],
+            }),
+          };
+        }
+
+        updatedUserValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [{ id: "owner_user" }],
+          }),
+        };
+      },
+    }),
+  };
+
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+  const letterheadFile = await normalizeLetterheadUpload({
+    body: createLetterheadUploadBody(),
+    maxBytes: 5 * 1024 * 1024,
+  });
+
+  const response = await createOrganization({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: null,
+    },
+    db,
+    letterheadFile,
+    organization: createOrganizationPayload(),
+    storage: createLetterheadStorageStub({ storedObjects }),
+  });
+
+  assert.equal(storedObjects.length, 1);
+  assert.equal(storedObjects[0]?.organizationId, createdOrganization.id);
+  assert.equal(
+    capturedLetterheadValues?.letterheadUrl,
+    `/api/organizations/${createdOrganization.id}/letterhead/image`,
+  );
+  assert.equal(updatedUserValues?.onboardingStatus, "complete");
+  assert.deepEqual(response.letterhead, {
+    url: `/api/organizations/${createdOrganization.id}/letterhead/image`,
+  });
+});
+
+test("createOrganization does not complete onboarding when letterhead storage fails", async () => {
+  let updatedUserValues: Record<string, unknown> | undefined;
+  const tx = {
+    select: createNoConflictSelect(),
+    query: {
+      users: {
+        findFirst: async () => createUserRow(),
+      },
+    },
+    insert: () => ({
+      values: () => ({
+        returning: async () => [createOrganizationRow()],
+      }),
+    }),
+    update: () => ({
+      set: (values: Record<string, unknown>) => {
+        updatedUserValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [{ id: "owner_user" }],
+          }),
+        };
+      },
+    }),
+  };
+  const db = {
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+  const letterheadFile = await normalizeLetterheadUpload({
+    body: createLetterheadUploadBody(),
+    maxBytes: 5 * 1024 * 1024,
+  });
+  const storage = {
+    ...createLetterheadStorageStub(),
+    storeOrganizationLetterhead: async () => {
+      throw new Error("storage unavailable");
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      createOrganization({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: null,
+        },
+        db,
+        letterheadFile,
+        organization: createOrganizationPayload(),
+        storage,
+      }),
+    /storage unavailable/,
+  );
+
+  assert.equal(updatedUserValues, undefined);
 });
 
 test("createOrganization rejects owners before profile onboarding is completed", async () => {
@@ -567,19 +712,9 @@ test("createOrganization rejects owners before profile onboarding is completed",
           organizationId: null,
         },
         db,
-        organization: parseCreateOrganizationInput({
-          name: "Prefeitura de Exemplo",
-          slug: "prefeitura-de-exemplo",
-          officialName: "Prefeitura Municipal de Exemplo",
-          cnpj: "12.345.678/0001-99",
-          city: "Exemplo",
-          state: "CE",
-          address: "Rua Principal, 100",
-          zipCode: "60000-000",
-          phone: "(85) 3333-0000",
-          institutionalEmail: "contato@exemplo.ce.gov.br",
-          authorityName: "Maria Silva",
-          authorityRole: "Prefeita",
+        organization: createOrganizationPayload({
+          website: undefined,
+          logoUrl: undefined,
         }),
       }),
     (error: unknown) =>
@@ -612,19 +747,9 @@ test("createOrganization rejects actors who already belong to an organization", 
           organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
         },
         db,
-        organization: parseCreateOrganizationInput({
-          name: "Prefeitura de Exemplo",
-          slug: "prefeitura-de-exemplo",
-          officialName: "Prefeitura Municipal de Exemplo",
-          cnpj: "12.345.678/0001-99",
-          city: "Exemplo",
-          state: "CE",
-          address: "Rua Principal, 100",
-          zipCode: "60000-000",
-          phone: "(85) 3333-0000",
-          institutionalEmail: "contato@exemplo.ce.gov.br",
-          authorityName: "Maria Silva",
-          authorityRole: "Prefeita",
+        organization: createOrganizationPayload({
+          website: undefined,
+          logoUrl: undefined,
         }),
       }),
     BadRequestError,
@@ -654,19 +779,9 @@ test("createOrganization rejects actors with a different role", async () => {
           organizationId: null,
         },
         db,
-        organization: parseCreateOrganizationInput({
-          name: "Prefeitura de Exemplo",
-          slug: "prefeitura-de-exemplo",
-          officialName: "Prefeitura Municipal de Exemplo",
-          cnpj: "12.345.678/0001-99",
-          city: "Exemplo",
-          state: "CE",
-          address: "Rua Principal, 100",
-          zipCode: "60000-000",
-          phone: "(85) 3333-0000",
-          institutionalEmail: "contato@exemplo.ce.gov.br",
-          authorityName: "Maria Silva",
-          authorityRole: "Prefeita",
+        organization: createOrganizationPayload({
+          website: undefined,
+          logoUrl: undefined,
         }),
       }),
     ForbiddenError,
@@ -696,19 +811,10 @@ test("createOrganization rejects semantically duplicated cnpj with different pun
           organizationId: null,
         },
         db,
-        organization: parseCreateOrganizationInput({
-          name: "Prefeitura de Exemplo",
-          slug: "prefeitura-de-exemplo",
-          officialName: "Prefeitura Municipal de Exemplo",
+        organization: createOrganizationPayload({
           cnpj: "12345678000199",
-          city: "Exemplo",
-          state: "CE",
-          address: "Rua Principal, 100",
-          zipCode: "60000-000",
-          phone: "(85) 3333-0000",
-          institutionalEmail: "contato@exemplo.ce.gov.br",
-          authorityName: "Maria Silva",
-          authorityRole: "Prefeita",
+          website: undefined,
+          logoUrl: undefined,
         }),
       }),
     ConflictError,

@@ -1,3 +1,5 @@
+import { renderInviteEmailHtml, renderInviteEmailText } from "./invite-email-template";
+
 type InviteRole = "organization_owner" | "member";
 
 export type InviteEmailInput = {
@@ -83,6 +85,8 @@ export class ResendInviteMailer implements InviteMailer {
   }
 
   async sendInviteEmail(input: InviteEmailInput) {
+    const html = await renderInviteEmailHtml(input);
+
     const response = await this.fetchFn(`${RESEND_API_BASE_URL}/emails`, {
       method: "POST",
       headers: {
@@ -95,8 +99,8 @@ export class ResendInviteMailer implements InviteMailer {
         from: this.fromEmail,
         to: [input.to],
         subject: "Seu convite para acessar o Licitadoc",
-        html: buildInviteEmailHtml(input),
-        text: buildInviteEmailText(input),
+        html,
+        text: renderInviteEmailText(input),
         tags: [
           {
             name: "category",
@@ -116,61 +120,4 @@ export class ResendInviteMailer implements InviteMailer {
       );
     }
   }
-}
-
-function buildInviteEmailText(input: InviteEmailInput) {
-  if (input.temporaryPassword) {
-    return [
-      "Voce foi convidado para acessar o Licitadoc.",
-      `Perfil: ${getRoleLabel(input.role)}.`,
-      `Acesse o sistema: ${input.signInUrl ?? input.inviteUrl}`,
-      `Senha temporaria: ${input.temporaryPassword}`,
-      "No primeiro acesso, voce devera informar seu nome e definir uma nova senha.",
-      `Este convite expira em ${input.expiresAt.toISOString()}.`,
-    ].join("\n");
-  }
-
-  return [
-    "Voce foi convidado para acessar o Licitadoc.",
-    `Perfil: ${getRoleLabel(input.role)}.`,
-    `Acesse o convite: ${input.inviteUrl}`,
-    `Este convite expira em ${input.expiresAt.toISOString()}.`,
-  ].join("\n");
-}
-
-function buildInviteEmailHtml(input: InviteEmailInput) {
-  const targetUrl = input.temporaryPassword
-    ? (input.signInUrl ?? input.inviteUrl)
-    : input.inviteUrl;
-  const escapedInviteUrl = escapeHtml(targetUrl);
-
-  if (input.temporaryPassword) {
-    return [
-      "<p>Voce foi convidado para acessar o Licitadoc.</p>",
-      `<p>Perfil: <strong>${escapeHtml(getRoleLabel(input.role))}</strong>.</p>`,
-      `<p><a href="${escapedInviteUrl}">Acessar o sistema</a></p>`,
-      `<p>Senha temporaria: <strong>${escapeHtml(input.temporaryPassword)}</strong></p>`,
-      "<p>No primeiro acesso, voce devera informar seu nome e definir uma nova senha.</p>",
-      `<p>Este convite expira em ${escapeHtml(input.expiresAt.toISOString())}.</p>`,
-    ].join("");
-  }
-
-  return [
-    "<p>Voce foi convidado para acessar o Licitadoc.</p>",
-    `<p>Perfil: <strong>${escapeHtml(getRoleLabel(input.role))}</strong>.</p>`,
-    `<p><a href="${escapedInviteUrl}">Aceitar convite</a></p>`,
-    `<p>Este convite expira em ${escapeHtml(input.expiresAt.toISOString())}.</p>`,
-  ].join("");
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function getRoleLabel(role: InviteRole) {
-  return role === "organization_owner" ? "gestor da organizacao" : "membro";
 }

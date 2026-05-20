@@ -8,8 +8,8 @@ export const registerMultipartPlugin = fp(async (app) => {
     limits: {
       files: 1,
       fileSize: app.config.EXPENSE_REQUEST_PDF_MAX_BYTES,
-      fields: 10,
-      parts: 11,
+      fields: 16,
+      parts: 17,
     },
   });
 });

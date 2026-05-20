@@ -4,6 +4,11 @@ import type { Actor } from "../../authorization/actor";
 import { organizations, users } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
+import type { FileStorageProvider } from "../../shared/storage/types";
+import {
+  type NormalizedLetterheadUpload,
+  setOrganizationLetterhead,
+} from "./organization-letterhead";
 import { canCreateOrganization } from "./organizations.policies";
 import type { CreateOrganizationInput } from "./organizations.schemas";
 import {
@@ -15,11 +20,23 @@ import {
 type Input = {
   actor: Actor;
   db: FastifyInstance["db"];
+  letterheadFile?: NormalizedLetterheadUpload;
+  storage?: FileStorageProvider;
   organization: CreateOrganizationInput;
 };
 
-export async function createOrganization({ actor, db, organization }: Input) {
+export async function createOrganization({
+  actor,
+  db,
+  letterheadFile,
+  organization,
+  storage,
+}: Input) {
   canCreateOrganization(actor);
+
+  if (letterheadFile && !storage) {
+    throw new BadRequestError("Letterhead storage is not configured.");
+  }
 
   return db.transaction(async (tx) => {
     const user = await tx.query.users.findFirst({
@@ -76,11 +93,21 @@ export async function createOrganization({ actor, db, organization }: Input) {
       throw new NotFoundError("Organization could not be created.");
     }
 
+    const organizationWithLetterhead =
+      letterheadFile && storage
+        ? await setOrganizationLetterhead({
+            db: tx,
+            file: letterheadFile,
+            organization: createdOrganization,
+            storage,
+          })
+        : createdOrganization;
+
     const [updatedUser] = await tx
       .update(users)
       .set({
         onboardingStatus: "complete",
-        organizationId: createdOrganization.id,
+        organizationId: organizationWithLetterhead.id,
         temporaryPasswordCreatedAt: null,
         temporaryPasswordExpiresAt: null,
         updatedAt: new Date(),
@@ -94,6 +121,6 @@ export async function createOrganization({ actor, db, organization }: Input) {
       throw new NotFoundError("User not found.");
     }
 
-    return serializeOrganization(createdOrganization);
+    return serializeOrganization(organizationWithLetterhead);
   });
 }

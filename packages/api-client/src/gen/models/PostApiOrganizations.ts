@@ -233,6 +233,11 @@ export type PostApiOrganizationsMutationRequest = {
   website?: string | null;
   logoUrl?: string | null;
   /**
+   * @description Optional organization letterhead image file
+   * @type unknown | undefined, binary
+   */
+  letterhead?: Blob;
+  /**
    * @type string
    */
   authorityName: string;

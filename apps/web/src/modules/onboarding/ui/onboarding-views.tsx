@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  FileImage,
   Globe,
   Hash,
   Lock,
@@ -14,20 +15,16 @@ import {
   Phone,
   Shield,
   Sparkles,
+  Upload,
   User,
   Users,
+  X,
 } from "lucide-react";
 import type { ElementType, FormEventHandler, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/shared/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
@@ -56,6 +53,21 @@ export type OrganizationFormData = {
   authorityName: string;
   authorityRole: string;
 };
+
+export const ORGANIZATION_LETTERHEAD_ACCEPT = "image/png,image/jpeg,image/webp";
+export const ORGANIZATION_LETTERHEAD_MAX_BYTES = 5 * 1024 * 1024;
+
+export function isAcceptedOrganizationLetterheadImage(file: File) {
+  return file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/webp";
+}
+
+export function formatOrganizationLetterheadFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+}
 
 export const brazilianStates = [
   "AC",
@@ -165,13 +177,7 @@ function getInitials(fullName: string, fallbackEmail: string) {
     .join("");
 }
 
-function OnboardingHeader({
-  email,
-  fullName,
-}: {
-  email: string;
-  fullName?: string;
-}) {
+function OnboardingHeader({ email, fullName }: { email: string; fullName?: string }) {
   const initials = getInitials(fullName ?? "", email);
 
   return (
@@ -203,13 +209,13 @@ function OnboardingHeader({
 
 function StepIndicator({
   currentStep,
-  role,
+  onboardingRole,
 }: {
   currentStep: OnboardingStep;
-  role: OnboardingRole;
+  onboardingRole: OnboardingRole;
 }) {
   const steps =
-    role === "organization_owner"
+    onboardingRole === "organization_owner"
       ? [
           { id: "profile", label: "Perfil" },
           { id: "organization", label: "Organização" },
@@ -341,7 +347,9 @@ function FormSection({
           </div>
           <div>
             <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-            {description ? <CardDescription className="text-xs">{description}</CardDescription> : null}
+            {description ? (
+              <CardDescription className="text-xs">{description}</CardDescription>
+            ) : null}
           </div>
         </div>
       </CardHeader>
@@ -403,7 +411,7 @@ export function ProfileOnboardingView({
 
       <main className="container mx-auto max-w-2xl px-4 py-12">
         <div className="mb-10">
-          <StepIndicator currentStep="profile" role={role} />
+          <StepIndicator currentStep="profile" onboardingRole={role} />
         </div>
 
         <div className="mb-8 text-center">
@@ -507,8 +515,7 @@ export function ProfileOnboardingView({
                       )}
                     </button>
                   </div>
-                  {formData.confirmPassword &&
-                  formData.password !== formData.confirmPassword ? (
+                  {formData.confirmPassword && formData.password !== formData.confirmPassword ? (
                     <p className="text-xs text-red-500">As senhas precisam ser iguais.</p>
                   ) : null}
                 </div>
@@ -520,7 +527,9 @@ export function ProfileOnboardingView({
                     <Shield className="h-4 w-4 text-primary" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-medium text-foreground">Seu acesso será ativado agora</h2>
+                    <h2 className="text-sm font-medium text-foreground">
+                      Seu acesso será ativado agora
+                    </h2>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                       Depois de concluir esta etapa, você segue para a configuração final do seu
                       ambiente.
@@ -529,7 +538,12 @@ export function ProfileOnboardingView({
                 </div>
               </div>
 
-              <Button type="submit" className="w-full sm:w-auto" size="lg" disabled={!isValid || isSubmitting}>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                size="lg"
+                disabled={!isValid || isSubmitting}
+              >
                 {isSubmitting ? "Salvando..." : "Continuar"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -545,19 +559,29 @@ export function OrganizationOnboardingView({
   email,
   fullName,
   formData,
+  letterheadError,
+  letterheadFile,
+  letterheadInputKey,
   isSubmitting = false,
   errorMessage,
   backHref,
   onFormDataChange,
+  onLetterheadChange,
+  onRemoveLetterhead,
   onSubmit,
 }: {
   email: string;
   fullName: string;
   formData: OrganizationFormData;
+  letterheadError?: string | null;
+  letterheadFile?: File | null;
+  letterheadInputKey?: number;
   isSubmitting?: boolean;
   errorMessage?: string | null;
   backHref: string;
   onFormDataChange: (nextData: OrganizationFormData) => void;
+  onLetterheadChange?: (files: FileList | null) => void;
+  onRemoveLetterhead?: () => void;
   onSubmit: FormEventHandler<HTMLFormElement>;
 }) {
   const isValid =
@@ -572,7 +596,8 @@ export function OrganizationOnboardingView({
     formData.phone.replace(/\D/g, "").length >= 10 &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim()) &&
     formData.authorityName.trim().length >= 3 &&
-    formData.authorityRole.trim().length >= 3;
+    formData.authorityRole.trim().length >= 3 &&
+    !letterheadError;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -580,7 +605,7 @@ export function OrganizationOnboardingView({
 
       <main className="container mx-auto max-w-3xl px-4 py-10">
         <div className="mb-8">
-          <StepIndicator currentStep="organization" role="organization_owner" />
+          <StepIndicator currentStep="organization" onboardingRole="organization_owner" />
         </div>
 
         <div className="mb-8 text-center">
@@ -610,9 +635,7 @@ export function OrganizationOnboardingView({
                   id="name"
                   placeholder="Ex: Prefeitura de São Paulo"
                   value={formData.name}
-                  onChange={(event) =>
-                    onFormDataChange({ ...formData, name: event.target.value })
-                  }
+                  onChange={(event) => onFormDataChange({ ...formData, name: event.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -707,9 +730,7 @@ export function OrganizationOnboardingView({
                 id="address"
                 placeholder="Rua, número e complemento"
                 value={formData.address}
-                onChange={(event) =>
-                  onFormDataChange({ ...formData, address: event.target.value })
-                }
+                onChange={(event) => onFormDataChange({ ...formData, address: event.target.value })}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -806,6 +827,66 @@ export function OrganizationOnboardingView({
                   onChange={(event) =>
                     onFormDataChange({ ...formData, authorityRole: event.target.value })
                   }
+                />
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Papel timbrado"
+            description="Imagem oficial usada nos documentos impressos"
+            icon={FileImage}
+          >
+            <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background">
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <Label htmlFor="letterhead" className="text-sm font-medium">
+                      Papel timbrado da organização
+                    </Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      PNG, JPEG ou WebP até 5 MB. Você pode concluir sem anexar.
+                    </p>
+                    {letterheadFile ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+                        <FileImage className="h-4 w-4 text-primary" />
+                        <span className="max-w-[220px] truncate font-medium">
+                          {letterheadFile.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatOrganizationLetterheadFileSize(letterheadFile.size)}
+                        </span>
+                        {onRemoveLetterhead ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto h-7 px-2"
+                            onClick={onRemoveLetterhead}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Remover
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {letterheadError ? (
+                      <p role="alert" className="mt-2 text-xs text-destructive">
+                        {letterheadError}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <Input
+                  key={letterheadInputKey}
+                  id="letterhead"
+                  type="file"
+                  accept={ORGANIZATION_LETTERHEAD_ACCEPT}
+                  className="max-w-sm"
+                  onChange={(event) => onLetterheadChange?.(event.currentTarget.files)}
                 />
               </div>
             </div>
@@ -930,7 +1011,9 @@ export function CompletionOnboardingView({
                   <div>
                     <p className="text-sm font-medium">{organizationName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {isOrgAdmin ? "Organização vinculada" : "Você foi adicionado a esta organização"}
+                      {isOrgAdmin
+                        ? "Organização vinculada"
+                        : "Você foi adicionado a esta organização"}
                     </p>
                   </div>
                 </div>

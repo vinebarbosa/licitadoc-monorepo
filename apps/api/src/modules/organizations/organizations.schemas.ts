@@ -202,6 +202,12 @@ const organizationLetterheadUploadBodySchema = withOpenApiExample(
   },
 );
 
+const organizationOnboardingLetterheadUploadSchema = z.any().optional().meta({
+  description: "Optional organization letterhead image file",
+  format: "binary",
+  isFile: true,
+});
+
 export const organizationParamsSchema = z.object({
   organizationId: openApiUuidSchema(),
 });
@@ -226,11 +232,15 @@ export const createOrganizationBodySchema = withOpenApiExample(
       institutionalEmail: organizationInstitutionalEmailSchema,
       website: organizationWebsiteSchema,
       logoUrl: organizationLogoUrlSchema,
+      letterhead: organizationOnboardingLetterheadUploadSchema,
       authorityName: organizationAuthorityNameSchema,
       authorityRole: organizationAuthorityRoleSchema,
     })
     .strict(),
-  createOrganizationBodyExample,
+  {
+    ...createOrganizationBodyExample,
+    letterhead: "(optional binary image file)",
+  },
 );
 
 export const updateOrganizationBodySchema = withOpenApiExample(
@@ -291,6 +301,7 @@ const paginatedOrganizationsSchema = z.object({
 export const createOrganizationSchema = {
   tags: ["Organizations"],
   summary: "Create organization during onboarding",
+  consumes: ["multipart/form-data"],
   body: createOrganizationBodySchema,
   response: {
     201: organizationSchema,

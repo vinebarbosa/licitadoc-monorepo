@@ -69,6 +69,44 @@ vi.mock("../api/use-owner-onboarding", () => ({
   }),
 }));
 
+function fillOwnerOrganizationForm() {
+  fireEvent.change(screen.getByLabelText("Nome da organização *"), {
+    target: { value: "Prefeitura de Fortaleza" },
+  });
+  fireEvent.change(screen.getByLabelText("Identificador (slug)"), {
+    target: { value: "prefeitura-de-fortaleza" },
+  });
+  fireEvent.change(screen.getByLabelText("Nome oficial *"), {
+    target: { value: "Município de Fortaleza" },
+  });
+  fireEvent.change(screen.getByLabelText("CNPJ *"), {
+    target: { value: "12.345.678/0001-90" },
+  });
+  fireEvent.change(screen.getByLabelText("Cidade *"), {
+    target: { value: "Fortaleza" },
+  });
+  fireEvent.click(screen.getByRole("combobox", { name: "UF *" }));
+  fireEvent.click(screen.getByRole("option", { name: "CE" }));
+  fireEvent.change(screen.getByLabelText("Endereço *"), {
+    target: { value: "Rua Exemplo, 123" },
+  });
+  fireEvent.change(screen.getByLabelText("CEP *"), {
+    target: { value: "60000-000" },
+  });
+  fireEvent.change(screen.getByLabelText("Telefone *"), {
+    target: { value: "(85) 3333-0000" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail institucional *"), {
+    target: { value: "contato@fortaleza.ce.gov.br" },
+  });
+  fireEvent.change(screen.getByLabelText("Nome da autoridade *"), {
+    target: { value: "Maria Gestora" },
+  });
+  fireEvent.change(screen.getByLabelText("Cargo *"), {
+    target: { value: "Prefeita" },
+  });
+}
+
 describe("Owner onboarding pages", () => {
   beforeEach(() => {
     navigateMock.mockReset();
@@ -132,41 +170,7 @@ describe("Owner onboarding pages", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.change(screen.getByLabelText("Nome da organização *"), {
-      target: { value: "Prefeitura de Fortaleza" },
-    });
-    fireEvent.change(screen.getByLabelText("Identificador (slug)"), {
-      target: { value: "prefeitura-de-fortaleza" },
-    });
-    fireEvent.change(screen.getByLabelText("Nome oficial *"), {
-      target: { value: "Município de Fortaleza" },
-    });
-    fireEvent.change(screen.getByLabelText("CNPJ *"), {
-      target: { value: "12.345.678/0001-90" },
-    });
-    fireEvent.change(screen.getByLabelText("Cidade *"), {
-      target: { value: "Fortaleza" },
-    });
-    fireEvent.click(screen.getByRole("combobox", { name: "UF *" }));
-    fireEvent.click(screen.getByRole("option", { name: "CE" }));
-    fireEvent.change(screen.getByLabelText("Endereço *"), {
-      target: { value: "Rua Exemplo, 123" },
-    });
-    fireEvent.change(screen.getByLabelText("CEP *"), {
-      target: { value: "60000-000" },
-    });
-    fireEvent.change(screen.getByLabelText("Telefone *"), {
-      target: { value: "(85) 3333-0000" },
-    });
-    fireEvent.change(screen.getByLabelText("E-mail institucional *"), {
-      target: { value: "contato@fortaleza.ce.gov.br" },
-    });
-    fireEvent.change(screen.getByLabelText("Nome da autoridade *"), {
-      target: { value: "Maria Gestora" },
-    });
-    fireEvent.change(screen.getByLabelText("Cargo *"), {
-      target: { value: "Prefeita" },
-    });
+    fillOwnerOrganizationForm();
     fireEvent.click(screen.getByRole("button", { name: "Finalizar configuração" }));
 
     await waitFor(() => {
@@ -184,6 +188,7 @@ describe("Owner onboarding pages", () => {
           institutionalEmail: "contato@fortaleza.ce.gov.br",
           website: null,
           logoUrl: null,
+          letterhead: undefined,
           authorityName: "Maria Gestora",
           authorityRole: "Prefeita",
         },
@@ -193,5 +198,123 @@ describe("Owner onboarding pages", () => {
         state: { organizationName: "Prefeitura de Fortaleza" },
       });
     });
+  });
+
+  it("submits the owner organization step with a selected letterhead", async () => {
+    organizationMutateAsyncMock.mockResolvedValue({
+      id: "organization-1",
+      name: "Prefeitura de Fortaleza",
+      letterhead: {
+        url: "/api/organizations/organization-1/letterhead/image",
+      },
+    });
+    const letterhead = new File(["letterhead"], "papel-timbrado.png", {
+      type: "image/png",
+    });
+
+    renderWithProviders(
+      <MemoryRouter>
+        <OwnerOrganizationOnboardingPage />
+      </MemoryRouter>,
+    );
+
+    fillOwnerOrganizationForm();
+    fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
+      target: { files: [letterhead] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar configuração" }));
+
+    await waitFor(() => {
+      expect(organizationMutateAsyncMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          name: "Prefeitura de Fortaleza",
+          letterhead,
+        }),
+      });
+      expect(navigateMock).toHaveBeenCalledWith("/onboarding/concluido", {
+        replace: true,
+        state: { organizationName: "Prefeitura de Fortaleza" },
+      });
+    });
+  });
+
+  it("removes a selected letterhead before submitting organization onboarding", async () => {
+    organizationMutateAsyncMock.mockResolvedValue({
+      id: "organization-1",
+      name: "Prefeitura de Fortaleza",
+    });
+    const letterhead = new File(["letterhead"], "papel-timbrado.png", {
+      type: "image/png",
+    });
+
+    renderWithProviders(
+      <MemoryRouter>
+        <OwnerOrganizationOnboardingPage />
+      </MemoryRouter>,
+    );
+
+    fillOwnerOrganizationForm();
+    fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
+      target: { files: [letterhead] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Remover" }));
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar configuração" }));
+
+    await waitFor(() => {
+      expect(organizationMutateAsyncMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          letterhead: undefined,
+        }),
+      });
+    });
+  });
+
+  it("prevents submitting organization onboarding with an invalid local letterhead", async () => {
+    const invalidLetterhead = new File(["not an image"], "papel.txt", {
+      type: "text/plain",
+    });
+
+    renderWithProviders(
+      <MemoryRouter>
+        <OwnerOrganizationOnboardingPage />
+      </MemoryRouter>,
+    );
+
+    fillOwnerOrganizationForm();
+    fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
+      target: { files: [invalidLetterhead] },
+    });
+
+    expect(screen.getByText("Envie uma imagem PNG, JPEG ou WebP.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finalizar configuração" })).toBeDisabled();
+  });
+
+  it("keeps organization data on screen when the API rejects the onboarding letterhead", async () => {
+    organizationMutateAsyncMock.mockRejectedValue({
+      data: {
+        message: "O timbre precisa respeitar o limite de tamanho configurado.",
+      },
+    });
+    const letterhead = new File(["letterhead"], "papel-timbrado.png", {
+      type: "image/png",
+    });
+
+    renderWithProviders(
+      <MemoryRouter>
+        <OwnerOrganizationOnboardingPage />
+      </MemoryRouter>,
+    );
+
+    fillOwnerOrganizationForm();
+    fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
+      target: { files: [letterhead] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar configuração" }));
+
+    expect(
+      await screen.findByText("O timbre precisa respeitar o limite de tamanho configurado."),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Prefeitura de Fortaleza")).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

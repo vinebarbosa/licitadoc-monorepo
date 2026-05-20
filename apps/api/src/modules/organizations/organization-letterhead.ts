@@ -31,20 +31,31 @@ type MultipartFileValue = {
   type: "file";
 };
 
-type MultipartRequestBody = Record<string, MultipartFileValue | MultipartFileValue[] | unknown>;
+type MultipartFieldValue = {
+  type: "field";
+  value: unknown;
+};
+
+export type MultipartRequestBody = Record<
+  string,
+  | MultipartFieldValue
+  | MultipartFileValue
+  | Array<MultipartFieldValue | MultipartFileValue>
+  | unknown
+>;
 
 type LetterheadImageDimensions = {
   height: number;
   width: number;
 };
 
-type NormalizedLetterheadUpload = {
+export type NormalizedLetterheadUpload = {
   buffer: Buffer;
   contentType: (typeof ORGANIZATION_LETTERHEAD_MIME_TYPES)[number];
   fileName: string;
 };
 
-function isMultipartFileValue(value: unknown): value is MultipartFileValue {
+export function isMultipartFileValue(value: unknown): value is MultipartFileValue {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -56,6 +67,26 @@ function isMultipartFileValue(value: unknown): value is MultipartFileValue {
     typeof value.filename === "string" &&
     "mimetype" in value &&
     typeof value.mimetype === "string"
+  );
+}
+
+function isMultipartFieldValue(value: unknown): value is MultipartFieldValue {
+  return typeof value === "object" && value !== null && "type" in value && value.type === "field";
+}
+
+export function normalizeMultipartTextFields(body: unknown) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return body;
+  }
+
+  return Object.fromEntries(
+    Object.entries(body).map(([key, value]) => {
+      if (isMultipartFieldValue(value)) {
+        return [key, value.value];
+      }
+
+      return [key, value];
+    }),
   );
 }
 
@@ -75,6 +106,10 @@ export function isOrganizationLetterheadMimeType(
   return ORGANIZATION_LETTERHEAD_MIME_TYPES.includes(
     value as (typeof ORGANIZATION_LETTERHEAD_MIME_TYPES)[number],
   );
+}
+
+export function hasOrganizationLetterheadUpload(body: MultipartRequestBody | undefined) {
+  return getMultipartFiles(body).length > 0;
 }
 
 function readUInt24LE(buffer: Buffer, offset: number) {
@@ -242,7 +277,7 @@ export function validateLetterheadImageBuffer({
   return getLetterheadImageDimensions(buffer, contentType);
 }
 
-async function normalizeLetterheadUpload({
+export async function normalizeLetterheadUpload({
   body,
   maxBytes,
 }: {
@@ -301,7 +336,7 @@ export async function setOrganizationLetterhead({
   organization,
   storage,
 }: {
-  db: FastifyInstance["db"];
+  db: Pick<FastifyInstance["db"], "update">;
   file: NormalizedLetterheadUpload;
   organization: StoredOrganization;
   storage: FileStorageProvider;

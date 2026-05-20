@@ -15,6 +15,7 @@ import type {
   PostApiOrganizations409,
   PostApiOrganizations500,
 } from "../models/PostApiOrganizations";
+import { buildFormData } from "../.kubb/config";
 
 function getPostApiOrganizationsUrl() {
   const res = {
@@ -37,7 +38,7 @@ export async function postApiOrganizations(
   const { client: request = fetch, ...requestConfig } = config;
 
   const requestData = data;
-
+  const formData = buildFormData(requestData);
   const res = await request<
     PostApiOrganizationsMutationResponse,
     ResponseErrorConfig<
@@ -52,7 +53,7 @@ export async function postApiOrganizations(
   >({
     method: "POST",
     url: getPostApiOrganizationsUrl().url.toString(),
-    data: requestData,
+    data: formData as FormData,
     ...requestConfig,
   });
   return res.data;

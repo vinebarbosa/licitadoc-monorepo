@@ -6,6 +6,11 @@ import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
 import {
   getOrganizationLetterheadImage,
+  hasOrganizationLetterheadUpload,
+  isMultipartFileValue,
+  type MultipartRequestBody,
+  normalizeLetterheadUpload,
+  normalizeMultipartTextFields,
   uploadOrganizationLetterhead,
 } from "./organization-letterhead";
 import {
@@ -26,13 +31,38 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
     "/",
     {
       schema: createOrganizationSchema,
+      preValidation: async (request) => {
+        if (String(request.headers["content-type"] ?? "").includes("multipart/form-data")) {
+          request.body = normalizeMultipartTextFields(request.body) as never;
+        }
+      },
     },
     async (request, reply) => {
       const actor = await getSessionUser(request);
+      const rawBody = request.body as MultipartRequestBody;
+
+      const hasLetterheadUpload = hasOrganizationLetterheadUpload(rawBody);
+
+      if (
+        (rawBody.letterhead != null && !isMultipartFileValue(rawBody.letterhead)) ||
+        (hasLetterheadUpload && !isMultipartFileValue(rawBody.letterhead))
+      ) {
+        throw app.httpErrors.badRequest("Envie exatamente uma imagem de timbre.");
+      }
+
+      const letterheadFile = hasLetterheadUpload
+        ? await normalizeLetterheadUpload({
+            body: rawBody,
+            maxBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,
+          })
+        : undefined;
+
       const organization = await createOrganization({
         actor,
         db: app.db,
+        letterheadFile,
         organization: request.body,
+        storage: app.storage,
       });
 
       return reply.status(201).send(organization);
