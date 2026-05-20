@@ -169,9 +169,18 @@ test("ResendInviteMailer keeps provisioned member delivery semantics", async () 
 });
 
 function assertLandingPageBranding(html: string) {
+  const cardIndex = html.indexOf("background-color:#ffffff;border:1px solid #d9dfe5");
+  const brandIndex = html.indexOf('data-brand-mark="landing-scale"');
+
+  assert.ok(cardIndex >= 0);
+  assert.ok(brandIndex > cardIndex);
   assert.match(html, /Logo LicitaDoc/);
   assert.match(html, /data-brand-mark="landing-scale"/);
   assert.match(html, /<svg/);
+  assert.match(html, /height="32"/);
+  assert.match(html, /width="32"/);
+  assert.match(html, /height:56px/);
+  assert.match(html, /width:56px/);
   assert.match(html, /M12 3v18/);
   assert.match(html, /LicitaDoc/);
   assert.doesNotMatch(html, />LD</);

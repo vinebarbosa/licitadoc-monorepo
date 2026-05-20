@@ -25,7 +25,6 @@ const EMAIL_PALETTE = {
   primary: "#004f6a",
   primaryForeground: "#f8f8f8",
   primaryTint: "#e6eef1",
-  primaryTintBorder: "#c9dce3",
 };
 
 type InviteEmailView = {
@@ -87,26 +86,26 @@ function InviteEmail(input: InviteEmailInput) {
         { style: styles.container },
         React.createElement(
           Section,
-          { style: styles.brandHeader },
-          React.createElement(
-            "div",
-            {
-              "aria-label": `Logo ${BRAND_NAME}`,
-              "data-brand-mark": "landing-scale",
-              role: "img",
-              style: styles.brandIdentity,
-            },
-            React.createElement(
-              "span",
-              { style: styles.brandMark },
-              React.createElement(ScaleBrandIcon),
-            ),
-            React.createElement("span", { style: styles.brandName }, BRAND_NAME),
-          ),
-        ),
-        React.createElement(
-          Section,
           { style: styles.card },
+          React.createElement(
+            Section,
+            { style: styles.brandHeader },
+            React.createElement(
+              "div",
+              {
+                "aria-label": `Logo ${BRAND_NAME}`,
+                "data-brand-mark": "landing-scale",
+                role: "img",
+                style: styles.brandIdentity,
+              },
+              React.createElement(
+                "span",
+                { style: styles.brandMark },
+                React.createElement(ScaleBrandIcon),
+              ),
+              React.createElement("span", { style: styles.brandName }, BRAND_NAME),
+            ),
+          ),
           React.createElement(Heading, { as: "h1", style: styles.heading }, view.preview),
           React.createElement(
             Text,
@@ -187,14 +186,14 @@ function ScaleBrandIcon() {
     {
       "aria-hidden": "true",
       fill: "none",
-      height: "20",
+      height: "32",
       stroke: EMAIL_PALETTE.primary,
       strokeLinecap: "round",
       strokeLinejoin: "round",
       strokeWidth: "2.4",
       style: styles.brandIcon,
       viewBox: "0 0 24 24",
-      width: "20",
+      width: "32",
       xmlns: "http://www.w3.org/2000/svg",
     },
     React.createElement("path", { d: "m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" }),
@@ -214,7 +213,7 @@ const styles = {
     margin: 0,
   },
   brandHeader: {
-    padding: "28px 0 18px",
+    padding: "0 0 26px",
     textAlign: "center" as const,
   },
   brandIdentity: {
@@ -223,21 +222,19 @@ const styles = {
   },
   brandIcon: {
     display: "block",
-    margin: "0 auto",
+    margin: "12px auto",
   },
   brandMark: {
     backgroundColor: EMAIL_PALETTE.primaryTint,
-    border: `1px solid ${EMAIL_PALETTE.primaryTintBorder}`,
-    borderRadius: "8px",
+    borderRadius: "14px",
     color: EMAIL_PALETTE.primary,
     display: "inline-block",
-    height: "36px",
-    lineHeight: "36px",
-    margin: "0 10px 0 0",
-    padding: "8px",
+    height: "56px",
+    lineHeight: "56px",
+    margin: "0 16px 0 0",
     textAlign: "center" as const,
     verticalAlign: "middle",
-    width: "36px",
+    width: "56px",
   },
   brandName: {
     color: EMAIL_PALETTE.foreground,
