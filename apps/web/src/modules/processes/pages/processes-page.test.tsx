@@ -53,6 +53,27 @@ function renderProcessesPage(initialEntry = "/app/processos") {
 }
 
 describe("ProcessesPage", () => {
+  it("renders table loading skeletons with the shared neutral skeleton style", () => {
+    server.use(
+      http.get("http://localhost:3333/api/processes/", async () => {
+        await new Promise(() => {});
+        return HttpResponse.json(processesResponse);
+      }),
+    );
+
+    const { container } = renderProcessesPage();
+
+    const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
+
+    expect(skeletons.length).toBeGreaterThan(0);
+
+    for (const skeleton of skeletons) {
+      expect(skeleton).toHaveClass("bg-muted");
+      expect(skeleton).not.toHaveClass("bg-accent");
+      expect(skeleton).not.toHaveClass("bg-primary");
+    }
+  });
+
   it("renders the validated listing layout with API-backed process rows", async () => {
     server.use(
       http.get("http://localhost:3333/api/processes/", () => HttpResponse.json(processesResponse)),

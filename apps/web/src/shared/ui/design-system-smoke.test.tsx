@@ -6,6 +6,7 @@ import { Button } from "./button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./dialog";
 import { Input } from "./input";
+import { Skeleton } from "./skeleton";
 
 describe("design-system primitives", () => {
   it("renders representative shared UI primitives in the Vite test environment", () => {
@@ -20,6 +21,7 @@ describe("design-system primitives", () => {
             <Button>Save</Button>
             <Badge>Ready</Badge>
             <Input aria-label="Process number" defaultValue="DFD-001" />
+            <Skeleton data-testid="shared-skeleton" className="h-4 w-24" />
           </CardContent>
         </Card>
         <Dialog open>
@@ -36,5 +38,11 @@ describe("design-system primitives", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(screen.getByLabelText("Process number")).toHaveValue("DFD-001");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    const skeleton = screen.getByTestId("shared-skeleton");
+
+    expect(skeleton).toHaveClass("bg-muted");
+    expect(skeleton).not.toHaveClass("bg-accent");
+    expect(skeleton).not.toHaveClass("bg-primary");
   });
 });
