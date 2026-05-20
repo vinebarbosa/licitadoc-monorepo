@@ -47,8 +47,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  typecheck:
-    name: Typecheck API
+  validate:
+    name: Validate API
     runs-on: ubuntu-latest
 
     steps:
@@ -81,72 +81,8 @@ jobs:
       - name: Typecheck API
         run: pnpm --filter @licitadoc/api typecheck
 
-  build:
-    name: Build API
-    runs-on: ubuntu-latest
-    needs: typecheck
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install pnpm
-        run: npm install --global pnpm@${PNPM_VERSION}
-
-      - name: Resolve pnpm store
-        id: pnpm-store
-        run: echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Build API
         run: pnpm --filter @licitadoc/api build
-
-  test:
-    name: Test API
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install pnpm
-        run: npm install --global pnpm@${PNPM_VERSION}
-
-      - name: Resolve pnpm store
-        id: pnpm-store
-        run: echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Test API
         run: pnpm --filter @licitadoc/api test
@@ -154,7 +90,7 @@ jobs:
   deploy-preview:
     name: Deploy API preview
     runs-on: ubuntu-latest
-    needs: test
+    needs: validate
     if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'preview') }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -228,7 +164,7 @@ jobs:
   deploy-production:
     name: Deploy API production
     runs-on: ubuntu-latest
-    needs: test
+    needs: validate
     if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production' && github.ref == 'refs/heads/main') }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
