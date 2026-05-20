@@ -27,6 +27,7 @@ test("renderInviteEmailHtml renders branded organization owner invites", async (
   const text = renderInviteEmailText(ownerInviteInput);
 
   assertLandingPageBranding(html);
+  assertNoSvgLogoAssets(html);
   assertLightPalette(html);
   assert.match(html, /Voce foi convidado para o LicitaDoc/);
   assert.match(html, /gestor da organizacao/);
@@ -42,6 +43,7 @@ test("renderInviteEmailHtml renders provisioned member credentials guidance", as
   const text = renderInviteEmailText(provisionedMemberInviteInput);
 
   assertLandingPageBranding(html);
+  assertNoSvgLogoAssets(html);
   assertLightPalette(html);
   assert.match(html, /Seu acesso ao LicitaDoc foi criado/);
   assert.match(html, /membro/);
@@ -98,6 +100,7 @@ test("ResendInviteMailer keeps invite delivery semantics with branded HTML", asy
   assert.deepEqual(payload.to, ["owner@example.com"]);
   assert.equal(payload.subject, "Seu convite para acessar o Licitadoc");
   assertLandingPageBranding(payload.html);
+  assertNoSvgLogoAssets(payload.html);
   assert.match(payload.html, /Aceitar convite/);
   assert.match(
     payload.text,
@@ -150,6 +153,7 @@ test("ResendInviteMailer keeps provisioned member delivery semantics", async () 
 
   assert.deepEqual(payload.to, ["member@example.com"]);
   assertLandingPageBranding(payload.html);
+  assertNoSvgLogoAssets(payload.html);
   assert.match(payload.html, /Acessar o sistema/);
   assert.match(payload.html, /https:\/\/app\.licitadoc\.test\/sign-in/);
   assert.match(payload.html, /Senha temporaria/);
@@ -176,14 +180,21 @@ function assertLandingPageBranding(html: string) {
   assert.ok(brandIndex > cardIndex);
   assert.match(html, /Logo LicitaDoc/);
   assert.match(html, /data-brand-mark="landing-scale"/);
-  assert.match(html, /<svg/);
+  assert.match(html, /<img/);
+  assert.match(html, /src="https:\/\/app\.licitadoc\.test\/brand\/licitadoc-email-mark\.png"/);
+  assert.match(html, /alt="Logo LicitaDoc"/);
   assert.match(html, /height="32"/);
   assert.match(html, /width="32"/);
   assert.match(html, /height:56px/);
   assert.match(html, /width:56px/);
-  assert.match(html, /M12 3v18/);
   assert.match(html, /LicitaDoc/);
   assert.doesNotMatch(html, />LD</);
+}
+
+function assertNoSvgLogoAssets(html: string) {
+  assert.doesNotMatch(html, /<svg/i);
+  assert.doesNotMatch(html, /image\/svg\+xml/i);
+  assert.doesNotMatch(html, /\.svg\b/i);
 }
 
 function assertLightPalette(html: string) {

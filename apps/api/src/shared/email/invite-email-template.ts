@@ -6,6 +6,7 @@ import {
   Heading,
   Hr,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -15,6 +16,11 @@ import React from "react";
 import type { InviteEmailInput } from "./invite-mailer";
 
 const BRAND_NAME = "LicitaDoc";
+// Served from apps/web/public/brand; visible brand text remains the image-blocking fallback.
+const BRAND_MARK_ALT = `Logo ${BRAND_NAME}`;
+const BRAND_MARK_HEIGHT = 32;
+const BRAND_MARK_PUBLIC_PATH = "/brand/licitadoc-email-mark.png";
+const BRAND_MARK_WIDTH = 32;
 const EMAIL_PALETTE = {
   background: "#f9fafb",
   border: "#d9dfe5",
@@ -93,15 +99,19 @@ function InviteEmail(input: InviteEmailInput) {
             React.createElement(
               "div",
               {
-                "aria-label": `Logo ${BRAND_NAME}`,
                 "data-brand-mark": "landing-scale",
-                role: "img",
                 style: styles.brandIdentity,
               },
               React.createElement(
                 "span",
                 { style: styles.brandMark },
-                React.createElement(ScaleBrandIcon),
+                React.createElement(Img, {
+                  alt: BRAND_MARK_ALT,
+                  height: BRAND_MARK_HEIGHT,
+                  src: getBrandMarkUrl(input),
+                  style: styles.brandImage,
+                  width: BRAND_MARK_WIDTH,
+                }),
               ),
               React.createElement("span", { style: styles.brandName }, BRAND_NAME),
             ),
@@ -180,28 +190,14 @@ function getRoleLabel(role: InviteEmailInput["role"]) {
   return role === "organization_owner" ? "gestor da organizacao" : "membro";
 }
 
-function ScaleBrandIcon() {
-  return React.createElement(
-    "svg",
-    {
-      "aria-hidden": "true",
-      fill: "none",
-      height: "32",
-      stroke: EMAIL_PALETTE.primary,
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      strokeWidth: "2.4",
-      style: styles.brandIcon,
-      viewBox: "0 0 24 24",
-      width: "32",
-      xmlns: "http://www.w3.org/2000/svg",
-    },
-    React.createElement("path", { d: "m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" }),
-    React.createElement("path", { d: "m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" }),
-    React.createElement("path", { d: "M7 21h10" }),
-    React.createElement("path", { d: "M12 3v18" }),
-    React.createElement("path", { d: "M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" }),
-  );
+function getBrandMarkUrl(input: InviteEmailInput) {
+  const baseUrl = input.signInUrl ?? input.inviteUrl;
+
+  try {
+    return new URL(BRAND_MARK_PUBLIC_PATH, baseUrl).toString();
+  } catch {
+    return BRAND_MARK_PUBLIC_PATH;
+  }
 }
 
 const styles = {
@@ -220,9 +216,12 @@ const styles = {
     display: "inline-block",
     margin: "0 auto",
   },
-  brandIcon: {
+  brandImage: {
+    border: "0",
     display: "block",
+    height: `${BRAND_MARK_HEIGHT}px`,
     margin: "12px auto",
+    width: `${BRAND_MARK_WIDTH}px`,
   },
   brandMark: {
     backgroundColor: EMAIL_PALETTE.primaryTint,
