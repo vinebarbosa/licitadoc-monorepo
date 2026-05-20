@@ -1,7 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/render";
-import { applyTheme, getStoredTheme, getSystemTheme, THEME_STORAGE_KEY, useTheme } from "./theme";
+import { getStoredTheme, getSystemTheme, THEME_STORAGE_KEY, useTheme } from "./theme";
 
 function ThemeProbe() {
   const { theme, toggleTheme } = useTheme();
@@ -70,7 +70,7 @@ describe("theme", () => {
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
   });
 
-  it("falls back to the system theme when no saved preference exists", () => {
+  it("defaults to the light theme when no saved preference exists", () => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       matches: query === "(prefers-color-scheme: dark)",
       media: query,
@@ -84,11 +84,9 @@ describe("theme", () => {
 
     expect(getSystemTheme()).toBe("dark");
 
-    applyTheme("dark");
-
     renderWithProviders(<ThemeProbe />);
 
-    expect(screen.getByTestId("theme-value")).toHaveTextContent("dark");
-    expect(document.documentElement).toHaveClass("dark");
+    expect(screen.getByTestId("theme-value")).toHaveTextContent("light");
+    expect(document.documentElement).not.toHaveClass("dark");
   });
 });

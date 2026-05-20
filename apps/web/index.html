@@ -20,9 +20,7 @@
           const theme =
             storedTheme === "light" || storedTheme === "dark"
               ? storedTheme
-              : window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light";
+              : "light";
 
           root.classList.toggle("dark", theme === "dark");
           root.dataset.theme = theme;
@@ -41,4 +39,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

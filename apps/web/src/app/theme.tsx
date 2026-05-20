@@ -58,7 +58,7 @@ export function getThemeFromDocument(): Theme | null {
 }
 
 export function resolveInitialTheme(): Theme {
-  return getStoredTheme() ?? getSystemTheme();
+  return getStoredTheme() ?? "light";
 }
 
 export function applyTheme(theme: Theme) {
