@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "command -v pnpm >/dev/null || npm install --global pnpm@10.0.0; pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm build"
+  "buildCommand": "if [ \"$RUN_DB_MIGRATIONS\" = \"true\" ]; then pnpm db:migrate; fi; if [ \"$RUN_CREATE_ADMIN\" = \"true\" ]; then pnpm admin:create; fi; pnpm build"
 }
