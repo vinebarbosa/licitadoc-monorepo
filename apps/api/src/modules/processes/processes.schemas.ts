@@ -376,10 +376,10 @@ export const processParamsSchema = z.object({
 export const processesPaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
-  search: z.string().optional().transform(normalizeNullableOptionalText),
-  status: z.string().optional().transform(normalizeNullableOptionalText),
-  procurementMethod: z.string().optional().transform(normalizeNullableOptionalText),
-  biddingModality: z.string().optional().transform(normalizeNullableOptionalText),
+  search: z.string().nullable().optional().transform(normalizeNullableOptionalText),
+  status: z.string().nullable().optional().transform(normalizeNullableOptionalText),
+  procurementMethod: z.string().nullable().optional().transform(normalizeNullableOptionalText),
+  biddingModality: z.string().nullable().optional().transform(normalizeNullableOptionalText),
 });
 
 export const createProcessBodySchema = withOpenApiExample(

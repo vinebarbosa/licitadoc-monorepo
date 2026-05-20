@@ -25,7 +25,11 @@ import {
 } from "./expense-request-pdf";
 import { getProcess } from "./get-process";
 import { getProcesses } from "./get-processes";
-import { createProcessBodySchema, updateProcessBodySchema } from "./processes.schemas";
+import {
+  createProcessBodySchema,
+  processesPaginationQuerySchema,
+  updateProcessBodySchema,
+} from "./processes.schemas";
 import { deriveConciseProcessTitle } from "./processes.shared";
 import { updateProcess } from "./update-process";
 
@@ -457,6 +461,26 @@ test("process schemas canonicalize payloads and reject invalid updates", () => {
     }).success,
     false,
   );
+});
+
+test("processesPaginationQuerySchema treats null optional filters as absent", () => {
+  const query = processesPaginationQuerySchema.parse({
+    page: "1",
+    pageSize: "10",
+    search: null,
+    status: null,
+    procurementMethod: null,
+    biddingModality: null,
+  });
+
+  assert.deepEqual(query, {
+    page: 1,
+    pageSize: 10,
+    search: null,
+    status: null,
+    procurementMethod: null,
+    biddingModality: null,
+  });
 });
 
 test("deriveConciseProcessTitle prefers explicit and source-aware concise values", () => {
