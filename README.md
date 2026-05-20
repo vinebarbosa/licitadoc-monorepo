@@ -13,8 +13,30 @@ Monorepo inicial com Turbo para:
 - o backend exporta a spec gerada em `apps/api/openapi/openapi.json`
 - o backend tambem expõe a spec em runtime em `/openapi.json`
 - o `packages/api-client` consome essa spec via Kubb pelo endpoint `http://127.0.0.1:3333/openapi.json`
-- `packages/api-client/src/gen` é sempre gerado pelo Kubb e nao deve ser editado manualmente nem versionado
+- `packages/api-client/src/gen` é sempre gerado pelo Kubb e nao deve ser editado manualmente
+- `apps/api/openapi/openapi.json` e `packages/api-client/src/gen` devem ser versionados juntos quando o contrato da API muda
 - frontend e backend devem evoluir o contrato a partir das rotas/schemas da API, e nao por tipos manuais duplicados
+
+Quando mudar schemas ou rotas da API, rode:
+
+```bash
+pnpm contracts:generate
+git add apps/api/openapi packages/api-client/src/gen
+```
+
+Para conferir se os artefatos gerados estao sincronizados:
+
+```bash
+pnpm contracts:check
+```
+
+Instale o guard local de pre-push uma vez por clone:
+
+```bash
+pnpm hooks:install
+```
+
+Esse hook roda `pnpm contracts:check` antes do push e bloqueia quando a geracao muda `apps/api/openapi` ou `packages/api-client/src/gen`. Em uma excecao consciente, use `git push --no-verify`.
 
 ## Comandos
 
@@ -23,7 +45,7 @@ pnpm install
 pnpm dev
 pnpm build
 pnpm typecheck
-pnpm --filter @licitadoc/api-client generate
+pnpm contracts:generate
 ```
 
 ## API E2E

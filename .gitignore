@@ -8,6 +8,5 @@ build
 .env.*.local
 coverage
 .pnpm-store
-packages/api-client/src/gen
 .vercel
 .env*.local

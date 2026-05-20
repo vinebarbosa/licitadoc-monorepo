@@ -8,6 +8,9 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "check": "biome check .",
+    "contracts:generate": "sh ./scripts/contracts-generate.sh",
+    "contracts:check": "sh ./scripts/contracts-check.sh",
+    "hooks:install": "sh ./scripts/install-git-hooks.sh",
     "format": "biome format --write .",
     "format:check": "biome format ."
   },

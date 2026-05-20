@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "identifier": { "type": "string" },
+    "value": { "type": "string" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "default": "Generated at runtime"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "default": "Generated at runtime"
+    }
+  },
+  "required": ["identifier", "value", "expiresAt", "createdAt", "updatedAt"],
+  "x-readme-ref-name": "Verification"
+}

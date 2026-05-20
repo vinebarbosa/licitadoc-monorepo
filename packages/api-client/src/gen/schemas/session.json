@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "token": { "type": "string" },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "default": "Generated at runtime"
+    },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "ipAddress": { "type": "string" },
+    "userAgent": { "type": "string" },
+    "userId": { "type": "string" }
+  },
+  "required": ["expiresAt", "token", "createdAt", "updatedAt", "userId"],
+  "x-readme-ref-name": "Session"
+}

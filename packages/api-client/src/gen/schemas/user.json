@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "email": { "type": "string" },
+    "emailVerified": { "type": "boolean", "default": false, "readOnly": true },
+    "image": { "type": "string" },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "default": "Generated at runtime"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "default": "Generated at runtime"
+    },
+    "role": { "type": "string", "default": "member", "readOnly": true },
+    "organizationId": { "type": "string", "readOnly": true },
+    "onboardingStatus": {
+      "type": "string",
+      "default": "complete",
+      "readOnly": true
+    }
+  },
+  "required": ["name", "email", "createdAt", "updatedAt"],
+  "x-readme-ref-name": "User"
+}

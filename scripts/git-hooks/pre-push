@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+echo "Running API contract sync guard..."
+
+if ! pnpm contracts:check; then
+  echo ""
+  echo "Push blocked because generated API contract artifacts are stale."
+  echo "Run pnpm contracts:generate, commit the generated files, then push again."
+  echo "For an exceptional push, use: git push --no-verify"
+  exit 1
+fi
