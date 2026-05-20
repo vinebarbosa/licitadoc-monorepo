@@ -1,5 +1,4 @@
 import type { FastifyInstance } from "fastify";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Actor } from "../../authorization/actor";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import type { FileStorageProvider } from "../../shared/storage/types";
@@ -27,6 +26,14 @@ type PdfLoadingTask = {
 };
 
 type PdfLoader = (input: { data: Uint8Array; disableWorker: boolean }) => PdfLoadingTask;
+
+async function getDefaultPdfLoader(): Promise<PdfLoader> {
+  await import("@napi-rs/canvas");
+
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+  return getDocument as PdfLoader;
+}
 
 type MultipartFileValue = {
   fieldname: string;
@@ -144,12 +151,14 @@ function toBadRequestMessage(error: unknown) {
 
 export async function extractTextFromPdf(
   buffer: Buffer,
-  loadPdfDocument: PdfLoader = getDocument as PdfLoader,
+  loadPdfDocument?: PdfLoader,
 ) {
   let loadingTask: PdfLoadingTask | null = null;
 
   try {
-    loadingTask = loadPdfDocument({
+    const loader = loadPdfDocument ?? (await getDefaultPdfLoader());
+
+    loadingTask = loader({
       data: new Uint8Array(buffer),
       disableWorker: true,
     });

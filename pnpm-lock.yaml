@@ -35,6 +35,9 @@ importers:
       '@fastify/swagger':
         specifier: ^9.6.1
         version: 9.7.0
+      '@napi-rs/canvas':
+        specifier: 0.1.99
+        version: 0.1.99
       '@scalar/fastify-api-reference':
         specifier: ^1.52.3
         version: 1.52.3
