@@ -140,20 +140,20 @@ jobs:
 
       - name: Pull Vercel preview settings
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
-        run: vercel pull --yes --environment=preview --cwd apps/api --token="${VERCEL_TOKEN}"
+        run: vercel pull --yes --environment=preview --token="${VERCEL_TOKEN}"
 
       - name: Build Vercel preview output
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
         run: |
           command -v pnpm
           pnpm --version
-          vercel build --cwd apps/api --token="${VERCEL_TOKEN}"
+          vercel build --token="${VERCEL_TOKEN}"
 
       - name: Deploy Vercel preview
         if: ${{ steps.vercel_secrets.outputs.available == 'true' }}
         id: deploy
         run: |
-          deployment_url="$(vercel deploy --prebuilt --cwd apps/api --token="${VERCEL_TOKEN}")"
+          deployment_url="$(vercel deploy --prebuilt --token="${VERCEL_TOKEN}")"
           echo "url=${deployment_url}" >> "${GITHUB_OUTPUT}"
           {
             echo "### Preview deployment"
@@ -202,18 +202,18 @@ jobs:
           "${PNPM_HOME}/vercel" --version
 
       - name: Pull Vercel production settings
-        run: vercel pull --yes --environment=production --cwd apps/api --token="${VERCEL_TOKEN}"
+        run: vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
 
       - name: Build Vercel production output
         run: |
           command -v pnpm
           pnpm --version
-          vercel build --prod --cwd apps/api --token="${VERCEL_TOKEN}"
+          vercel build --prod --token="${VERCEL_TOKEN}"
 
       - name: Deploy Vercel production
         id: deploy
         run: |
-          deployment_url="$(vercel deploy --prebuilt --prod --cwd apps/api --token="${VERCEL_TOKEN}")"
+          deployment_url="$(vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}")"
           echo "url=${deployment_url}" >> "${GITHUB_OUTPUT}"
           {
             echo "### Production deployment"
