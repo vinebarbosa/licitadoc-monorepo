@@ -1,3 +1,5 @@
+import { resolveApiUrl } from "@licitadoc/api-client";
+
 export type SupportTicketStatus = "open" | "waiting" | "resolved";
 
 export type SupportTicketPriority = "urgent" | "high" | "medium" | "low";
@@ -148,9 +150,7 @@ export function getSupportAttachmentImageUrl(attachment: SupportTicketAttachment
     return undefined;
   }
 
-  return attachment.url.startsWith("/")
-    ? `http://localhost:3333${attachment.url}`
-    : attachment.url;
+  return attachment.url.startsWith("/") ? resolveApiUrl(attachment.url) : attachment.url;
 }
 
 export const supportStatusConfig: Record<
@@ -541,10 +541,7 @@ export function formatSupportQueueFreshness(
     };
   }
 
-  const minutes = Math.max(
-    0,
-    Math.round((now.getTime() - date.getTime()) / 60000),
-  );
+  const minutes = Math.max(0, Math.round((now.getTime() - date.getTime()) / 60000));
   let label: string;
 
   if (minutes < 1) {

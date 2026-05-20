@@ -4,7 +4,7 @@ export type {
   ResponseConfig,
   ResponseErrorConfig,
 } from "./client";
-export { client } from "./client";
+export { client, getApiBaseUrl, resolveApiUrl } from "./client";
 export * from "./gen";
 
 /**

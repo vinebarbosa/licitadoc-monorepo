@@ -1,7 +1,9 @@
+import { resolveApiUrl } from "@licitadoc/api-client";
 import { DocumentPreview, PaperLayout } from "@/modules/documents/ui/paged-preview";
 
-const purezaLetterheadUrl =
-  "http://localhost:3333/api/organizations/b3f73224-242a-481e-9945-c04b051c83cc/letterhead/image";
+const purezaLetterheadUrl = resolveApiUrl(
+  "/api/organizations/b3f73224-242a-481e-9945-c04b051c83cc/letterhead/image",
+);
 
 const sections = [
   {

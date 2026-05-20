@@ -48,6 +48,14 @@ pnpm typecheck
 pnpm contracts:generate
 ```
 
+## Frontend
+
+O `apps/web` usa `VITE_API_BASE_URL` para apontar o navegador para a API. Em desenvolvimento, o fallback e `http://localhost:3333`.
+
+Para deploy do front na Vercel, configure no projeto do front:
+
+- `VITE_API_BASE_URL`: URL publica da API, por exemplo `https://<projeto-api>.vercel.app`
+
 ## API E2E
 
 Os testes E2E do `apps/api` usam HTTP real contra um servidor Fastify local e devem apontar para um banco dedicado. A suite `pnpm test:e2e` cobre hoje os fluxos de autenticacao, convites, users, organizations, departments e processes, e a limpeza de fixtures acontece dentro do banco E2E isolado.

@@ -55,7 +55,7 @@ export function useProcessDetail(processId: string) {
         never
       >({
         method: "GET",
-        url: `http://localhost:3333/api/processes/${processId}`,
+        url: `/api/processes/${processId}`,
       });
 
       if (response.status >= 400) {
@@ -91,7 +91,7 @@ export function useCurrentProcessOrganization(enabled: boolean) {
         never
       >({
         method: "GET",
-        url: "http://localhost:3333/api/organizations/me",
+        url: "/api/organizations/me",
       });
 
       if (response.status >= 400) {
@@ -122,7 +122,7 @@ export function useProcessCreate() {
         ProcessCreateRequest
       >({
         method: "POST",
-        url: "http://localhost:3333/api/processes/",
+        url: "/api/processes/",
         data,
       });
 
@@ -157,7 +157,7 @@ export function useProcessUpdate(processId: string) {
         ProcessUpdateRequest
       >({
         method: "PATCH",
-        url: `http://localhost:3333/api/processes/${processId}`,
+        url: `/api/processes/${processId}`,
         data,
       });
 

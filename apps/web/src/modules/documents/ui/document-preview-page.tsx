@@ -1,3 +1,4 @@
+import { resolveApiUrl } from "@licitadoc/api-client";
 import { EditorContent, useEditor } from "@tiptap/react";
 import {
   AlertTriangle,
@@ -50,15 +51,13 @@ import {
 } from "./institutional-document-theme";
 import { DocumentPreview as PagedDocumentPreview, PaperLayout } from "./paged-preview";
 
-const API_ASSET_BASE_URL = "http://localhost:3333";
-
 function resolveApiAssetUrl(url: string | null | undefined) {
   if (!url) {
     return null;
   }
 
   try {
-    return new URL(url, API_ASSET_BASE_URL).toString();
+    return resolveApiUrl(url);
   } catch {
     return null;
   }

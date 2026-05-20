@@ -14,6 +14,7 @@ import {
   type PostApiDocumentsMutationRequest,
   type PostApiDocumentsMutationResponse,
   type ResponseErrorConfig,
+  resolveApiUrl,
   useGetApiDocuments,
   useGetApiProcesses,
 } from "@licitadoc/api-client";
@@ -94,7 +95,7 @@ export function useDocumentDetail(documentId: string) {
         unknown
       >({
         method: "GET",
-        url: `http://localhost:3333/api/documents/${documentId}`,
+        url: `/api/documents/${documentId}`,
       });
 
       if (response.status >= 400) {
@@ -258,7 +259,7 @@ export function useDocumentGenerationEvents({
       return;
     }
 
-    const source = new EventSource(`http://localhost:3333/api/documents/${documentId}/events`, {
+    const source = new EventSource(resolveApiUrl(`/api/documents/${documentId}/events`), {
       withCredentials: true,
     });
 
@@ -371,7 +372,7 @@ export function useDocumentTextAdjustmentSuggestion() {
         DocumentTextAdjustmentSuggestionRequest
       >({
         method: "POST",
-        url: `http://localhost:3333/api/documents/${documentId}/adjustments/suggestions`,
+        url: `/api/documents/${documentId}/adjustments/suggestions`,
         data,
       });
 
@@ -403,7 +404,7 @@ export function useDocumentTextAdjustmentApply(documentId: string) {
         DocumentTextAdjustmentApplyRequest
       >({
         method: "POST",
-        url: `http://localhost:3333/api/documents/${docId}/adjustments/apply`,
+        url: `/api/documents/${docId}/adjustments/apply`,
         data,
       });
 
@@ -439,7 +440,7 @@ export function useDocumentSave(documentId: string) {
         DocumentSaveRequest
       >({
         method: "PATCH",
-        url: `http://localhost:3333/api/documents/${docId}`,
+        url: `/api/documents/${docId}`,
         data,
       });
 
@@ -475,7 +476,7 @@ export function useDocumentCreate() {
         DocumentCreateRequest
       >({
         method: "POST",
-        url: "http://localhost:3333/api/documents/",
+        url: "/api/documents/",
         data,
       });
 
