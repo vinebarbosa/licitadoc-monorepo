@@ -141,7 +141,7 @@ export async function executeDocumentGeneration({
   textGeneration: TextGenerationProvider;
 }) {
   const generationRun = await db.query.documentGenerationRuns.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, generationRunId),
+    where: eq(documentGenerationRuns.id, generationRunId),
   });
 
   if (!generationRun || generationRun.status !== "generating") {
@@ -149,7 +149,7 @@ export async function executeDocumentGeneration({
   }
 
   const document = await db.query.documents.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, generationRun.documentId),
+    where: eq(documents.id, generationRun.documentId),
   });
 
   if (!document || document.status !== "generating") {
@@ -286,7 +286,7 @@ export function createDocumentGenerationQueue({
 
   async function recoverPending() {
     const pendingRuns = await db.query.documentGenerationRuns.findMany({
-      where: (table, { eq: equals }) => equals(table.status, "generating"),
+      where: eq(documentGenerationRuns.status, "generating"),
     });
 
     for (const generationRun of pendingRuns) {
