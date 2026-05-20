@@ -2812,7 +2812,7 @@
         "requestBody": {
           "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
                 "properties": {
@@ -2879,6 +2879,11 @@
                       }
                     ]
                   },
+                  "letterhead": {
+                    "description": "Optional organization letterhead image file",
+                    "format": "binary",
+                    "isFile": true
+                  },
                   "authorityName": {
                     "example": "Maria Silva",
                     "type": "string"
@@ -2917,7 +2922,8 @@
                   "website": "https://licitadoc.example.gov.br",
                   "logoUrl": "https://licitadoc.example.gov.br/logo.png",
                   "authorityName": "Maria Silva",
-                  "authorityRole": "Diretora Administrativa"
+                  "authorityRole": "Diretora Administrativa",
+                  "letterhead": "(optional binary image file)"
                 }
               }
             }
