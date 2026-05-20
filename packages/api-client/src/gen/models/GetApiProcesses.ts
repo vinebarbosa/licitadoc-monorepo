@@ -14,22 +14,10 @@ export type GetApiProcessesQueryParams = {
    * @type integer | undefined
    */
   pageSize?: number;
-  /**
-   * @type string | undefined
-   */
-  search?: string;
-  /**
-   * @type string | undefined
-   */
-  status?: string;
-  /**
-   * @type string | undefined
-   */
-  procurementMethod?: string;
-  /**
-   * @type string | undefined
-   */
-  biddingModality?: string;
+  search?: string | null;
+  status?: string | null;
+  procurementMethod?: string | null;
+  biddingModality?: string | null;
 };
 
 export const documentsCompletedTypesEnum = {
