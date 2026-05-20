@@ -193,6 +193,7 @@ jobs:
           npm install --global pnpm@${PNPM_VERSION}
           export PNPM_HOME="${RUNNER_TEMP}/pnpm-home"
           mkdir -p "${PNPM_HOME}"
+          export PATH="${PNPM_HOME}:$(dirname "$(command -v pnpm)"):${PATH}"
           echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
           echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
           echo "$(dirname "$(command -v pnpm)")" >> "${GITHUB_PATH}"
@@ -255,6 +256,7 @@ jobs:
           npm install --global pnpm@${PNPM_VERSION}
           export PNPM_HOME="${RUNNER_TEMP}/pnpm-home"
           mkdir -p "${PNPM_HOME}"
+          export PATH="${PNPM_HOME}:$(dirname "$(command -v pnpm)"):${PATH}"
           echo "PNPM_HOME=${PNPM_HOME}" >> "${GITHUB_ENV}"
           echo "${PNPM_HOME}" >> "${GITHUB_PATH}"
           echo "$(dirname "$(command -v pnpm)")" >> "${GITHUB_PATH}"
