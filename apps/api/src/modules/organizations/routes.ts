@@ -14,6 +14,7 @@ import {
   getOrganizationLetterheadImageSchema,
   getOrganizationSchema,
   getOrganizationsSchema,
+  organizationsPaginationQuerySchema,
   updateOrganizationSchema,
   uploadOrganizationLetterheadSchema,
 } from "./organizations.schemas";
@@ -45,12 +46,13 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
     },
     async (request) => {
       const actor = await getSessionUser(request);
+      const query = organizationsPaginationQuerySchema.parse(request.query);
 
       return getOrganizations({
         actor,
         db: app.db,
-        page: request.query.page,
-        pageSize: request.query.pageSize,
+        page: query.page,
+        pageSize: query.pageSize,
       });
     },
   );

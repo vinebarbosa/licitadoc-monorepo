@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { supportTickets } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { RealtimeProvider } from "../../shared/realtime/types";
 import { getSupportActorName } from "./support-actors";
@@ -25,7 +27,7 @@ export async function publishSupportTicketTyping({
   input,
 }: Input) {
   const ticket = await db.query.supportTickets.findFirst({
-    where: (table, { eq }) => eq(table.id, ticketId),
+    where: eq(supportTickets.id, ticketId),
   });
 
   if (!ticket) {

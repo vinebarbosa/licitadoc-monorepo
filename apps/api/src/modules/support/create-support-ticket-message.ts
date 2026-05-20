@@ -30,7 +30,7 @@ export async function createSupportTicketMessage({
   input,
 }: Input) {
   const ticket = await db.query.supportTickets.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, ticketId),
+    where: eq(supportTickets.id, ticketId),
   });
 
   if (!ticket) {

@@ -18,7 +18,7 @@ export async function acceptInvite({ actor, db, inviteToken }: Input) {
 
   return db.transaction(async (tx) => {
     const invite = await tx.query.invites.findFirst({
-      where: (table, { eq }) => eq(table.tokenHash, tokenHash),
+      where: eq(invites.tokenHash, tokenHash),
     });
 
     if (!invite) {
@@ -26,7 +26,7 @@ export async function acceptInvite({ actor, db, inviteToken }: Input) {
     }
 
     const user = await tx.query.users.findFirst({
-      where: (table, { eq }) => eq(table.id, actor.id),
+      where: eq(users.id, actor.id),
     });
 
     if (!user) {

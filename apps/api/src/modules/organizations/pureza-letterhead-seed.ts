@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
-import type { organizations } from "../../db";
+import { organizations } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { FileStorageProvider } from "../../shared/storage/types";
 import {
@@ -29,7 +29,7 @@ export async function resolvePurezaOrganizationForLetterhead({
 }) {
   if (organizationId) {
     return db.query.organizations.findFirst({
-      where: (table, { eq: equals }) => equals(table.id, organizationId),
+      where: eq(organizations.id, organizationId),
     });
   }
 

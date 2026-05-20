@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { organizations, processes } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { canReadStoredProcess } from "./processes.policies";
 import {
@@ -18,7 +20,7 @@ type Input = {
 
 export async function getProcess({ actor, db, processId }: Input) {
   const process = await db.query.processes.findFirst({
-    where: (table, { eq }) => eq(table.id, processId),
+    where: eq(processes.id, processId),
   });
 
   if (!process) {
@@ -28,7 +30,7 @@ export async function getProcess({ actor, db, processId }: Input) {
   canReadStoredProcess(actor, process);
 
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq }) => eq(table.id, process.organizationId),
+    where: eq(organizations.id, process.organizationId),
   });
 
   if (!organization) {

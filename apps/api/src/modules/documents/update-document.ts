@@ -24,7 +24,7 @@ type Input = {
 
 export async function updateDocument({ actor, db, documentId, input }: Input) {
   const document = await db.query.documents.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, documentId),
+    where: eq(documents.id, documentId),
   });
 
   if (!document) {

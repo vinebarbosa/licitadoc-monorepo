@@ -16,7 +16,7 @@ type Input = {
 
 export async function updateDepartment({ actor, db, departmentId, changes }: Input) {
   const department = await db.query.departments.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, departmentId),
+    where: eq(departments.id, departmentId),
   });
 
   if (!department) {

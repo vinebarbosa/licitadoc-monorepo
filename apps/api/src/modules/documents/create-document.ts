@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { documentGenerationRuns, documents } from "../../db";
+import { documentGenerationRuns, documents, organizations, processes, users } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { TextGenerationProvider } from "../../shared/text-generation/types";
 import { canReadStoredProcess } from "../processes/processes.policies";
@@ -52,7 +53,7 @@ async function loadResponsibleUserName({
   }
 
   const user = await db.query.users.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, responsibleUserId),
+    where: eq(users.id, responsibleUserId),
   });
 
   return user?.name ?? null;
@@ -60,7 +61,7 @@ async function loadResponsibleUserName({
 
 export async function createDocument({ actor, db, document, scheduleGeneration }: Input) {
   const process = await db.query.processes.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, document.processId),
+    where: eq(processes.id, document.processId),
   });
 
   if (!process) {
@@ -70,7 +71,7 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
   canReadStoredProcess(actor, process);
 
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, process.organizationId),
+    where: eq(organizations.id, process.organizationId),
   });
 
   if (!organization) {

@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { users } from "../../db";
 
 export async function getSupportActorName({
   actor,
@@ -13,7 +15,7 @@ export async function getSupportActorName({
       id: true,
       name: true,
     },
-    where: (table, { eq }) => eq(table.id, actor.id),
+    where: eq(users.id, actor.id),
   });
 
   return user?.name ?? (actor.role === "admin" ? "Suporte LicitaDoc" : "Usuario");

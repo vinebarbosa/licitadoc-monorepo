@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { and, eq, gt } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import { invites, users } from "../../db";
@@ -43,12 +44,11 @@ export async function createInvite({ actor, db, baseUrl, email, mailer, organiza
   const now = new Date();
 
   const existingInvite = await db.query.invites.findFirst({
-    where: (table, { and, eq, gt }) =>
-      and(
-        eq(table.email, normalizedEmail),
-        eq(table.status, "pending"),
-        gt(table.expiresAt, new Date()),
-      ),
+    where: and(
+      eq(invites.email, normalizedEmail),
+      eq(invites.status, "pending"),
+      gt(invites.expiresAt, new Date()),
+    ),
   });
 
   if (existingInvite) {
@@ -62,7 +62,7 @@ export async function createInvite({ actor, db, baseUrl, email, mailer, organiza
 
     if (role === "organization_owner" || role === "member") {
       const existingUser = await tx.query.users.findFirst({
-        where: (table, { eq }) => eq(table.email, normalizedEmail),
+        where: eq(users.email, normalizedEmail),
       });
 
       if (existingUser) {

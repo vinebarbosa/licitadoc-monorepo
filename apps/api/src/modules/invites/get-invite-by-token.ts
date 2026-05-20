@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
+import { invites } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { hashInviteToken } from "./invite.tokens";
@@ -18,7 +20,7 @@ type Input = {
 
 export async function getInviteByToken({ db, inviteToken }: Input) {
   const invite = await db.query.invites.findFirst({
-    where: (table, { eq }) => eq(table.tokenHash, hashInviteToken(inviteToken)),
+    where: eq(invites.tokenHash, hashInviteToken(inviteToken)),
   });
 
   if (!invite) {

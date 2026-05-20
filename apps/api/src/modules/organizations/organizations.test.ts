@@ -1162,7 +1162,6 @@ test("letterhead image validation extracts PNG dimensions and rejects zero-byte 
 test("Pureza letterhead seed resolves by target organization and fails before upload when missing", async () => {
   assert.equal(PUREZA_CNPJ_DIGITS, "08290223000142");
 
-  let capturedOrganizationId: string | undefined;
   const organization = createOrganizationRow({
     cnpj: "08.290.223/0001-42",
     id: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
@@ -1171,11 +1170,7 @@ test("Pureza letterhead seed resolves by target organization and fails before up
   const db = {
     query: {
       organizations: {
-        findFirst: async (options?: {
-          where?: (table: unknown, operators: unknown) => unknown;
-        }) => {
-          capturedOrganizationId = "4fd5b7df-e2e5-4876-b4c3-b35306c6e733";
-          options?.where?.({ id: capturedOrganizationId }, { eq: () => true });
+        findFirst: async () => {
           return organization;
         },
       },

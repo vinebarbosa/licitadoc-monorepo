@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { departments, organizations } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
@@ -53,11 +55,11 @@ async function resolveOrganization({
   if (actor.role === "admin") {
     const organization = inputOrganizationId
       ? await db.query.organizations.findFirst({
-          where: (table, { eq }) => eq(table.id, inputOrganizationId),
+          where: eq(organizations.id, inputOrganizationId),
         })
       : sourceCnpj
         ? await db.query.organizations.findFirst({
-            where: (table, { eq }) => eq(table.cnpj, sourceCnpj),
+            where: eq(organizations.cnpj, sourceCnpj),
           })
         : null;
 
@@ -83,7 +85,7 @@ async function resolveOrganization({
   }
 
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq }) => eq(table.id, actorOrganizationId),
+    where: eq(organizations.id, actorOrganizationId),
   });
 
   if (!organization) {
@@ -117,7 +119,7 @@ async function resolveDepartmentIds({
   }
 
   const rows = await db.query.departments.findMany({
-    where: (table, { eq }) => eq(table.organizationId, organizationId),
+    where: eq(departments.organizationId, organizationId),
   });
   const budgetUnitMatches = budgetUnitCode
     ? rows.filter((department) => department.budgetUnitCode === budgetUnitCode)

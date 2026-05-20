@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { users } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { canReadStoredUser } from "./users.policies";
 import { serializeUser } from "./users.shared";
@@ -12,7 +14,7 @@ type Input = {
 
 export async function getUser({ actor, db, userId }: Input) {
   const user = await db.query.users.findFirst({
-    where: (table, { eq }) => eq(table.id, userId),
+    where: eq(users.id, userId),
   });
 
   if (!user) {

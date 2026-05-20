@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { documents, organizations } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { canReadStoredDocument } from "./documents.policies";
 import { serializeDocumentDetail } from "./documents.shared";
@@ -12,7 +14,7 @@ type Input = {
 
 export async function getDocument({ actor, db, documentId }: Input) {
   const document = await db.query.documents.findFirst({
-    where: (table, { eq }) => eq(table.id, documentId),
+    where: eq(documents.id, documentId),
   });
 
   if (!document) {
@@ -22,7 +24,7 @@ export async function getDocument({ actor, db, documentId }: Input) {
   canReadStoredDocument(actor, document);
 
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq }) => eq(table.id, document.organizationId),
+    where: eq(organizations.id, document.organizationId),
   });
 
   return serializeDocumentDetail(document, organization ?? null);

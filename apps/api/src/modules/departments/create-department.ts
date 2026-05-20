@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { departments } from "../../db";
+import { departments, organizations } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { resolveDepartmentOrganizationIdForCreate } from "./departments.policies";
 import type { CreateDepartmentInput } from "./departments.schemas";
@@ -15,7 +16,7 @@ type Input = {
 export async function createDepartment({ actor, db, department }: Input) {
   const organizationId = resolveDepartmentOrganizationIdForCreate(actor, department.organizationId);
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq }) => eq(table.id, organizationId),
+    where: eq(organizations.id, organizationId),
   });
 
   if (!organization) {

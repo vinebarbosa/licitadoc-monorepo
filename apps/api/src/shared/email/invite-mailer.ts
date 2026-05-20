@@ -14,6 +14,16 @@ export interface InviteMailer {
   sendInviteEmail(input: InviteEmailInput): Promise<void>;
 }
 
+type InviteMailerFetchResponse = {
+  ok: boolean;
+  status: number;
+};
+
+type InviteMailerFetch = (
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+) => Promise<InviteMailerFetchResponse>;
+
 export class InviteEmailDeliveryError extends Error {
   constructor(message = "Invite email delivery failed.", options?: ErrorOptions) {
     super(message, options);
@@ -47,7 +57,7 @@ export class StubInviteMailer implements InviteMailer {
 
 type ResendInviteMailerInput = {
   apiKey?: string;
-  fetchFn?: typeof fetch;
+  fetchFn?: InviteMailerFetch;
   fromEmail?: string;
 };
 
@@ -56,10 +66,10 @@ const RESEND_USER_AGENT = "licitadoc-api/1.0";
 
 export class ResendInviteMailer implements InviteMailer {
   private readonly apiKey: string;
-  private readonly fetchFn: typeof fetch;
+  private readonly fetchFn: InviteMailerFetch;
   private readonly fromEmail: string;
 
-  constructor({ apiKey, fetchFn = fetch, fromEmail }: ResendInviteMailerInput) {
+  constructor({ apiKey, fetchFn = fetch as InviteMailerFetch, fromEmail }: ResendInviteMailerInput) {
     const normalizedApiKey = apiKey?.trim();
     const normalizedFromEmail = fromEmail?.trim();
 

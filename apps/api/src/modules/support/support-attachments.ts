@@ -1,5 +1,7 @@
+import { and, eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { supportTicketAttachments, supportTickets } from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { FileStorageProvider } from "../../shared/storage/types";
@@ -189,7 +191,7 @@ export async function getSupportTicketImageAttachment({
   ticketId: string;
 }) {
   const ticket = await db.query.supportTickets.findFirst({
-    where: (table, { eq }) => eq(table.id, ticketId),
+    where: eq(supportTickets.id, ticketId),
   });
 
   if (!ticket) {
@@ -199,8 +201,10 @@ export async function getSupportTicketImageAttachment({
   canReadStoredSupportTicket(actor, ticket);
 
   const attachment = await db.query.supportTicketAttachments.findFirst({
-    where: (table, { and, eq }) =>
-      and(eq(table.id, attachmentId), eq(table.ticketId, ticket.id)),
+    where: and(
+      eq(supportTicketAttachments.id, attachmentId),
+      eq(supportTicketAttachments.ticketId, ticket.id),
+    ),
   });
 
   if (!attachment || attachment.type !== "image" || !attachment.storageKey) {

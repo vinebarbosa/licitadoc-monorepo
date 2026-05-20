@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { supportTicketAttachments, supportTicketMessages, supportTickets } from "../../db";
+import {
+  organizations,
+  supportTicketAttachments,
+  supportTicketMessages,
+  supportTickets,
+  users,
+} from "../../db";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { RealtimeProvider } from "../../shared/realtime/types";
@@ -34,7 +41,7 @@ export async function createSupportTicket({ actor, db, logger, realtime, input }
         name: true,
         email: true,
       },
-      where: (table, { eq }) => eq(table.id, actor.id),
+      where: eq(users.id, actor.id),
     }),
     db.query.organizations.findFirst({
       columns: {
@@ -42,7 +49,7 @@ export async function createSupportTicket({ actor, db, logger, realtime, input }
         name: true,
         officialName: true,
       },
-      where: (table, { eq }) => eq(table.id, actor.organizationId ?? ""),
+      where: eq(organizations.id, actor.organizationId ?? ""),
     }),
   ]);
 

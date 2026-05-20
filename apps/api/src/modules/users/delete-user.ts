@@ -13,7 +13,7 @@ type Input = {
 
 export async function deleteUser({ actor, db, userId }: Input) {
   const user = await db.query.users.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, userId),
+    where: eq(users.id, userId),
   });
 
   if (!user) {

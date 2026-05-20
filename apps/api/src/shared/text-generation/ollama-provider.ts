@@ -26,6 +26,24 @@ type OllamaResponseMetadata = Pick<
   "done" | "total_duration" | "load_duration" | "prompt_eval_count" | "eval_count"
 >;
 
+type OllamaStreamReader = {
+  read(): Promise<{ done?: boolean; value?: Uint8Array }>;
+};
+
+type OllamaFetchResponse = {
+  body: {
+    getReader(): OllamaStreamReader;
+  } | null;
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+};
+
+type OllamaFetch = (
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+) => Promise<OllamaFetchResponse>;
+
 function toError(input: {
   code: TextGenerationError["code"];
   message: string;
@@ -55,7 +73,7 @@ function updateMetadata(
   };
 }
 
-async function readOllamaErrorBody(response: Response) {
+async function readOllamaErrorBody(response: Pick<OllamaFetchResponse, "text">) {
   try {
     const raw = await response.text();
     const trimmed = raw.trim();
@@ -96,7 +114,8 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
 
   async generateText(input: TextGenerationInput): Promise<TextGenerationResult> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/generate`, {
+      const fetchResponse = fetch as OllamaFetch;
+      const response = await fetchResponse(`${this.baseUrl}/api/generate`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

@@ -934,7 +934,7 @@ async function findManagedDocument({
   documentId: string;
 }) {
   const document = await db.query.documents.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, documentId),
+    where: eq(documents.id, documentId),
   });
 
   if (!document) {

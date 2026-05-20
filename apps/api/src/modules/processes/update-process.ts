@@ -24,7 +24,7 @@ type Input = {
 
 export async function updateProcess({ actor, db, processId, changes }: Input) {
   const process = await db.query.processes.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, processId),
+    where: eq(processes.id, processId),
   });
 
   if (!process) {

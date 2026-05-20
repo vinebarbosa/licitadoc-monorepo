@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { supportTickets } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { RealtimeCapability, RealtimeProvider } from "../../shared/realtime/types";
 import { canReadStoredSupportTicket, canSubscribeToSupportQueue } from "./support-tickets.policies";
@@ -25,7 +27,7 @@ export async function createSupportRealtimeToken({
 
   if (input.ticketId) {
     const ticket = await db.query.supportTickets.findFirst({
-      where: (table, { eq }) => eq(table.id, input.ticketId ?? ""),
+      where: eq(supportTickets.id, input.ticketId ?? ""),
     });
 
     if (!ticket) {

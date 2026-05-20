@@ -363,7 +363,7 @@ export async function uploadOrganizationLetterhead({
   storage: FileStorageProvider;
 }) {
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, organizationId),
+    where: eq(organizations.id, organizationId),
   });
 
   if (!organization) {
@@ -393,7 +393,7 @@ export async function getOrganizationLetterheadImage({
   organizationId: string;
 }) {
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, organizationId),
+    where: eq(organizations.id, organizationId),
   });
 
   if (!organization) {

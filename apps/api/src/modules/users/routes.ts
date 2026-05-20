@@ -11,6 +11,7 @@ import {
   getUserSchema,
   getUsersSchema,
   updateUserSchema,
+  usersPaginationQuerySchema,
 } from "./users.schemas";
 
 export const registerUserRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
@@ -22,15 +23,16 @@ export const registerUserRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
     },
     async (request) => {
       const actor = await getSessionUser(request);
+      const query = usersPaginationQuerySchema.parse(request.query);
 
       return getUsers({
         actor,
         db: app.db,
-        page: request.query.page,
-        pageSize: request.query.pageSize,
-        search: request.query.search,
-        role: request.query.role,
-        organizationId: request.query.organizationId,
+        page: query.page,
+        pageSize: query.pageSize,
+        search: query.search,
+        role: query.role,
+        organizationId: query.organizationId,
       });
     },
   );

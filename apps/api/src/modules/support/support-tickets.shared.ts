@@ -1,10 +1,10 @@
-import { eq, inArray, type SQL } from "drizzle-orm";
+import { and, eq, inArray, type SQL } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import {
   supportTicketAttachments,
   supportTicketMessages,
-  type supportTicketReads,
+  supportTicketReads,
   supportTickets,
   users,
 } from "../../db";
@@ -210,8 +210,10 @@ export async function loadSupportTicketDetails({
       orderBy: (table, { asc }) => [asc(table.createdAt)],
     }),
     db.query.supportTicketReads.findMany({
-      where: (table, { and, eq }) =>
-        and(inArray(table.ticketId, ticketIds), eq(table.userId, actor.id)),
+      where: and(
+        inArray(supportTicketReads.ticketId, ticketIds),
+        eq(supportTicketReads.userId, actor.id),
+      ),
     }),
     assigneeIds.length > 0
       ? db.query.users.findMany({

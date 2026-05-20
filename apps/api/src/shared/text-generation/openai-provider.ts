@@ -24,6 +24,17 @@ type OpenAiResponse = {
   status?: string;
 };
 
+type OpenAiFetchResponse = {
+  json(): Promise<unknown>;
+  ok: boolean;
+  status: number;
+};
+
+type OpenAiFetch = (
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+) => Promise<OpenAiFetchResponse>;
+
 const DEFAULT_OPENAI_TIMEOUT_MS = 2_000_000;
 
 function toError(input: {
@@ -90,7 +101,8 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      const response = await fetch("https://api.openai.com/v1/responses", {
+      const fetchResponse = fetch as OpenAiFetch;
+      const response = await fetchResponse("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
           "content-type": "application/json",

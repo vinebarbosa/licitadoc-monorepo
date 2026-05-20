@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
+import { documents } from "../../db";
 import { getSessionUser } from "../../shared/auth/get-session-user";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { createDocument } from "./create-document";
@@ -151,7 +153,7 @@ export const registerDocumentRoutes: FastifyPluginAsyncZodOpenApi = async (app) 
       const actor = await getSessionUser(request);
       const { documentId } = request.params;
       const document = await app.db.query.documents.findFirst({
-        where: (table, { eq }) => eq(table.id, documentId),
+        where: eq(documents.id, documentId),
       });
 
       if (!document) {

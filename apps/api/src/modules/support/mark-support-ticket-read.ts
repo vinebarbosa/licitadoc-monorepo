@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { supportTicketReads } from "../../db";
+import { supportTicketReads, supportTickets } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import type { RealtimeProvider } from "../../shared/realtime/types";
 import { getSupportTicket } from "./get-support-ticket";
@@ -18,7 +18,7 @@ type Input = {
 
 export async function markSupportTicketRead({ actor, db, logger, realtime, ticketId }: Input) {
   const currentTicket = await db.query.supportTickets.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, ticketId),
+    where: eq(supportTickets.id, ticketId),
   });
 
   if (!currentTicket) {

@@ -17,7 +17,7 @@ type Input = {
 export async function completeOwnerProfileOnboarding({ actor, db, profile }: Input) {
   return db.transaction(async (tx) => {
     const user = await tx.query.users.findFirst({
-      where: (table, { eq: equals }) => equals(table.id, actor.id),
+      where: eq(users.id, actor.id),
     });
 
     if (!user) {

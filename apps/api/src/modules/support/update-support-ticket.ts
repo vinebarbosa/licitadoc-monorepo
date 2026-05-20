@@ -24,7 +24,7 @@ type Input = {
 
 export async function updateSupportTicket({ actor, db, logger, realtime, ticketId, input }: Input) {
   const ticket = await db.query.supportTickets.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, ticketId),
+    where: eq(supportTickets.id, ticketId),
   });
 
   if (!ticket) {

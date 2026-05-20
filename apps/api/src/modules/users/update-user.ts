@@ -21,7 +21,7 @@ type Input = {
 
 export async function updateUser({ actor, db, userId, changes }: Input) {
   const user = await db.query.users.findFirst({
-    where: (table, { eq: equals }) => equals(table.id, userId),
+    where: eq(users.id, userId),
   });
 
   if (!user) {

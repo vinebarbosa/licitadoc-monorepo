@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { organizations } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { canReadStoredOrganization } from "./organizations.policies";
 import { serializeOrganization } from "./organizations.shared";
@@ -12,7 +14,7 @@ type Input = {
 
 export async function getOrganization({ actor, db, organizationId }: Input) {
   const organization = await db.query.organizations.findFirst({
-    where: (table, { eq }) => eq(table.id, organizationId),
+    where: eq(organizations.id, organizationId),
   });
 
   if (!organization) {

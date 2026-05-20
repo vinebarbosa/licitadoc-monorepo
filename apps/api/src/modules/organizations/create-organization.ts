@@ -23,7 +23,7 @@ export async function createOrganization({ actor, db, organization }: Input) {
 
   return db.transaction(async (tx) => {
     const user = await tx.query.users.findFirst({
-      where: (table, { eq: equals }) => equals(table.id, actor.id),
+      where: eq(users.id, actor.id),
     });
 
     if (!user) {
@@ -50,9 +50,22 @@ export async function createOrganization({ actor, db, organization }: Input) {
       [createdOrganization] = await tx
         .insert(organizations)
         .values({
-          ...organization,
-          isActive: true,
+          address: organization.address,
+          authorityName: organization.authorityName,
+          authorityRole: organization.authorityRole,
+          city: organization.city,
+          cnpj: organization.cnpj,
           createdByUserId: actor.id,
+          institutionalEmail: organization.institutionalEmail,
+          isActive: true,
+          logoUrl: organization.logoUrl,
+          name: organization.name,
+          officialName: organization.officialName,
+          phone: organization.phone,
+          slug: organization.slug,
+          state: organization.state,
+          website: organization.website,
+          zipCode: organization.zipCode,
         })
         .returning();
     } catch (error) {

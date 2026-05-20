@@ -18,6 +18,7 @@ import {
   getSupportTicketsSchema,
   markSupportTicketReadSchema,
   publishSupportTicketTypingSchema,
+  supportTicketsQuerySchema,
   updateSupportTicketSchema,
   uploadSupportTicketImageSchema,
 } from "./support-tickets.schemas";
@@ -50,17 +51,18 @@ export const registerSupportTicketRoutes: FastifyPluginAsyncZodOpenApi = async (
     },
     async (request) => {
       const actor = await getSessionUser(request);
+      const query = supportTicketsQuerySchema.parse(request.query);
 
       return getSupportTickets({
         actor,
         db: app.db,
-        page: request.query.page,
-        pageSize: request.query.pageSize,
-        search: request.query.search,
-        status: request.query.status,
-        priority: request.query.priority,
-        source: request.query.source,
-        assignee: request.query.assignee,
+        page: query.page,
+        pageSize: query.pageSize,
+        search: query.search,
+        status: query.status,
+        priority: query.priority,
+        source: query.source,
+        assignee: query.assignee,
       });
     },
   );
@@ -72,17 +74,18 @@ export const registerSupportTicketRoutes: FastifyPluginAsyncZodOpenApi = async (
     },
     async (request) => {
       const actor = await getSessionUser(request);
+      const query = supportTicketsQuerySchema.parse(request.query);
 
       return getSupportTickets({
         actor,
         db: app.db,
-        page: request.query.page,
-        pageSize: request.query.pageSize,
-        search: request.query.search,
-        status: request.query.status,
-        priority: request.query.priority,
-        source: request.query.source,
-        assignee: request.query.assignee,
+        page: query.page,
+        pageSize: query.pageSize,
+        search: query.search,
+        status: query.status,
+        priority: query.priority,
+        source: query.source,
+        assignee: query.assignee,
         requesterOnly: true,
       });
     },

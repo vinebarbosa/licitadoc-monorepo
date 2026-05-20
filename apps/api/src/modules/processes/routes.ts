@@ -14,6 +14,7 @@ import {
   createProcessSchema,
   getProcessesSchema,
   getProcessSchema,
+  processesPaginationQuerySchema,
   updateProcessSchema,
 } from "./processes.schemas";
 import { updateProcess } from "./update-process";
@@ -43,16 +44,17 @@ export const registerProcessRoutes: FastifyPluginAsyncZodOpenApi = async (app) =
     },
     async (request) => {
       const actor = await getSessionUser(request);
+      const query = processesPaginationQuerySchema.parse(request.query);
 
       return getProcesses({
         actor,
         db: app.db,
-        page: request.query.page,
-        pageSize: request.query.pageSize,
-        search: request.query.search,
-        status: request.query.status,
-        procurementMethod: request.query.procurementMethod,
-        biddingModality: request.query.biddingModality,
+        page: query.page,
+        pageSize: query.pageSize,
+        search: query.search,
+        status: query.status,
+        procurementMethod: query.procurementMethod,
+        biddingModality: query.biddingModality,
       });
     },
   );

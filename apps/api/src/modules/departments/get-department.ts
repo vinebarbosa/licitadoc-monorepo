@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
+import { departments } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { canReadStoredDepartment } from "./departments.policies";
 import { serializeDepartment } from "./departments.shared";
@@ -12,7 +14,7 @@ type Input = {
 
 export async function getDepartment({ actor, db, departmentId }: Input) {
   const department = await db.query.departments.findFirst({
-    where: (table, { eq }) => eq(table.id, departmentId),
+    where: eq(departments.id, departmentId),
   });
 
   if (!department) {

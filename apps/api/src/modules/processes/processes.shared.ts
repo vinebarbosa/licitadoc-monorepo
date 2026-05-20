@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import {
   departments,
-  type documents,
+  documents,
   type organizations,
   processDepartments,
   processes,
@@ -863,7 +863,7 @@ export async function getProcessDetailDocuments({
   processId: string;
 }) {
   return db.query.documents.findMany({
-    where: (table, { eq: equals }) => equals(table.processId, processId),
+    where: eq(documents.processId, processId),
     orderBy: (table, { desc }) => [desc(table.updatedAt), desc(table.createdAt)],
   });
 }

@@ -9,6 +9,7 @@ import {
   createInviteSchema,
   getInviteByTokenSchema,
   getInvitesSchema,
+  invitePaginationQuerySchema,
 } from "./invites.schemas";
 
 export const registerInviteRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
@@ -39,12 +40,13 @@ export const registerInviteRoutes: FastifyPluginAsyncZodOpenApi = async (app) =>
     },
     async (request) => {
       const actor = await getSessionUser(request);
+      const query = invitePaginationQuerySchema.parse(request.query);
 
       return getInvites({
         actor,
         db: app.db,
-        page: request.query.page,
-        pageSize: request.query.pageSize,
+        page: query.page,
+        pageSize: query.pageSize,
       });
     },
   );

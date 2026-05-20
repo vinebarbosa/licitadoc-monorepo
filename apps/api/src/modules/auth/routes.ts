@@ -1,6 +1,15 @@
 import { fromNodeHeaders } from "better-auth/node";
 import type { FastifyPluginAsync } from "fastify";
 
+type AuthHandlerResponse = {
+  body: unknown;
+  headers: {
+    forEach(callback: (value: string, key: string) => void): void;
+  };
+  status: number;
+  text(): Promise<string>;
+};
+
 export const registerAuthRoutes: FastifyPluginAsync = async (app) => {
   app.route({
     method: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
@@ -24,7 +33,7 @@ export const registerAuthRoutes: FastifyPluginAsync = async (app) => {
         });
 
         // Process authentication request
-        const response = await app.auth.handler(authRequest);
+        const response = (await app.auth.handler(authRequest)) as AuthHandlerResponse;
 
         // Forward response to client
         reply.status(response.status);

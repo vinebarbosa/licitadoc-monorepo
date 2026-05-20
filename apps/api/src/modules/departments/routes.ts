@@ -3,6 +3,7 @@ import { getSessionUser } from "../../shared/auth/get-session-user";
 import { createDepartment } from "./create-department";
 import {
   createDepartmentSchema,
+  departmentsPaginationQuerySchema,
   getDepartmentSchema,
   getDepartmentsSchema,
   updateDepartmentSchema,
@@ -37,12 +38,13 @@ export const registerDepartmentRoutes: FastifyPluginAsyncZodOpenApi = async (app
     },
     async (request) => {
       const actor = await getSessionUser(request);
+      const query = departmentsPaginationQuerySchema.parse(request.query);
 
       return getDepartments({
         actor,
         db: app.db,
-        page: request.query.page,
-        pageSize: request.query.pageSize,
+        page: query.page,
+        pageSize: query.pageSize,
       });
     },
   );

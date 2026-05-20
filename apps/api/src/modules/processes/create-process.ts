@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
-import { processDepartments, processes } from "../../db";
+import { organizations, processDepartments, processes } from "../../db";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import { resolveProcessOrganizationIdForCreate } from "./processes.policies";
 import type { CreateProcessInput } from "./processes.schemas";
@@ -24,7 +25,7 @@ export async function createProcess({ actor, db, process }: Input) {
 
   return db.transaction(async (tx) => {
     const organization = await tx.query.organizations.findFirst({
-      where: (table, { eq }) => eq(table.id, organizationId),
+      where: eq(organizations.id, organizationId),
     });
 
     if (!organization) {
