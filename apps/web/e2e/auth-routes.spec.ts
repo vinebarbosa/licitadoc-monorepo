@@ -25,3 +25,13 @@ test("fallback routes render recovery navigation", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Página não encontrada" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Voltar para a página inicial/ })).toBeVisible();
 });
+
+test("protected clean routes load the app shell before auth redirects", async ({ page }) => {
+  await page.goto("/app/processos");
+  await expect(page.getByRole("heading", { name: "Acesse sua conta" })).toBeVisible();
+  await expect(page).toHaveURL(/\/entrar/);
+
+  await page.goto("/admin/usuarios");
+  await expect(page.getByRole("heading", { name: "Acesse sua conta" })).toBeVisible();
+  await expect(page).toHaveURL(/\/entrar/);
+});

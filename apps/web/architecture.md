@@ -59,6 +59,12 @@ Code outside a module should import from the module public API or a documented r
 
 Route modules should bind URL structure to layouts and module pages. They should not become the place where reusable module logic lives.
 
+## Deployment Routing
+
+`apps/web` is deployed as a Vite single-page app. The versioned Vercel configuration in `apps/web/vercel.json` must preserve React Router ownership for clean client URLs by serving `index.html` after Vercel checks the static filesystem.
+
+Keep the deployment fallback broad enough for direct loads and reloads of client-owned routes such as `/entrar`, `/app/processos`, `/admin/usuarios`, and unknown clean URLs that should render the in-app not-found page. Keep `/api/*` and file-like paths with extensions outside the SPA fallback so backend traffic and missing static assets are not rewritten into the app shell.
+
 ## API Boundary
 
 The generated `@licitadoc/api-client` package is the HTTP contract boundary. Do not edit generated files under `packages/api-client/src/gen`.

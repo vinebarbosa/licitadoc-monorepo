@@ -42,6 +42,8 @@ Avoid handwritten `fetch` calls in product code. Use `@licitadoc/api-client` thr
 
 Do not import runtime code from `tmp/web`. Files copied from that source bundle must use `@/shared/ui`, `@/shared/hooks`, and `@/shared/lib` imports after migration.
 
+Keep deployed route ownership in `apps/web/vercel.json`: Vercel should check static files first, reserve `/api/*` and file-like paths, then serve `index.html` for clean client URLs so React Router handles known routes, auth guards, redirects, and the in-app not-found page.
+
 ## Workflow
 
 1. Read `apps/web/architecture.md` before making structural changes.
