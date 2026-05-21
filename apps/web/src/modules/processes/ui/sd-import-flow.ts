@@ -34,17 +34,20 @@ type ApplySdImportToProcessFormInput = {
 };
 
 const warningLabels: Record<ExpenseRequestExtractionWarning, string> = {
-  budget_unit_code_missing: "Código da unidade orçamentária não encontrado na SD.",
-  budget_unit_name_missing: "Nome da unidade orçamentária não encontrado na SD.",
+  budget_unit_code_missing:
+    "Código da unidade orçamentária não encontrado na Solicitação de despesa.",
+  budget_unit_name_missing:
+    "Nome da unidade orçamentária não encontrado na Solicitação de despesa.",
   department_match_missing:
-    "A unidade orçamentária da SD não foi encontrada nos departamentos disponíveis.",
-  item_description_missing: "Descrição do item não encontrada na SD.",
-  item_rows_missing: "Linhas de itens não foram encontradas na SD.",
-  item_value_missing: "Valor do item não encontrado na SD.",
-  organization_cnpj_missing: "CNPJ da organização não encontrado na SD.",
-  organization_match_missing: "O CNPJ da SD não foi encontrado nas organizações disponíveis.",
-  required_field_missing: "Campos obrigatórios da SD não foram encontrados.",
-  responsible_name_missing: "Responsável não encontrado na SD.",
+    "A unidade orçamentária da Solicitação de despesa não foi encontrada nos departamentos disponíveis.",
+  item_description_missing: "Descrição do item não encontrada na Solicitação de despesa.",
+  item_rows_missing: "Linhas de itens não foram encontradas na Solicitação de despesa.",
+  item_value_missing: "Valor do item não encontrado na Solicitação de despesa.",
+  organization_cnpj_missing: "CNPJ da organização não encontrado na Solicitação de despesa.",
+  organization_match_missing:
+    "O CNPJ da Solicitação de despesa não foi encontrado nas organizações disponíveis.",
+  required_field_missing: "Campos obrigatórios da Solicitação de despesa não foram encontrados.",
+  responsible_name_missing: "Responsável não encontrado na Solicitação de despesa.",
 };
 
 function cleanText(value: string | null | undefined) {

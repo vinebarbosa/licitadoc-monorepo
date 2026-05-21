@@ -161,7 +161,7 @@ export function AppHomePage() {
           </div>
           <Button asChild size="lg">
             <Link to="/app/processo/novo">
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Novo Processo
             </Link>
           </Button>
@@ -296,7 +296,7 @@ export function AppHomePage() {
                 <EmptyContent>
                   <Button asChild>
                     <Link to="/app/processo/novo">
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                       Novo Processo
                     </Link>
                   </Button>

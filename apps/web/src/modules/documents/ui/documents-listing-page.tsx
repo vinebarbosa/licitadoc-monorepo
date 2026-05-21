@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/shared/lib/utils";
@@ -45,12 +45,15 @@ import {
   documentTypeConfig,
   filterDocuments,
   formatUpdatedAt,
+  getDefaultDocumentsFilters,
+  getDocumentsFilterSearchParams,
   getDocumentDisplayType,
   getDocumentEditLink,
   getDocumentPreviewLink,
   getProcessLink,
   mapApiStatusToDisplay,
   mapApiTypeToDisplay,
+  type DocumentsFilters,
 } from "../model/documents";
 
 function DocumentsTableSkeleton() {
@@ -97,26 +100,27 @@ function DocumentsTableSkeleton() {
 }
 
 export function DocumentsListingPage() {
-  const [searchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("todos");
-  const [typeFilter, setTypeFilter] = useState(() => {
-    const tipo = searchParams.get("tipo");
-    return tipo ?? "todos";
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => getDefaultDocumentsFilters(searchParams), [searchParams]);
 
   const documentsQuery = useDocumentsList();
   const allItems = documentsQuery.data?.items ?? [];
   const stats = useMemo(() => deriveDocumentStats(allItems), [allItems]);
   const filteredItems = useMemo(
-    () => filterDocuments(allItems, { search: searchQuery, typeFilter, statusFilter }),
-    [allItems, searchQuery, typeFilter, statusFilter],
+    () => filterDocuments(allItems, filters),
+    [allItems, filters],
   );
 
   const hasInvalidResponse =
     documentsQuery.data != null && !Array.isArray(documentsQuery.data.items);
   const hasError = documentsQuery.isError || hasInvalidResponse;
   const isLoading = documentsQuery.isLoading;
+
+  function updateRoute(nextFilters: Partial<DocumentsFilters>) {
+    setSearchParams(getDocumentsFilterSearchParams({ ...filters, ...nextFilters }), {
+      replace: true,
+    });
+  }
 
   return (
     <main className="flex-1 overflow-auto p-6">
@@ -131,7 +135,7 @@ export function DocumentsListingPage() {
           </div>
           <Button asChild>
             <Link to="/app/documento/novo">
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Novo Documento
             </Link>
           </Button>
@@ -201,12 +205,17 @@ export function DocumentsListingPage() {
               aria-label="Buscar documentos"
               placeholder="Buscar documentos..."
               className="pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={filters.search}
+              onChange={(e) => updateRoute({ search: e.target.value })}
             />
           </div>
           <div className="flex gap-2">
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select
+              value={filters.typeFilter}
+              onValueChange={(typeFilter) =>
+                updateRoute({ typeFilter: typeFilter as DocumentsFilters["typeFilter"] })
+              }
+            >
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
@@ -218,7 +227,12 @@ export function DocumentsListingPage() {
                 <SelectItem value="minuta">Minuta</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select
+              value={filters.statusFilter}
+              onValueChange={(statusFilter) =>
+                updateRoute({ statusFilter: statusFilter as DocumentsFilters["statusFilter"] })
+              }
+            >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -266,7 +280,7 @@ export function DocumentsListingPage() {
               <EmptyContent>
                 <Button asChild>
                   <Link to="/app/documento/novo">
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="h-4 w-4" />
                     Novo Documento
                   </Link>
                 </Button>

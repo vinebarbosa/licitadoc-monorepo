@@ -219,6 +219,10 @@ describe("Owner onboarding pages", () => {
     );
 
     fillOwnerOrganizationForm();
+    expect(screen.getByRole("button", { name: "Selecionar imagem" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Arraste a imagem aqui ou selecione do computador"),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
       target: { files: [letterhead] },
     });
@@ -257,7 +261,10 @@ describe("Owner onboarding pages", () => {
     fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
       target: { files: [letterhead] },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Remover" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remover arquivo" }));
+    expect(
+      screen.getByText("Arraste a imagem aqui ou selecione do computador"),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Finalizar configuração" }));
 
     await waitFor(() => {

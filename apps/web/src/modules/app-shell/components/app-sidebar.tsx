@@ -1,3 +1,4 @@
+import { useGetApiOrganizationsMe } from "@licitadoc/api-client";
 import {
   Bell,
   ChevronDown,
@@ -107,9 +108,17 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const { role, session } = useAuthSession();
   const signOut = useSignOut();
+  const currentOrganizationQuery = useGetApiOrganizationsMe({
+    query: {
+      enabled: role !== "admin" && Boolean(session?.user.organizationId),
+    },
+  });
   const processCountQuery = useProcessSidebarCount();
   const isCollapsed = state === "collapsed";
   const user = session?.user;
+  const organizationLabel =
+    currentOrganizationQuery.data?.name ??
+    (role === "admin" ? "Administração do sistema" : "Organização");
   const processCountBadge =
     processCountQuery.isSuccess && typeof processCountQuery.data.total === "number"
       ? processCountQuery.data.total.toString()
@@ -311,7 +320,7 @@ export function AppSidebar() {
                   <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">{user?.name ?? "Usuário"}</span>
                     <span className="truncate text-sidebar-foreground/60 text-xs">
-                      Analista de Licitações
+                      {organizationLabel}
                     </span>
                   </div>
                   <ChevronDown className="ml-auto size-4" />

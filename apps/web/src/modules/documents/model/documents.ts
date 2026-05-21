@@ -19,6 +19,12 @@ export type DocumentEditorJson = JSONContent & {
 
 export type DocumentType = "dfd" | "etp" | "tr" | "minuta";
 export type DocumentDisplayStatus = "concluido" | "em_edicao" | "pendente" | "erro";
+export type DocumentStatusFilter = Exclude<DocumentDisplayStatus, "pendente"> | "todos";
+export type DocumentsFilters = {
+  search: string;
+  typeFilter: DocumentType | "todos";
+  statusFilter: DocumentStatusFilter;
+};
 
 export const documentTypeConfig: Record<
   DocumentType,
@@ -224,6 +230,45 @@ export function deriveDocumentStats(items: DocumentsListItem[]) {
   const em_edicao = items.filter((i) => mapApiStatusToDisplay(i.status) === "em_edicao").length;
   const erro = items.filter((i) => mapApiStatusToDisplay(i.status) === "erro").length;
   return { total, concluido, em_edicao, erro };
+}
+
+function isDocumentType(value: string | null): value is DocumentType {
+  return value === "dfd" || value === "etp" || value === "tr" || value === "minuta";
+}
+
+function isDocumentStatusFilter(value: string | null): value is DocumentStatusFilter {
+  return value === "concluido" || value === "em_edicao" || value === "erro";
+}
+
+export function getDefaultDocumentsFilters(searchParams: URLSearchParams): DocumentsFilters {
+  const search = searchParams.get("search")?.trim() ?? "";
+  const type = searchParams.get("tipo");
+  const status = searchParams.get("status");
+
+  return {
+    search,
+    typeFilter: isDocumentType(type) ? type : "todos",
+    statusFilter: isDocumentStatusFilter(status) ? status : "todos",
+  };
+}
+
+export function getDocumentsFilterSearchParams(filters: DocumentsFilters) {
+  const searchParams = new URLSearchParams();
+  const search = filters.search.trim();
+
+  if (search.length > 0) {
+    searchParams.set("search", search);
+  }
+
+  if (filters.typeFilter !== "todos") {
+    searchParams.set("tipo", filters.typeFilter);
+  }
+
+  if (filters.statusFilter !== "todos") {
+    searchParams.set("status", filters.statusFilter);
+  }
+
+  return searchParams;
 }
 
 export function filterDocuments(

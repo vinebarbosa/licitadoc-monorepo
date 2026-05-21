@@ -237,7 +237,7 @@ export function OwnerDepartmentsTab() {
           </p>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="h-4 w-4" />
           Criar departamento
         </Button>
       </div>
@@ -274,7 +274,7 @@ export function OwnerDepartmentsTab() {
             </EmptyHeader>
             <EmptyContent>
               <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 Criar departamento
               </Button>
             </EmptyContent>

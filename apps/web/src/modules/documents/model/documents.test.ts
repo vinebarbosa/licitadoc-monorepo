@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  getDefaultDocumentsFilters,
+  getDocumentsFilterSearchParams,
   getDocumentPreviewSource,
   getPreviewableDraftContentJson,
   isTiptapDocumentJson,
@@ -51,5 +53,51 @@ describe("document preview source selection", () => {
         draftContentJson: { type: "paragraph" },
       }),
     ).toBeNull();
+  });
+});
+
+describe("document listing filter URL helpers", () => {
+  it("restores supported filters from URL params", () => {
+    const filters = getDefaultDocumentsFilters(
+      new URLSearchParams("tipo=tr&status=em_edicao&search=termo"),
+    );
+
+    expect(filters).toEqual({
+      search: "termo",
+      typeFilter: "tr",
+      statusFilter: "em_edicao",
+    });
+  });
+
+  it("normalizes invalid filter params to defaults", () => {
+    const filters = getDefaultDocumentsFilters(
+      new URLSearchParams("tipo=invalido&status=pendente&search=%20%20"),
+    );
+
+    expect(filters).toEqual({
+      search: "",
+      typeFilter: "todos",
+      statusFilter: "todos",
+    });
+  });
+
+  it("serializes only non-default filters", () => {
+    const searchParams = getDocumentsFilterSearchParams({
+      search: "  termo  ",
+      typeFilter: "etp",
+      statusFilter: "concluido",
+    });
+
+    expect(searchParams.toString()).toBe("search=termo&tipo=etp&status=concluido");
+  });
+
+  it("omits default filters from the query string", () => {
+    const searchParams = getDocumentsFilterSearchParams({
+      search: "  ",
+      typeFilter: "todos",
+      statusFilter: "todos",
+    });
+
+    expect(searchParams.toString()).toBe("");
   });
 });

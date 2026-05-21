@@ -1,21 +1,73 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
+import { AppSidebar } from "@/modules/app-shell/components/app-sidebar";
 import { DocumentsPage } from "@/modules/documents";
+import { SidebarProvider } from "@/shared/ui/sidebar";
 import { documentsListResponse } from "@/test/msw/fixtures";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
+const authSessionMock = vi.hoisted(() => ({
+  role: "admin" as "admin" | "organization_owner" | "member" | null,
+  session: {
+    user: {
+      id: "admin-1",
+      name: "Maria Silva",
+      email: "maria@licitadoc.test",
+      organizationId: null as string | null,
+    },
+  },
+}));
+
+vi.mock("@/modules/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/auth")>();
+
+  return {
+    ...actual,
+    useAuthSession: () => authSessionMock,
+    useSignOut: () => ({
+      isPending: false,
+      mutateAsync: vi.fn(),
+    }),
+  };
+});
+
+function LocationProbe() {
+  const location = useLocation();
+
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
+
+function openSelect(trigger: HTMLElement) {
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+}
+
 function renderDocumentsPage(initialEntry = "/app/documentos") {
   return renderWithProviders(
     <MemoryRouter initialEntries={[initialEntry]}>
+      <LocationProbe />
       <Routes>
         <Route path="/app/documentos" element={<DocumentsPage />} />
       </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderDocumentsPageWithSidebar(initialEntry = "/app/documentos") {
+  return renderWithProviders(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <SidebarProvider>
+        <AppSidebar />
+        <LocationProbe />
+        <Routes>
+          <Route path="/app/documentos" element={<DocumentsPage />} />
+        </Routes>
+      </SidebarProvider>
     </MemoryRouter>,
   );
 }
@@ -144,16 +196,93 @@ describe("DocumentsPage", () => {
       ),
     );
 
-    renderDocumentsPage("/app/documentos?tipo=dfd");
+    renderDocumentsPage("/app/documentos?tipo=tr");
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: "DFD - PE-2024-045" })).toBeInTheDocument();
+      expect(screen.getByText("Nenhum documento encontrado")).toBeInTheDocument();
     });
 
-    // Only the DFD row should be visible
-    expect(screen.getByRole("link", { name: "DFD - PE-2024-045" })).toBeInTheDocument();
+    expect(screen.getAllByRole("combobox")[0]).toHaveTextContent("TR");
+    expect(screen.queryByRole("link", { name: "DFD - PE-2024-045" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "ETP - PE-2024-045" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Minuta - PE-2024-043" })).not.toBeInTheDocument();
+  });
+
+  it("updates URL and rows when page filters change", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/documents/", () =>
+        HttpResponse.json(documentsListResponse),
+      ),
+    );
+
+    renderDocumentsPage();
+
+    expect(await screen.findByRole("link", { name: "DFD - PE-2024-045" })).toBeInTheDocument();
+
+    openSelect(screen.getAllByRole("combobox")[0]);
+    fireEvent.click(await screen.findByRole("option", { name: "ETP" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent("/app/documentos?tipo=etp");
+    });
+    expect(screen.getByRole("link", { name: "ETP - PE-2024-045" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "DFD - PE-2024-045" })).not.toBeInTheDocument();
+
+    openSelect(screen.getAllByRole("combobox")[1]);
+    fireEvent.click(await screen.findByRole("option", { name: "Em edição" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/app/documentos?tipo=etp&status=em_edicao",
+      );
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Buscar documentos" }), {
+      target: { value: "PE-2024-045" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/app/documentos?search=PE-2024-045&tipo=etp&status=em_edicao",
+      );
+    });
+  });
+
+  it("falls back to default filters for invalid query values", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/documents/", () =>
+        HttpResponse.json(documentsListResponse),
+      ),
+    );
+
+    renderDocumentsPage("/app/documentos?tipo=invalido&status=invalido");
+
+    expect(await screen.findByRole("link", { name: "DFD - PE-2024-045" })).toBeInTheDocument();
+    expect(screen.getAllByRole("combobox")[0]).toHaveTextContent("Todos");
+    expect(screen.getAllByRole("combobox")[1]).toHaveTextContent("Todos");
+  });
+
+  it("reacts to sidebar document type links while the documents page is mounted", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/documents/", () =>
+        HttpResponse.json(documentsListResponse),
+      ),
+    );
+
+    renderDocumentsPageWithSidebar("/app/documentos?tipo=tr");
+
+    await waitFor(() => {
+      expect(screen.getByText("Nenhum documento encontrado")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "ETP" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent("/app/documentos?tipo=etp");
+    });
+    expect(screen.getAllByRole("combobox")[0]).toHaveTextContent("ETP");
+    expect(screen.getByRole("link", { name: "ETP - PE-2024-045" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "DFD - PE-2024-045" })).not.toBeInTheDocument();
   });
 
   it("shows toast feedback when Duplicar is selected", async () => {

@@ -79,13 +79,15 @@ function mockSuccessfulSdImport(fileName = "SD.pdf") {
 
 async function applySuccessfulSdImport(fileName = "SD.pdf") {
   mockSuccessfulSdImport(fileName);
-  fireEvent.click(await screen.findByRole("button", { name: "Importar SD" }));
-  fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+  fireEvent.click(await screen.findByRole("button", { name: "Importar Solicitação de Despesa" }));
+  expect(screen.getByRole("button", { name: "Selecionar PDF" })).toBeInTheDocument();
+  expect(screen.getByText("Arraste o PDF aqui ou selecione o arquivo")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Arquivo PDF"), {
     target: { files: [createSdFile(fileName)] },
   });
 
   expect(await screen.findByText("SD-6-2026")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Aplicar dados da SD/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Aplicar" }));
 }
 
 function createProcessResponse(overrides: Record<string, unknown> = {}) {
@@ -462,8 +464,10 @@ describe("ProcessCreatePage", () => {
     });
     mockSuccessfulSdImport();
 
-    fireEvent.click(screen.getByRole("button", { name: "Importar SD" }));
-    fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+    fireEvent.click(screen.getByRole("button", { name: "Importar Solicitação de Despesa" }));
+    expect(screen.getByRole("button", { name: "Selecionar PDF" })).toBeInTheDocument();
+    expect(screen.getByText("Arraste o PDF aqui ou selecione o arquivo")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Arquivo PDF"), {
       target: { files: [createSdFile()] },
     });
 
@@ -471,7 +475,9 @@ describe("ProcessCreatePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
 
     expect(screen.getByLabelText(/Número do processo/i)).toHaveValue("PROC-MANUAL");
-    expect(screen.queryByText("Dados importados da SD")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Dados importados da Solicitação de despesa"),
+    ).not.toBeInTheDocument();
   });
 
   it("applies imported SD data to editable wizard fields", async () => {
@@ -483,7 +489,7 @@ describe("ProcessCreatePage", () => {
     expect(screen.getByLabelText(/ID externo/i)).toHaveValue("6");
     expect(screen.getByLabelText(/Data de emissão/i)).toHaveValue("2026-01-08");
     expect(screen.getByLabelText(/Responsável/i)).toHaveValue("Maria Responsavel");
-    expect(screen.getByText("Dados importados da SD")).toBeInTheDocument();
+    expect(screen.getByText("Dados importados da Solicitação de despesa")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Objeto da contratação/i), {
       target: { value: "Objeto revisado pelo usuário" },
@@ -502,8 +508,10 @@ describe("ProcessCreatePage", () => {
     );
     renderCreatePage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Importar SD" }));
-    fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+    fireEvent.click(await screen.findByRole("button", { name: "Importar Solicitação de Despesa" }));
+    expect(screen.getByRole("button", { name: "Selecionar PDF" })).toBeInTheDocument();
+    expect(screen.getByText("Arraste o PDF aqui ou selecione o arquivo")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Arquivo PDF"), {
       target: { files: [createSdFile("relatorio.pdf")] },
     });
 
@@ -514,7 +522,7 @@ describe("ProcessCreatePage", () => {
     ).toBeInTheDocument();
 
     mockSuccessfulSdImport("SD-recuperada.pdf");
-    fireEvent.change(screen.getByLabelText("Arquivo PDF da SD"), {
+    fireEvent.change(screen.getByLabelText("Arquivo PDF"), {
       target: { files: [createSdFile("SD-recuperada.pdf")] },
     });
 

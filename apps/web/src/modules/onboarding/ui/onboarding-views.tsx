@@ -15,16 +15,15 @@ import {
   Phone,
   Shield,
   Sparkles,
-  Upload,
   User,
   Users,
-  X,
 } from "lucide-react";
 import type { ElementType, FormEventHandler, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { FileUploadField } from "@/shared/ui/file-upload-field";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
@@ -837,59 +836,25 @@ export function OrganizationOnboardingView({
             description="Imagem oficial usada nos documentos impressos"
             icon={FileImage}
           >
-            <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background">
-                    <Upload className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <Label htmlFor="letterhead" className="text-sm font-medium">
-                      Papel timbrado da organização
-                    </Label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      PNG, JPEG ou WebP até 5 MB. Você pode concluir sem anexar.
-                    </p>
-                    {letterheadFile ? (
-                      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
-                        <FileImage className="h-4 w-4 text-primary" />
-                        <span className="max-w-[220px] truncate font-medium">
-                          {letterheadFile.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatOrganizationLetterheadFileSize(letterheadFile.size)}
-                        </span>
-                        {onRemoveLetterhead ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="ml-auto h-7 px-2"
-                            onClick={onRemoveLetterhead}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            Remover
-                          </Button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {letterheadError ? (
-                      <p role="alert" className="mt-2 text-xs text-destructive">
-                        {letterheadError}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-                <Input
-                  key={letterheadInputKey}
-                  id="letterhead"
-                  type="file"
-                  accept={ORGANIZATION_LETTERHEAD_ACCEPT}
-                  className="max-w-sm"
-                  onChange={(event) => onLetterheadChange?.(event.currentTarget.files)}
-                />
-              </div>
-            </div>
+            <FileUploadField
+              key={letterheadInputKey}
+              id="letterhead"
+              accept={ORGANIZATION_LETTERHEAD_ACCEPT}
+              actionLabel="Selecionar imagem"
+              description="PNG, JPEG ou WebP até 5 MB."
+              error={letterheadError}
+              fileName={letterheadFile?.name}
+              fileSizeLabel={
+                letterheadFile ? formatOrganizationLetterheadFileSize(letterheadFile.size) : null
+              }
+              idleDescription="Você pode concluir sem anexar."
+              idleTitle="Arraste a imagem aqui ou selecione do computador"
+              draggingTitle="Solte a imagem para anexar"
+              label="Papel timbrado da organização"
+              onFilesChange={(files) => onLetterheadChange?.(files)}
+              onRemove={onRemoveLetterhead}
+              variant="panel"
+            />
           </FormSection>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">

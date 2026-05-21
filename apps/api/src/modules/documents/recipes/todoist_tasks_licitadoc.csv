@@ -1,0 +1,102 @@
+TYPE,CONTENT,LABELS,PRIORITY
+task,Definir nome oficial da empresa,empresa,4
+task,Verificar disponibilidade no INPI,empresa,4
+task,Comprar domínio,empresa,4
+task,Reservar Instagram/LinkedIn/etc,empresa,4
+task,Definir participação dos 3 sócios,empresa,4
+task,Definir responsabilidades de cada sócio,empresa,4
+task,Escolher LTDA,empresa,4
+task,Escolher contador,empresa,4
+task,Abrir CNPJ,empresa,4
+task,Definir CNAEs,empresa,4
+task,Criar contrato social,empresa,4
+task,Escolher regime tributário,empresa,4
+task,Criar conta bancária PJ,empresa,4
+task,Configurar emissão de NF,empresa,4
+task,Fazer cadastro no SICAF,empresa,4
+task,Fazer cadastro no Compras.gov,empresa,4
+task,Organizar certidões negativas,empresa,4
+task,Criar apresentação institucional,empresa,4
+task,Criar proposta comercial padrão,empresa,4
+task,Criar documentação técnica básica,empresa,4
+task,Criar modelo de contrato,empresa,4
+task,Criar SLA suporte,empresa,4
+task,Criar termos de uso,empresa,4
+task,Criar política de privacidade,empresa,4
+task,Adequar à LGPD,empresa,4
+task,Criar contrato SaaS,empresa,4
+task,Criar política de cancelamento,empresa,4
+task,Criar política de tratamento de dados,empresa,4
+task,Calcular custo por documento,empresa,4
+task,Definir precificação,empresa,4
+task,Definir modelo de cobrança,empresa,4
+task,Criar fluxo financeiro,empresa,4
+task,Definir pró-labore,empresa,4
+task,Organizar controle de despesas,empresa,4
+task,Criar landing page,empresa,4
+task,Criar demo do sistema,empresa,4
+task,Criar pitch comercial,empresa,4
+task,Criar apresentação PDF,empresa,4
+task,Conseguir primeiros clientes,empresa,4
+task,Coletar feedback real,empresa,4
+task,Registrar marca,empresa,4
+task,Criar identidade visual,empresa,4
+task,Criar e-mail profissional,empresa,4
+task,Criar assinatura de e-mail,empresa,4
+task,Criar domínio institucional,empresa,4
+task,Revisar código,sistema,4
+task,Remover código morto,sistema,4
+task,Revisar variáveis de ambiente,sistema,4
+task,Revisar secrets/API keys,sistema,4
+task,Separar ambiente dev/prod,sistema,4
+task,Configurar ambiente de produção,sistema,4
+task,Comprar VPS/Cloud,sistema,4
+task,Configurar deploy,sistema,4
+task,Configurar HTTPS,sistema,4
+task,Configurar domínio,sistema,4
+task,Configurar SSL,sistema,4
+task,Configurar DNS,sistema,4
+task,Criar banco de produção,sistema,4
+task,Configurar backup automático,sistema,4
+task,Revisar migrations,sistema,4
+task,Criar ambiente staging,sistema,4
+task,Monitorar uso do banco,sistema,4
+task,Implementar cadastro,sistema,4
+task,Implementar login,sistema,4
+task,Implementar recuperação de senha,sistema,4
+task,Implementar controle de sessão,sistema,4
+task,Criar dashboard,sistema,4
+task,Implementar geração de documentos,sistema,4
+task,Implementar exportação PDF/DOCX,sistema,4
+task,Criar histórico de documentos,sistema,4
+task,Validar prompts da IA,sistema,4
+task,Validar custo da IA,sistema,4
+task,Tratar timeout da IA,sistema,4
+task,Criar retry da IA,sistema,4
+task,Criar fallback de erro,sistema,4
+task,Logar erros da IA,sistema,4
+task,Validar qualidade dos documentos,sistema,4
+task,Implementar rate limit,sistema,4
+task,Proteger APIs,sistema,4
+task,Criar auditoria básica,sistema,4
+task,Criar logs de acesso,sistema,4
+task,Revisar permissões,sistema,4
+task,Criptografar secrets,sistema,4
+task,Criar backup seguro,sistema,4
+task,Configurar analytics,sistema,4
+task,Configurar logs,sistema,4
+task,Configurar monitoramento,sistema,4
+task,Configurar alertas,sistema,4
+task,Monitorar custo da IA,sistema,4
+task,Monitorar uptime,sistema,4
+task,Integrar gateway de pagamento,sistema,4
+task,Implementar assinatura recorrente,sistema,4
+task,Configurar webhooks,sistema,4
+task,Implementar controle de inadimplência,sistema,4
+task,Implementar limite do plano gratuito,sistema,4
+task,Configurar CI/CD,sistema,4
+task,Configurar deploy automático,sistema,4
+task,Implementar rollback,sistema,4
+task,Criar ambiente staging,sistema,4
+task,Criar testes básicos,sistema,4
+task,Criar sistema de suporte,sistema,4

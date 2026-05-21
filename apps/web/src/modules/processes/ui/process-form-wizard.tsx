@@ -1156,11 +1156,11 @@ export function ProcessFormWizard({
             <Button
               type="button"
               variant="outline"
-              className="w-full sm:w-auto"
+              className="w-full border-primary/30 sm:w-auto"
               onClick={() => setSdImportDialogOpen(true)}
             >
               <Upload className="mr-2 h-4 w-4" />
-              Importar SD
+              Importar Solicitação de Despesa
             </Button>
           ) : null}
         </div>
@@ -1200,7 +1200,7 @@ export function ProcessFormWizard({
         {sdImportSummary ? (
           <Alert className="mb-6 border-primary/20 bg-primary/5">
             <FileText className="h-4 w-4" />
-            <AlertTitle>Dados importados da SD</AlertTitle>
+            <AlertTitle>Dados importados da Solicitação de despesa</AlertTitle>
             <AlertDescription>
               <p>
                 {sdImportSummary.sourceReference ?? sdImportSummary.fileName}

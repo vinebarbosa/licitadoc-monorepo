@@ -3,25 +3,29 @@ import { HttpResponse, http } from "msw";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarProvider } from "@/shared/ui/sidebar";
+import { currentOrganizationResponse } from "@/test/msw/fixtures";
 import { server } from "@/test/msw/server";
 import { renderWithProviders } from "@/test/render";
 import { AppSidebar } from "./app-sidebar";
+
+const authSessionMock = vi.hoisted(() => ({
+  role: "admin" as "admin" | "organization_owner" | "member" | null,
+  session: {
+    user: {
+      id: "admin-1",
+      name: "Maria Silva",
+      email: "maria@licitadoc.test",
+      organizationId: null as string | null,
+    },
+  },
+}));
 
 vi.mock("@/modules/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/modules/auth")>();
 
   return {
     ...actual,
-    useAuthSession: () => ({
-      role: "admin",
-      session: {
-        user: {
-          id: "admin-1",
-          name: "Maria Silva",
-          email: "maria@licitadoc.test",
-        },
-      },
-    }),
+    useAuthSession: () => authSessionMock,
     useSignOut: () => ({
       isPending: false,
       mutateAsync: vi.fn(),
@@ -51,6 +55,9 @@ function processCountResponse(total: number) {
 
 describe("AppSidebar", () => {
   beforeEach(() => {
+    authSessionMock.role = "admin";
+    authSessionMock.session.user.organizationId = null;
+
     server.use(
       http.get("http://localhost:3333/api/processes/", () =>
         HttpResponse.json(processCountResponse(7)),
@@ -65,6 +72,21 @@ describe("AppSidebar", () => {
 
     expect(supportLink).toBeInTheDocument();
     expect(supportLink).toHaveAttribute("href", "/admin/chamados");
+  });
+
+  it("shows the current organization in the user footer", async () => {
+    authSessionMock.role = "member";
+    authSessionMock.session.user.organizationId = "organization-1";
+    server.use(
+      http.get("http://localhost:3333/api/organizations/me", () =>
+        HttpResponse.json(currentOrganizationResponse),
+      ),
+    );
+
+    renderSidebar("/app");
+
+    expect(await screen.findByText("Prefeitura de Sao Paulo")).toBeInTheDocument();
+    expect(screen.queryByText("Analista de Licitações")).not.toBeInTheDocument();
   });
 
   it("shows the API-backed process count instead of the old hardcoded badge", async () => {

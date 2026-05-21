@@ -504,7 +504,7 @@ export function AdminUsersPageContent() {
             </p>
           </div>
           <Button onClick={() => setInviteDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             Criar Admin de Organização
           </Button>
         </div>
@@ -597,7 +597,7 @@ export function AdminUsersPageContent() {
               </EmptyHeader>
               <EmptyContent>
                 <Button onClick={() => setInviteDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                   Criar Admin de Organização
                 </Button>
               </EmptyContent>

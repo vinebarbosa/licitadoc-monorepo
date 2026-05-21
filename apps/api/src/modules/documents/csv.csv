@@ -1,0 +1,103 @@
+TYPE,CONTENT,DESCRIPTION,PRIORITY,LABELS,INDENT,DATE,DATE_LANG
+section,Empresa,,1,,1,,pt
+task,Definir nome oficial da empresa,,4,📊 empresa,1,,pt
+task,Verificar disponibilidade no INPI,,4,📊 empresa,1,,pt
+task,Comprar domínio,,4,📊 empresa,1,,pt
+task,Reservar Instagram/LinkedIn/etc,,4,📊 empresa,1,,pt
+task,Definir participação dos 3 sócios,,4,📊 empresa,1,,pt
+task,Definir responsabilidades de cada sócio,,4,📊 empresa,1,,pt
+task,Escolher LTDA,,4,📊 empresa,1,,pt
+task,Escolher contador,,4,📊 empresa,1,,pt
+task,Abrir CNPJ,,4,📊 empresa,1,,pt
+task,Definir CNAEs,,4,📊 empresa,1,,pt
+task,Criar contrato social,,4,📊 empresa,1,,pt
+task,Escolher regime tributário,,4,📊 empresa,1,,pt
+task,Criar conta bancária PJ,,4,📊 empresa,1,,pt
+task,Configurar emissão de NF,,4,📊 empresa,1,,pt
+task,Fazer cadastro no SICAF,,4,📊 empresa,1,,pt
+task,Fazer cadastro no Compras.gov,,4,📊 empresa,1,,pt
+task,Organizar certidões negativas,,4,📊 empresa,1,,pt
+task,Criar apresentação institucional,,4,📊 empresa,1,,pt
+task,Criar proposta comercial padrão,,4,📊 empresa,1,,pt
+task,Criar documentação técnica básica,,4,📊 empresa,1,,pt
+task,Criar modelo de contrato,,4,📊 empresa,1,,pt
+task,Criar SLA suporte,,4,📊 empresa,1,,pt
+task,Termos de uso,,4,📊 empresa,1,,pt
+task,Política de privacidade,,4,📊 empresa,1,,pt
+task,Adequação LGPD,,4,📊 empresa,1,,pt
+task,Contrato SaaS,,4,📊 empresa,1,,pt
+task,Política de cancelamento,,4,📊 empresa,1,,pt
+task,Política de tratamento de dados,,4,📊 empresa,1,,pt
+task,Calcular custo por documento,,4,📊 empresa,1,,pt
+task,Definir precificação,,4,📊 empresa,1,,pt
+task,Definir modelo cobrança,,4,📊 empresa,1,,pt
+task,Criar fluxo financeiro,,4,📊 empresa,1,,pt
+task,Definir pró-labore,,4,📊 empresa,1,,pt
+task,Organizar controle de despesas,,4,📊 empresa,1,,pt
+task,Criar landing page,,4,📊 empresa,1,,pt
+task,Criar demo do sistema,,4,📊 empresa,1,,pt
+task,Criar pitch comercial,,4,📊 empresa,1,,pt
+task,Criar apresentação PDF,,4,📊 empresa,1,,pt
+task,Conseguir primeiros clientes,,4,📊 empresa,1,,pt
+task,Coletar feedback real,,4,📊 empresa,1,,pt
+task,Registrar marca,,4,📊 empresa,1,,pt
+task,Criar identidade visual,,4,📊 empresa,1,,pt
+task,Criar e-mail profissional,,4,📊 empresa,1,,pt
+task,Criar assinatura de e-mail,,4,📊 empresa,1,,pt
+task,Criar domínio institucional,,4,📊 empresa,1,,pt
+section,Sistema,,1,,1,,pt
+task,Revisar código,,4,🚀 sistema,1,,pt
+task,Remover código morto,,4,🚀 sistema,1,,pt
+task,Revisar variáveis ambiente,,4,🚀 sistema,1,,pt
+task,Revisar secrets/API keys,,4,🚀 sistema,1,,pt
+task,Separar dev/prod,,4,🚀 sistema,1,,pt
+task,Configurar ambiente produção,,4,🚀 sistema,1,,pt
+task,Comprar VPS/Cloud,,4,🚀 sistema,1,,pt
+task,Configurar deploy,,4,🚀 sistema,1,,pt
+task,Configurar HTTPS,,4,🚀 sistema,1,,pt
+task,Configurar domínio,,4,🚀 sistema,1,,pt
+task,Configurar SSL,,4,🚀 sistema,1,,pt
+task,Configurar DNS,,4,🚀 sistema,1,,pt
+task,Criar banco produção,,4,🚀 sistema,1,,pt
+task,Configurar backup automático,,4,🚀 sistema,1,,pt
+task,Revisar migrations,,4,🚀 sistema,1,,pt
+task,Criar ambiente staging,,4,🚀 sistema,1,,pt
+task,Monitorar uso banco,,4,🚀 sistema,1,,pt
+task,Implementar cadastro,,4,🚀 sistema,1,,pt
+task,Implementar login,,4,🚀 sistema,1,,pt
+task,Implementar recuperação senha,,4,🚀 sistema,1,,pt
+task,Implementar controle sessão,,4,🚀 sistema,1,,pt
+task,Criar dashboard,,4,🚀 sistema,1,,pt
+task,Implementar geração documentos,,4,🚀 sistema,1,,pt
+task,Implementar exportação PDF/DOCX,,4,🚀 sistema,1,,pt
+task,Criar histórico documentos,,4,🚀 sistema,1,,pt
+task,Validar prompts IA,,4,🚀 sistema,1,,pt
+task,Validar custo IA,,4,🚀 sistema,1,,pt
+task,Tratar timeout IA,,4,🚀 sistema,1,,pt
+task,Criar retry IA,,4,🚀 sistema,1,,pt
+task,Criar fallback erro,,4,🚀 sistema,1,,pt
+task,Logar erros IA,,4,🚀 sistema,1,,pt
+task,Validar qualidade documentos,,4,🚀 sistema,1,,pt
+task,Implementar rate limit,,4,🚀 sistema,1,,pt
+task,Proteger APIs,,4,🚀 sistema,1,,pt
+task,Criar auditoria básica,,4,🚀 sistema,1,,pt
+task,Criar logs acesso,,4,🚀 sistema,1,,pt
+task,Revisar permissões,,4,🚀 sistema,1,,pt
+task,Criptografar secrets,,4,🚀 sistema,1,,pt
+task,Criar backup seguro,,4,🚀 sistema,1,,pt
+task,Configurar analytics,,4,🚀 sistema,1,,pt
+task,Configurar logs,,4,🚀 sistema,1,,pt
+task,Configurar monitoramento,,4,🚀 sistema,1,,pt
+task,Configurar alertas,,4,🚀 sistema,1,,pt
+task,Monitorar custo IA,,4,🚀 sistema,1,,pt
+task,Monitorar uptime,,4,🚀 sistema,1,,pt
+task,Integrar gateway pagamento,,4,🚀 sistema,1,,pt
+task,Implementar assinatura recorrente,,4,🚀 sistema,1,,pt
+task,Configurar webhooks,,4,🚀 sistema,1,,pt
+task,Implementar controle inadimplência,,4,🚀 sistema,1,,pt
+task,Implementar limite plano gratuito,,4,🚀 sistema,1,,pt
+task,Configurar CI/CD,,4,🚀 sistema,1,,pt
+task,Configurar deploy automático,,4,🚀 sistema,1,,pt
+task,Implementar rollback,,4,🚀 sistema,1,,pt
+task,Criar testes básicos,,4,🚀 sistema,1,,pt
+task,Criar sistema suporte,,4,🚀 sistema,1,,pt

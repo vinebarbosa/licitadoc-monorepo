@@ -1,5 +1,4 @@
-import { AlertCircle, CheckCircle2, Upload } from "lucide-react";
-import type { ChangeEvent } from "react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
@@ -12,8 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
+import { FileUploadField } from "@/shared/ui/file-upload-field";
 import { Separator } from "@/shared/ui/separator";
 import { Spinner } from "@/shared/ui/spinner";
 import { ExpenseRequestPdfError, extractExpenseRequestFromPdf } from "../model/expense-request-pdf";
@@ -40,15 +38,23 @@ function getPdfErrorMessage(error: unknown) {
     }
 
     if (error.reason === "missing_required_fields") {
-      return "A SD foi lida, mas campos obrigatórios não foram encontrados.";
+      return "A Solicitação de despesa foi lida, mas campos obrigatórios não foram encontrados.";
     }
   }
 
-  return "Não foi possível importar a SD. Selecione outro PDF ou continue preenchendo manualmente.";
+  return "Não foi possível importar a Solicitação de despesa. Selecione outro PDF ou continue preenchendo manualmente.";
 }
 
 function getPreviewValue(value: string | null | undefined) {
   return value?.trim() ? value : "Não encontrado";
+}
+
+function formatUploadFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
 }
 
 export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogProps) {
@@ -56,6 +62,7 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
   const [extraction, setExtraction] = useState<ExpenseRequestExtractionResult>();
   const [isReading, setIsReading] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string>();
+  const [selectedFileSize, setSelectedFileSize] = useState<number>();
   const requestIdRef = useRef(0);
 
   function resetDialogState() {
@@ -63,6 +70,7 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
     setExtraction(undefined);
     setIsReading(false);
     setSelectedFileName(undefined);
+    setSelectedFileSize(undefined);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -74,13 +82,14 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
     onOpenChange(nextOpen);
   }
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function handleFileChange(files: FileList | null) {
+    const file = files?.[0];
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setErrorMessage(undefined);
     setExtraction(undefined);
     setSelectedFileName(file?.name);
+    setSelectedFileSize(file?.size);
 
     if (!file) {
       setIsReading(false);
@@ -106,6 +115,11 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
     }
   }
 
+  function handleRemoveFile() {
+    requestIdRef.current += 1;
+    resetDialogState();
+  }
+
   function handleApply() {
     if (!extraction) {
       return;
@@ -123,22 +137,28 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Importar SD</DialogTitle>
+          <DialogTitle>Importar Solicitação de Despesa</DialogTitle>
           <DialogDescription>
             Selecione o PDF da Solicitação de Despesa para revisar os dados antes de aplicar.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="sdImportFile">Arquivo PDF da SD</Label>
-            <Input
-              id="sdImportFile"
-              accept="application/pdf,.pdf"
-              type="file"
-              onChange={(event) => void handleFileChange(event)}
-            />
-          </div>
+          <FileUploadField
+            id="sdImportFile"
+            accept="application/pdf,.pdf"
+            actionLabel="Selecionar PDF"
+            description="Você poderá revisar os dados antes de aplicar."
+            disabled={isReading}
+            fileName={selectedFileName}
+            fileSizeLabel={selectedFileSize ? formatUploadFileSize(selectedFileSize) : null}
+            idleDescription="Somente PDF da Solicitação de Despesa."
+            idleTitle="Arraste o PDF aqui ou selecione o arquivo"
+            draggingTitle="Solte o PDF para importar"
+            label="Arquivo PDF"
+            onFilesChange={(files) => void handleFileChange(files)}
+            onRemove={handleRemoveFile}
+          />
 
           {isReading ? (
             <div className="flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
@@ -172,7 +192,7 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
 
               <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-xs text-muted-foreground">Número da SD</p>
+                  <p className="text-xs text-muted-foreground">Número da Solicitação de despesa</p>
                   <p className="font-medium">{getPreviewValue(extractedFields?.requestNumber)}</p>
                 </div>
                 <div>
@@ -211,8 +231,8 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
                 ) : null}
               </div>
               <p className="text-xs text-muted-foreground">
-                Os itens detectados na SD não serão importados; informe-os manualmente na etapa de
-                itens.
+                Os itens detectados na Solicitação de despesa não serão importados; informe-os
+                manualmente na etapa de itens.
               </p>
             </div>
           ) : null}
@@ -223,8 +243,8 @@ export function SdImportDialog({ onApply, onOpenChange, open }: SdImportDialogPr
             Cancelar
           </Button>
           <Button type="button" onClick={handleApply} disabled={!extraction || isReading}>
-            <Upload className="mr-2 h-4 w-4" />
-            Aplicar dados da SD
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            Aplicar
           </Button>
         </DialogFooter>
       </DialogContent>

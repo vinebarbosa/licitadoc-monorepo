@@ -366,7 +366,7 @@ export function OwnerMembersPageContent() {
                 </p>
               </div>
               <Button onClick={() => setInviteDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 Convidar membro
               </Button>
             </div>
@@ -397,7 +397,7 @@ export function OwnerMembersPageContent() {
                   </EmptyHeader>
                   <EmptyContent>
                     <Button onClick={() => setInviteDialogOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                       Convidar membro
                     </Button>
                   </EmptyContent>
@@ -472,7 +472,6 @@ export function OwnerMembersPageContent() {
                 </Table>
               )}
             </Card>
-
           </TabsContent>
 
           <TabsContent value="departments" className="space-y-6">
