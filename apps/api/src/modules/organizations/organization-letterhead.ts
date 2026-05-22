@@ -10,6 +10,10 @@ import {
   getOrganizationLetterheadStorageKey,
   ORGANIZATION_LETTERHEAD_FILE_NAME,
 } from "../../shared/storage/types";
+import {
+  convertLetterheadDocxToJpeg,
+  type LetterheadDocxConverter,
+} from "./letterhead-docx-converter";
 import { canUpdateStoredOrganization } from "./organizations.policies";
 import {
   isActorInOrganization,
@@ -17,10 +21,18 @@ import {
   serializeOrganization,
 } from "./organizations.shared";
 
-export const ORGANIZATION_LETTERHEAD_MIME_TYPES = [
+export const ORGANIZATION_LETTERHEAD_IMAGE_MIME_TYPES = [
   "image/png",
   "image/jpeg",
   "image/webp",
+] as const;
+
+export const ORGANIZATION_LETTERHEAD_DOCX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+export const ORGANIZATION_LETTERHEAD_MIME_TYPES = [
+  ...ORGANIZATION_LETTERHEAD_IMAGE_MIME_TYPES,
+  ORGANIZATION_LETTERHEAD_DOCX_MIME_TYPE,
 ] as const;
 
 type MultipartFileValue = {
@@ -51,7 +63,7 @@ type LetterheadImageDimensions = {
 
 export type NormalizedLetterheadUpload = {
   buffer: Buffer;
-  contentType: (typeof ORGANIZATION_LETTERHEAD_MIME_TYPES)[number];
+  contentType: (typeof ORGANIZATION_LETTERHEAD_IMAGE_MIME_TYPES)[number];
   fileName: string;
 };
 
@@ -105,6 +117,23 @@ export function isOrganizationLetterheadMimeType(
 ): value is (typeof ORGANIZATION_LETTERHEAD_MIME_TYPES)[number] {
   return ORGANIZATION_LETTERHEAD_MIME_TYPES.includes(
     value as (typeof ORGANIZATION_LETTERHEAD_MIME_TYPES)[number],
+  );
+}
+
+export function isOrganizationLetterheadImageMimeType(
+  value: string,
+): value is (typeof ORGANIZATION_LETTERHEAD_IMAGE_MIME_TYPES)[number] {
+  return ORGANIZATION_LETTERHEAD_IMAGE_MIME_TYPES.includes(
+    value as (typeof ORGANIZATION_LETTERHEAD_IMAGE_MIME_TYPES)[number],
+  );
+}
+
+function isOrganizationLetterheadDocxSource(
+  file: Pick<MultipartFileValue, "filename" | "mimetype">,
+) {
+  return (
+    file.mimetype === ORGANIZATION_LETTERHEAD_DOCX_MIME_TYPE ||
+    file.filename.toLowerCase().endsWith(".docx")
   );
 }
 
@@ -262,7 +291,7 @@ export function validateLetterheadImageBuffer({
   contentType: string;
   maxBytes: number;
 }) {
-  if (!isOrganizationLetterheadMimeType(contentType)) {
+  if (!isOrganizationLetterheadImageMimeType(contentType)) {
     throw new BadRequestError("O timbre precisa ser PNG, JPEG ou WebP.");
   }
 
@@ -279,21 +308,28 @@ export function validateLetterheadImageBuffer({
 
 export async function normalizeLetterheadUpload({
   body,
-  maxBytes,
+  convertDocx = convertLetterheadDocxToJpeg,
+  maxImageBytes,
+  maxDocxBytes = maxImageBytes,
 }: {
   body: MultipartRequestBody | undefined;
-  maxBytes: number;
+  convertDocx?: LetterheadDocxConverter;
+  maxDocxBytes?: number;
+  maxImageBytes: number;
 }): Promise<NormalizedLetterheadUpload> {
   const files = getMultipartFiles(body);
 
   if (files.length !== 1) {
-    throw new BadRequestError("Envie exatamente uma imagem de timbre.");
+    throw new BadRequestError("Envie exatamente um arquivo de timbre.");
   }
 
   const file = files[0];
 
-  if (!isOrganizationLetterheadMimeType(file.mimetype)) {
-    throw new BadRequestError("O timbre precisa ser PNG, JPEG ou WebP.");
+  if (
+    !isOrganizationLetterheadImageMimeType(file.mimetype) &&
+    !isOrganizationLetterheadDocxSource(file)
+  ) {
+    throw new BadRequestError("O timbre precisa ser PNG, JPEG, WebP ou DOCX.");
   }
 
   let buffer: Buffer;
@@ -313,15 +349,40 @@ export async function normalizeLetterheadUpload({
     throw error;
   }
 
+  if (isOrganizationLetterheadDocxSource(file)) {
+    if (buffer.byteLength === 0) {
+      throw new BadRequestError("O timbre não pode estar vazio.");
+    }
+
+    if (buffer.byteLength > maxDocxBytes) {
+      throw new BadRequestError(
+        "O DOCX do timbre precisa respeitar o limite de tamanho configurado.",
+      );
+    }
+
+    const convertedFile = await convertDocx({
+      buffer,
+      fileName: file.filename,
+    });
+
+    validateLetterheadImageBuffer({
+      buffer: convertedFile.buffer,
+      contentType: convertedFile.contentType,
+      maxBytes: maxImageBytes,
+    });
+
+    return convertedFile;
+  }
+
   validateLetterheadImageBuffer({
     buffer,
     contentType: file.mimetype,
-    maxBytes,
+    maxBytes: maxImageBytes,
   });
 
   return {
     buffer,
-    contentType: file.mimetype,
+    contentType: file.mimetype as NormalizedLetterheadUpload["contentType"],
     fileName: file.filename,
   };
 }
@@ -385,15 +446,19 @@ function canReadStoredOrganizationLetterhead(
 export async function uploadOrganizationLetterhead({
   actor,
   body,
+  convertDocx,
   db,
-  maxBytes,
+  maxDocxBytes,
+  maxImageBytes,
   organizationId,
   storage,
 }: {
   actor: Actor;
   body: MultipartRequestBody | undefined;
+  convertDocx?: LetterheadDocxConverter;
   db: FastifyInstance["db"];
-  maxBytes: number;
+  maxDocxBytes?: number;
+  maxImageBytes: number;
   organizationId: string;
   storage: FileStorageProvider;
 }) {
@@ -407,7 +472,12 @@ export async function uploadOrganizationLetterhead({
 
   canUpdateStoredOrganization(actor, organization);
 
-  const file = await normalizeLetterheadUpload({ body, maxBytes });
+  const file = await normalizeLetterheadUpload({
+    body,
+    convertDocx,
+    maxDocxBytes,
+    maxImageBytes,
+  });
   const updatedOrganization = await setOrganizationLetterhead({
     db,
     file,
@@ -460,7 +530,7 @@ export function createNormalizedLetterheadFileForImport({
 }): NormalizedLetterheadUpload {
   validateLetterheadImageBuffer({ buffer, contentType, maxBytes });
 
-  if (!isOrganizationLetterheadMimeType(contentType)) {
+  if (!isOrganizationLetterheadImageMimeType(contentType)) {
     throw new BadRequestError("O timbre precisa ser PNG, JPEG ou WebP.");
   }
 

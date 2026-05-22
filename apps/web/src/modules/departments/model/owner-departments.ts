@@ -1,16 +1,20 @@
 import type {
   OwnerDepartmentCreateRequest,
   OwnerDepartmentListItem,
+  OwnerDepartmentUpdateRequest,
   OwnerDepartmentsListResponse,
 } from "../api/owner-departments";
 
-export type OwnerDepartmentCreateFormValues = {
+export type OwnerDepartmentFormValues = {
   name: string;
   slug: string;
   budgetUnitCode: string;
   responsibleName: string;
   responsibleRole: string;
 };
+
+export type OwnerDepartmentCreateFormValues = OwnerDepartmentFormValues;
+export type OwnerDepartmentEditFormValues = OwnerDepartmentFormValues;
 
 export function getDefaultOwnerDepartmentCreateFormValues(): OwnerDepartmentCreateFormValues {
   return {
@@ -19,6 +23,18 @@ export function getDefaultOwnerDepartmentCreateFormValues(): OwnerDepartmentCrea
     budgetUnitCode: "",
     responsibleName: "",
     responsibleRole: "",
+  };
+}
+
+export function toOwnerDepartmentFormValues(
+  department: OwnerDepartmentListItem,
+): OwnerDepartmentEditFormValues {
+  return {
+    name: department.name,
+    slug: department.slug,
+    budgetUnitCode: department.budgetUnitCode ?? "",
+    responsibleName: department.responsibleName,
+    responsibleRole: department.responsibleRole,
   };
 }
 
@@ -45,7 +61,13 @@ export function toOwnerDepartmentCreatePayload(
   };
 }
 
-export function isOwnerDepartmentCreateFormSubmittable(values: OwnerDepartmentCreateFormValues) {
+export function toOwnerDepartmentUpdatePayload(
+  values: OwnerDepartmentEditFormValues,
+): OwnerDepartmentUpdateRequest {
+  return toOwnerDepartmentCreatePayload(values);
+}
+
+export function isOwnerDepartmentCreateFormSubmittable(values: OwnerDepartmentFormValues) {
   return (
     values.name.trim().length > 0 &&
     values.slug.trim().length > 0 &&

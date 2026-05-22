@@ -10,7 +10,11 @@ import {
   getInviteByTokenSchema,
   getInvitesSchema,
   invitePaginationQuerySchema,
+  resendInviteSchema,
+  revokeInviteSchema,
 } from "./invites.schemas";
+import { resendInvite } from "./resend-invite";
+import { revokeInvite } from "./revoke-invite";
 
 export const registerInviteRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
   app.post(
@@ -57,6 +61,36 @@ export const registerInviteRoutes: FastifyPluginAsyncZodOpenApi = async (app) =>
       schema: getInviteByTokenSchema,
     },
     async (request) => getInviteByToken({ db: app.db, inviteToken: request.params.inviteToken }),
+  );
+
+  app.post(
+    "/:inviteId/resend",
+    {
+      schema: resendInviteSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+
+      return resendInvite({
+        actor,
+        db: app.db,
+        baseUrl: app.config.CORS_ORIGIN.split(",")[0]?.trim() || app.config.BETTER_AUTH_URL,
+        inviteId: request.params.inviteId,
+        mailer: app.mailer,
+      });
+    },
+  );
+
+  app.patch(
+    "/:inviteId/revoke",
+    {
+      schema: revokeInviteSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+
+      return revokeInvite({ actor, db: app.db, inviteId: request.params.inviteId });
+    },
   );
 
   app.post(

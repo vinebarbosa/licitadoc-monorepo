@@ -40,6 +40,7 @@ export type { PostApiAuthRevokeOtherSessionsMutationKey } from "./hooks/Auth - S
 export type { PostApiAuthRevokeSessionMutationKey } from "./hooks/Auth - SessionsHooks/usePostApiAuthRevokeSession";
 export type { PostApiAuthRevokeSessionsMutationKey } from "./hooks/Auth - SessionsHooks/usePostApiAuthRevokeSessions";
 export type { UpdateSessionMutationKey } from "./hooks/Auth - SessionsHooks/useUpdateSession";
+export type { DeleteApiDepartmentsDepartmentidMutationKey } from "./hooks/DepartmentsHooks/useDeleteApiDepartmentsDepartmentid";
 export type { GetApiDepartmentsQueryKey } from "./hooks/DepartmentsHooks/useGetApiDepartments";
 export type { GetApiDepartmentsDepartmentidQueryKey } from "./hooks/DepartmentsHooks/useGetApiDepartmentsDepartmentid";
 export type { GetApiDepartmentsDepartmentidSuspenseQueryKey } from "./hooks/DepartmentsHooks/useGetApiDepartmentsDepartmentidSuspense";
@@ -60,7 +61,9 @@ export type { GetApiInvitesQueryKey } from "./hooks/InvitesHooks/useGetApiInvite
 export type { GetApiInvitesInvitetokenQueryKey } from "./hooks/InvitesHooks/useGetApiInvitesInvitetoken";
 export type { GetApiInvitesInvitetokenSuspenseQueryKey } from "./hooks/InvitesHooks/useGetApiInvitesInvitetokenSuspense";
 export type { GetApiInvitesSuspenseQueryKey } from "./hooks/InvitesHooks/useGetApiInvitesSuspense";
+export type { PatchApiInvitesInviteidRevokeMutationKey } from "./hooks/InvitesHooks/usePatchApiInvitesInviteidRevoke";
 export type { PostApiInvitesMutationKey } from "./hooks/InvitesHooks/usePostApiInvites";
+export type { PostApiInvitesInviteidResendMutationKey } from "./hooks/InvitesHooks/usePostApiInvitesInviteidResend";
 export type { PostApiInvitesInvitetokenAcceptMutationKey } from "./hooks/InvitesHooks/usePostApiInvitesInvitetokenAccept";
 export type { GetApiOrganizationsQueryKey } from "./hooks/OrganizationsHooks/useGetApiOrganizations";
 export type { GetApiOrganizationsMeQueryKey } from "./hooks/OrganizationsHooks/useGetApiOrganizationsMe";
@@ -70,7 +73,10 @@ export type { GetApiOrganizationsOrganizationidSuspenseQueryKey } from "./hooks/
 export type { GetApiOrganizationsSuspenseQueryKey } from "./hooks/OrganizationsHooks/useGetApiOrganizationsSuspense";
 export type { PatchApiOrganizationsOrganizationidMutationKey } from "./hooks/OrganizationsHooks/usePatchApiOrganizationsOrganizationid";
 export type { PostApiOrganizationsMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizations";
+export type { PostApiOrganizationsOrganizationidCrestMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidCrest";
 export type { PostApiOrganizationsOrganizationidLetterheadMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterhead";
+export type { PostApiOrganizationsOrganizationidLetterheadTemplateMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export type { PostApiOrganizationsOrganizationidLogoMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLogo";
 export type { GetApiProcessesQueryKey } from "./hooks/ProcessesHooks/useGetApiProcesses";
 export type { GetApiProcessesProcessidQueryKey } from "./hooks/ProcessesHooks/useGetApiProcessesProcessid";
 export type { GetApiProcessesProcessidSuspenseQueryKey } from "./hooks/ProcessesHooks/useGetApiProcessesProcessidSuspense";
@@ -125,6 +131,17 @@ export type {
   ChangePasswordMutationRequest,
   ChangePasswordMutationResponse,
 } from "./models/ChangePassword";
+export type {
+  DeleteApiDepartmentsDepartmentid200,
+  DeleteApiDepartmentsDepartmentid400,
+  DeleteApiDepartmentsDepartmentid401,
+  DeleteApiDepartmentsDepartmentid403,
+  DeleteApiDepartmentsDepartmentid404,
+  DeleteApiDepartmentsDepartmentid500,
+  DeleteApiDepartmentsDepartmentidMutation,
+  DeleteApiDepartmentsDepartmentidMutationResponse,
+  DeleteApiDepartmentsDepartmentidPathParams,
+} from "./models/DeleteApiDepartmentsDepartmentid";
 export type {
   DeleteApiUsersUserid200,
   DeleteApiUsersUserid400,
@@ -508,6 +525,19 @@ export type {
   PatchApiDocumentsDocumentidPathParams,
 } from "./models/PatchApiDocumentsDocumentid";
 export type {
+  PatchApiInvitesInviteidRevoke200,
+  PatchApiInvitesInviteidRevoke200RoleEnumKey,
+  PatchApiInvitesInviteidRevoke200StatusEnumKey,
+  PatchApiInvitesInviteidRevoke400,
+  PatchApiInvitesInviteidRevoke401,
+  PatchApiInvitesInviteidRevoke403,
+  PatchApiInvitesInviteidRevoke404,
+  PatchApiInvitesInviteidRevoke500,
+  PatchApiInvitesInviteidRevokeMutation,
+  PatchApiInvitesInviteidRevokeMutationResponse,
+  PatchApiInvitesInviteidRevokePathParams,
+} from "./models/PatchApiInvitesInviteidRevoke";
+export type {
   PatchApiOrganizationsOrganizationid200,
   PatchApiOrganizationsOrganizationid400,
   PatchApiOrganizationsOrganizationid401,
@@ -741,6 +771,19 @@ export type {
   PostApiInvitesMutationResponse,
 } from "./models/PostApiInvites";
 export type {
+  PostApiInvitesInviteidResend200,
+  PostApiInvitesInviteidResend200RoleEnumKey,
+  PostApiInvitesInviteidResend200StatusEnumKey,
+  PostApiInvitesInviteidResend400,
+  PostApiInvitesInviteidResend401,
+  PostApiInvitesInviteidResend403,
+  PostApiInvitesInviteidResend404,
+  PostApiInvitesInviteidResend500,
+  PostApiInvitesInviteidResendMutation,
+  PostApiInvitesInviteidResendMutationResponse,
+  PostApiInvitesInviteidResendPathParams,
+} from "./models/PostApiInvitesInviteidResend";
+export type {
   PostApiInvitesInvitetokenAccept200,
   PostApiInvitesInvitetokenAccept200RoleEnumKey,
   PostApiInvitesInvitetokenAccept200StatusEnumKey,
@@ -765,6 +808,18 @@ export type {
   PostApiOrganizationsMutationResponse,
 } from "./models/PostApiOrganizations";
 export type {
+  PostApiOrganizationsOrganizationidCrest201,
+  PostApiOrganizationsOrganizationidCrest400,
+  PostApiOrganizationsOrganizationidCrest401,
+  PostApiOrganizationsOrganizationidCrest403,
+  PostApiOrganizationsOrganizationidCrest404,
+  PostApiOrganizationsOrganizationidCrest500,
+  PostApiOrganizationsOrganizationidCrestMutation,
+  PostApiOrganizationsOrganizationidCrestMutationRequest,
+  PostApiOrganizationsOrganizationidCrestMutationResponse,
+  PostApiOrganizationsOrganizationidCrestPathParams,
+} from "./models/PostApiOrganizationsOrganizationidCrest";
+export type {
   PostApiOrganizationsOrganizationidLetterhead201,
   PostApiOrganizationsOrganizationidLetterhead400,
   PostApiOrganizationsOrganizationidLetterhead401,
@@ -776,6 +831,30 @@ export type {
   PostApiOrganizationsOrganizationidLetterheadMutationResponse,
   PostApiOrganizationsOrganizationidLetterheadPathParams,
 } from "./models/PostApiOrganizationsOrganizationidLetterhead";
+export type {
+  PostApiOrganizationsOrganizationidLetterheadTemplate201,
+  PostApiOrganizationsOrganizationidLetterheadTemplate400,
+  PostApiOrganizationsOrganizationidLetterheadTemplate401,
+  PostApiOrganizationsOrganizationidLetterheadTemplate403,
+  PostApiOrganizationsOrganizationidLetterheadTemplate404,
+  PostApiOrganizationsOrganizationidLetterheadTemplate500,
+  PostApiOrganizationsOrganizationidLetterheadTemplateMutation,
+  PostApiOrganizationsOrganizationidLetterheadTemplateMutationRequest,
+  PostApiOrganizationsOrganizationidLetterheadTemplateMutationResponse,
+  PostApiOrganizationsOrganizationidLetterheadTemplatePathParams,
+} from "./models/PostApiOrganizationsOrganizationidLetterheadTemplate";
+export type {
+  PostApiOrganizationsOrganizationidLogo201,
+  PostApiOrganizationsOrganizationidLogo400,
+  PostApiOrganizationsOrganizationidLogo401,
+  PostApiOrganizationsOrganizationidLogo403,
+  PostApiOrganizationsOrganizationidLogo404,
+  PostApiOrganizationsOrganizationidLogo500,
+  PostApiOrganizationsOrganizationidLogoMutation,
+  PostApiOrganizationsOrganizationidLogoMutationRequest,
+  PostApiOrganizationsOrganizationidLogoMutationResponse,
+  PostApiOrganizationsOrganizationidLogoPathParams,
+} from "./models/PostApiOrganizationsOrganizationidLogo";
 export type {
   PostApiProcesses201,
   PostApiProcesses400,
@@ -1053,6 +1132,7 @@ export type {
 } from "./models/VerifyPassword";
 export { changeEmail } from "./client/changeEmail";
 export { changePassword } from "./client/changePassword";
+export { deleteApiDepartmentsDepartmentid } from "./client/deleteApiDepartmentsDepartmentid";
 export { deleteApiUsersUserid } from "./client/deleteApiUsersUserid";
 export { deleteUser } from "./client/deleteUser";
 export { getApiAuthAccountInfo } from "./client/getApiAuthAccountInfo";
@@ -1085,6 +1165,7 @@ export { listUserAccounts } from "./client/listUserAccounts";
 export { listUserSessions } from "./client/listUserSessions";
 export { patchApiDepartmentsDepartmentid } from "./client/patchApiDepartmentsDepartmentid";
 export { patchApiDocumentsDocumentid } from "./client/patchApiDocumentsDocumentid";
+export { patchApiInvitesInviteidRevoke } from "./client/patchApiInvitesInviteidRevoke";
 export { patchApiOrganizationsOrganizationid } from "./client/patchApiOrganizationsOrganizationid";
 export { patchApiProcessesProcessid } from "./client/patchApiProcessesProcessid";
 export { patchApiSupportTicketsTicketid } from "./client/patchApiSupportTicketsTicketid";
@@ -1101,9 +1182,13 @@ export { postApiDocuments } from "./client/postApiDocuments";
 export { postApiDocumentsDocumentidAdjustmentsApply } from "./client/postApiDocumentsDocumentidAdjustmentsApply";
 export { postApiDocumentsDocumentidAdjustmentsSuggestions } from "./client/postApiDocumentsDocumentidAdjustmentsSuggestions";
 export { postApiInvites } from "./client/postApiInvites";
+export { postApiInvitesInviteidResend } from "./client/postApiInvitesInviteidResend";
 export { postApiInvitesInvitetokenAccept } from "./client/postApiInvitesInvitetokenAccept";
 export { postApiOrganizations } from "./client/postApiOrganizations";
+export { postApiOrganizationsOrganizationidCrest } from "./client/postApiOrganizationsOrganizationidCrest";
 export { postApiOrganizationsOrganizationidLetterhead } from "./client/postApiOrganizationsOrganizationidLetterhead";
+export { postApiOrganizationsOrganizationidLetterheadTemplate } from "./client/postApiOrganizationsOrganizationidLetterheadTemplate";
+export { postApiOrganizationsOrganizationidLogo } from "./client/postApiOrganizationsOrganizationidLogo";
 export { postApiProcesses } from "./client/postApiProcesses";
 export { postApiProcessesFromExpenseRequest } from "./client/postApiProcessesFromExpenseRequest";
 export { postApiProcessesFromExpenseRequestPdf } from "./client/postApiProcessesFromExpenseRequestPdf";
@@ -1251,6 +1336,9 @@ export { usePostApiAuthRevokeSessions } from "./hooks/Auth - SessionsHooks/usePo
 export { updateSessionMutationKey } from "./hooks/Auth - SessionsHooks/useUpdateSession";
 export { updateSessionMutationOptions } from "./hooks/Auth - SessionsHooks/useUpdateSession";
 export { useUpdateSession } from "./hooks/Auth - SessionsHooks/useUpdateSession";
+export { deleteApiDepartmentsDepartmentidMutationKey } from "./hooks/DepartmentsHooks/useDeleteApiDepartmentsDepartmentid";
+export { deleteApiDepartmentsDepartmentidMutationOptions } from "./hooks/DepartmentsHooks/useDeleteApiDepartmentsDepartmentid";
+export { useDeleteApiDepartmentsDepartmentid } from "./hooks/DepartmentsHooks/useDeleteApiDepartmentsDepartmentid";
 export { getApiDepartmentsQueryKey } from "./hooks/DepartmentsHooks/useGetApiDepartments";
 export { getApiDepartmentsQueryOptions } from "./hooks/DepartmentsHooks/useGetApiDepartments";
 export { useGetApiDepartments } from "./hooks/DepartmentsHooks/useGetApiDepartments";
@@ -1311,9 +1399,15 @@ export { useGetApiInvitesInvitetokenSuspense } from "./hooks/InvitesHooks/useGet
 export { getApiInvitesSuspenseQueryKey } from "./hooks/InvitesHooks/useGetApiInvitesSuspense";
 export { getApiInvitesSuspenseQueryOptions } from "./hooks/InvitesHooks/useGetApiInvitesSuspense";
 export { useGetApiInvitesSuspense } from "./hooks/InvitesHooks/useGetApiInvitesSuspense";
+export { patchApiInvitesInviteidRevokeMutationKey } from "./hooks/InvitesHooks/usePatchApiInvitesInviteidRevoke";
+export { patchApiInvitesInviteidRevokeMutationOptions } from "./hooks/InvitesHooks/usePatchApiInvitesInviteidRevoke";
+export { usePatchApiInvitesInviteidRevoke } from "./hooks/InvitesHooks/usePatchApiInvitesInviteidRevoke";
 export { postApiInvitesMutationKey } from "./hooks/InvitesHooks/usePostApiInvites";
 export { postApiInvitesMutationOptions } from "./hooks/InvitesHooks/usePostApiInvites";
 export { usePostApiInvites } from "./hooks/InvitesHooks/usePostApiInvites";
+export { postApiInvitesInviteidResendMutationKey } from "./hooks/InvitesHooks/usePostApiInvitesInviteidResend";
+export { postApiInvitesInviteidResendMutationOptions } from "./hooks/InvitesHooks/usePostApiInvitesInviteidResend";
+export { usePostApiInvitesInviteidResend } from "./hooks/InvitesHooks/usePostApiInvitesInviteidResend";
 export { postApiInvitesInvitetokenAcceptMutationKey } from "./hooks/InvitesHooks/usePostApiInvitesInvitetokenAccept";
 export { postApiInvitesInvitetokenAcceptMutationOptions } from "./hooks/InvitesHooks/usePostApiInvitesInvitetokenAccept";
 export { usePostApiInvitesInvitetokenAccept } from "./hooks/InvitesHooks/usePostApiInvitesInvitetokenAccept";
@@ -1341,9 +1435,18 @@ export { usePatchApiOrganizationsOrganizationid } from "./hooks/OrganizationsHoo
 export { postApiOrganizationsMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizations";
 export { postApiOrganizationsMutationOptions } from "./hooks/OrganizationsHooks/usePostApiOrganizations";
 export { usePostApiOrganizations } from "./hooks/OrganizationsHooks/usePostApiOrganizations";
+export { postApiOrganizationsOrganizationidCrestMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidCrest";
+export { postApiOrganizationsOrganizationidCrestMutationOptions } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidCrest";
+export { usePostApiOrganizationsOrganizationidCrest } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidCrest";
 export { postApiOrganizationsOrganizationidLetterheadMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterhead";
 export { postApiOrganizationsOrganizationidLetterheadMutationOptions } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterhead";
 export { usePostApiOrganizationsOrganizationidLetterhead } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterhead";
+export { postApiOrganizationsOrganizationidLetterheadTemplateMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export { postApiOrganizationsOrganizationidLetterheadTemplateMutationOptions } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export { usePostApiOrganizationsOrganizationidLetterheadTemplate } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export { postApiOrganizationsOrganizationidLogoMutationKey } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLogo";
+export { postApiOrganizationsOrganizationidLogoMutationOptions } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLogo";
+export { usePostApiOrganizationsOrganizationidLogo } from "./hooks/OrganizationsHooks/usePostApiOrganizationsOrganizationidLogo";
 export { getApiProcessesQueryKey } from "./hooks/ProcessesHooks/useGetApiProcesses";
 export { getApiProcessesQueryOptions } from "./hooks/ProcessesHooks/useGetApiProcesses";
 export { useGetApiProcesses } from "./hooks/ProcessesHooks/useGetApiProcesses";
@@ -1470,6 +1573,8 @@ export { itemsOnboardingStatusEnum } from "./models/GetApiUsers";
 export { itemsRoleEnum2 } from "./models/GetApiUsers";
 export { getApiUsersUserid200OnboardingStatusEnum } from "./models/GetApiUsersUserid";
 export { getApiUsersUserid200RoleEnum } from "./models/GetApiUsersUserid";
+export { patchApiInvitesInviteidRevoke200RoleEnum } from "./models/PatchApiInvitesInviteidRevoke";
+export { patchApiInvitesInviteidRevoke200StatusEnum } from "./models/PatchApiInvitesInviteidRevoke";
 export { attachmentsMimeTypeEnum6 } from "./models/PatchApiSupportTicketsTicketid";
 export { attachmentsTypeEnum5 } from "./models/PatchApiSupportTicketsTicketid";
 export { contextSourceEnum6 } from "./models/PatchApiSupportTicketsTicketid";
@@ -1509,6 +1614,8 @@ export { reviewStatusEnum } from "./models/PostApiDocuments";
 export { risksSeverityEnum } from "./models/PostApiDocuments";
 export { postApiInvites201RoleEnum } from "./models/PostApiInvites";
 export { postApiInvites201StatusEnum } from "./models/PostApiInvites";
+export { postApiInvitesInviteidResend200RoleEnum } from "./models/PostApiInvitesInviteidResend";
+export { postApiInvitesInviteidResend200StatusEnum } from "./models/PostApiInvitesInviteidResend";
 export { postApiInvitesInvitetokenAccept200RoleEnum } from "./models/PostApiInvitesInvitetokenAccept";
 export { postApiInvitesInvitetokenAccept200StatusEnum } from "./models/PostApiInvitesInvitetokenAccept";
 export { attachmentMimeTypeEnum } from "./models/PostApiSupportTickets";

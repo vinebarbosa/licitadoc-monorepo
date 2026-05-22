@@ -53,12 +53,14 @@ export type PostApiOrganizations201 = {
   institutionalEmail: string;
   website: string | null;
   logoUrl: string | null;
+  crestUrl: string | null;
   letterhead: {
     /**
      * @type string
      */
     url: string;
   } | null;
+  letterheadTemplateUrl: string | null;
   /**
    * @type string
    */
@@ -233,7 +235,7 @@ export type PostApiOrganizationsMutationRequest = {
   website?: string | null;
   logoUrl?: string | null;
   /**
-   * @description Optional organization letterhead image file
+   * @description Optional organization paper letterhead source file (PNG, JPEG, WebP, or DOCX)
    * @type unknown | undefined, binary
    */
   letterhead?: Blob;

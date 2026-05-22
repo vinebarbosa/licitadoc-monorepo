@@ -19,6 +19,7 @@ import {
   failedDocumentDetailResponse,
   generatingDocumentDetailResponse,
   healthOkResponse,
+  invitesListResponse,
   organizationsListResponse,
   processCreateResponse,
   processDetailResponse,
@@ -69,6 +70,40 @@ function createSupportTicketListResponse(tickets: SupportTicket[], filters: Supp
   };
 }
 
+type MockOrganization = Omit<
+  typeof currentOrganizationResponse,
+  "crestUrl" | "letterhead" | "letterheadTemplateUrl" | "logoUrl"
+> & {
+  crestUrl: string | null;
+  letterhead: { url: string } | null;
+  letterheadTemplateUrl: string | null;
+  logoUrl: string | null;
+};
+
+let currentOrganization: MockOrganization = { ...currentOrganizationResponse };
+let organizationUsers = [...usersListResponse.items];
+let organizationInvites = [...invitesListResponse.items];
+let organizationDepartments = [...departmentsListResponse.items];
+
+export function resetOrganizationWorkspaceMockData() {
+  currentOrganization = { ...currentOrganizationResponse };
+  organizationUsers = [...usersListResponse.items];
+  organizationInvites = [...invitesListResponse.items];
+  organizationDepartments = [...departmentsListResponse.items];
+}
+
+function createListResponse<TItem>(
+  base: { page: number; pageSize: number; totalPages: number },
+  items: TItem[],
+) {
+  return {
+    ...base,
+    items,
+    total: items.length,
+    totalPages: items.length > 0 ? 1 : 0,
+  };
+}
+
 export const handlers = [
   http.get("http://localhost:3333/health", () => {
     return HttpResponse.json(healthOkResponse);
@@ -79,29 +114,209 @@ export const handlers = [
   http.post("http://localhost:3333/api/auth/sign-out", () => {
     return HttpResponse.json({ success: true });
   }),
-  http.get("http://localhost:3333/api/users/", () => {
-    return HttpResponse.json(usersListResponse);
+  http.get("http://localhost:3333/api/users/", ({ request }) => {
+    const url = new URL(request.url);
+    const search = url.searchParams.get("search")?.toLowerCase().trim();
+    const role = url.searchParams.get("role");
+    const items = organizationUsers.filter((user) => {
+      const matchesSearch =
+        !search ||
+        user.name.toLowerCase().includes(search) ||
+        user.email.toLowerCase().includes(search);
+      const matchesRole = !role || user.role === role;
+
+      return matchesSearch && matchesRole;
+    });
+
+    return HttpResponse.json(createListResponse(usersListResponse, items));
   }),
   http.get("http://localhost:3333/api/invites/", () => {
-    return HttpResponse.json({
-      items: [],
-      page: 1,
-      pageSize: 20,
-      total: 0,
-      totalPages: 0,
-    });
+    return HttpResponse.json(createListResponse(invitesListResponse, organizationInvites));
+  }),
+  http.post("http://localhost:3333/api/invites/", async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as {
+      email?: string;
+      organizationId?: string | null;
+    } | null;
+    const created = {
+      ...invitesListResponse.items[0],
+      id: `invite-${organizationInvites.length + 1}`,
+      email: body?.email ?? "novo.membro@prefeitura.gov.br",
+      organizationId: body?.organizationId ?? currentOrganization.id,
+      createdAt: "2026-05-22T10:00:00.000Z",
+      updatedAt: "2026-05-22T10:00:00.000Z",
+      expiresAt: "2026-05-29T10:00:00.000Z",
+      token: "invite-token",
+      inviteUrl: "http://localhost:5173/convite/invite-token",
+    };
+
+    organizationInvites = [created, ...organizationInvites];
+
+    return HttpResponse.json(created, { status: 201 });
+  }),
+  http.post("http://localhost:3333/api/invites/:inviteId/resend", ({ params }) => {
+    const inviteId = String(params.inviteId ?? "");
+    const invite = organizationInvites.find((item) => item.id === inviteId);
+    const updatedInvite = {
+      ...(invite ?? invitesListResponse.items[0]),
+      id: inviteId || invitesListResponse.items[0].id,
+      status: "pending",
+      updatedAt: "2026-05-22T10:05:00.000Z",
+      expiresAt: "2026-05-29T10:05:00.000Z",
+      token: "resent-invite-token",
+      inviteUrl: "http://localhost:5173/convite/resent-invite-token",
+    };
+
+    organizationInvites = organizationInvites.map((item) =>
+      item.id === updatedInvite.id ? updatedInvite : item,
+    );
+
+    return HttpResponse.json(updatedInvite);
+  }),
+  http.patch("http://localhost:3333/api/invites/:inviteId/revoke", ({ params }) => {
+    const inviteId = String(params.inviteId ?? "");
+    const invite = organizationInvites.find((item) => item.id === inviteId);
+    const updatedInvite = {
+      ...(invite ?? invitesListResponse.items[0]),
+      id: inviteId || invitesListResponse.items[0].id,
+      status: "revoked",
+      updatedAt: "2026-05-22T10:10:00.000Z",
+    };
+
+    organizationInvites = organizationInvites.map((item) =>
+      item.id === updatedInvite.id ? updatedInvite : item,
+    );
+
+    return HttpResponse.json(updatedInvite);
   }),
   http.get("http://localhost:3333/api/organizations/", () => {
-    return HttpResponse.json(organizationsListResponse);
+    return HttpResponse.json({ ...organizationsListResponse, items: [currentOrganization] });
   }),
   http.get("http://localhost:3333/api/organizations/me", () => {
-    return HttpResponse.json(currentOrganizationResponse);
+    return HttpResponse.json(currentOrganization);
   }),
+  http.patch("http://localhost:3333/api/organizations/:organizationId", async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Partial<
+      typeof currentOrganizationResponse
+    > | null;
+
+    currentOrganization = {
+      ...currentOrganization,
+      ...body,
+      updatedAt: "2026-05-21T00:00:00.000Z",
+    };
+
+    return HttpResponse.json(currentOrganization);
+  }),
+  http.post("http://localhost:3333/api/organizations/:organizationId/letterhead", ({ params }) => {
+    currentOrganization = {
+      ...currentOrganization,
+      letterhead: { url: `/api/organizations/${String(params.organizationId)}/letterhead/image` },
+      updatedAt: "2026-05-21T00:00:00.000Z",
+    };
+
+    return HttpResponse.json(currentOrganization, { status: 201 });
+  }),
+  http.post("http://localhost:3333/api/organizations/:organizationId/logo", ({ params }) => {
+    currentOrganization = {
+      ...currentOrganization,
+      logoUrl: `/api/organizations/${String(params.organizationId)}/logo/file`,
+      updatedAt: "2026-05-22T10:20:00.000Z",
+    };
+
+    return HttpResponse.json(currentOrganization, { status: 201 });
+  }),
+  http.post("http://localhost:3333/api/organizations/:organizationId/crest", ({ params }) => {
+    currentOrganization = {
+      ...currentOrganization,
+      crestUrl: `/api/organizations/${String(params.organizationId)}/crest/file`,
+      updatedAt: "2026-05-22T10:25:00.000Z",
+    };
+
+    return HttpResponse.json(currentOrganization, { status: 201 });
+  }),
+  http.post(
+    "http://localhost:3333/api/organizations/:organizationId/letterhead-template",
+    ({ params }) => {
+      currentOrganization = {
+        ...currentOrganization,
+        letterheadTemplateUrl: `/api/organizations/${String(params.organizationId)}/letterhead-template/file`,
+        updatedAt: "2026-05-22T10:30:00.000Z",
+      };
+
+      return HttpResponse.json(currentOrganization, { status: 201 });
+    },
+  ),
+  http.get("http://localhost:3333/api/organizations/:organizationId/logo/file", () => {
+    return new HttpResponse(new Blob(["logo"], { type: "image/png" }), {
+      headers: { "content-type": "image/png" },
+    });
+  }),
+  http.get("http://localhost:3333/api/organizations/:organizationId/crest/file", () => {
+    return new HttpResponse(new Blob(["crest"], { type: "image/png" }), {
+      headers: { "content-type": "image/png" },
+    });
+  }),
+  http.get("http://localhost:3333/api/organizations/:organizationId/letterhead/image", () => {
+    return new HttpResponse(new Blob(["letterhead"], { type: "image/jpeg" }), {
+      headers: { "content-type": "image/jpeg" },
+    });
+  }),
+  http.get(
+    "http://localhost:3333/api/organizations/:organizationId/letterhead-template/file",
+    () => {
+      return new HttpResponse(new Blob(["letterhead"], { type: "application/pdf" }), {
+        headers: { "content-type": "application/pdf" },
+      });
+    },
+  ),
   http.get("http://localhost:3333/api/departments/", () => {
-    return HttpResponse.json(departmentsListResponse);
+    return HttpResponse.json(createListResponse(departmentsListResponse, organizationDepartments));
   }),
-  http.post("http://localhost:3333/api/departments/", () => {
-    return HttpResponse.json(departmentCreateResponse, { status: 201 });
+  http.post("http://localhost:3333/api/departments/", async ({ request }) => {
+    const body = (await request.json().catch(() => null)) as Partial<
+      typeof departmentCreateResponse
+    > | null;
+    const created = {
+      ...departmentCreateResponse,
+      ...body,
+      id: `department-${organizationDepartments.length + 1}`,
+      organizationId: body?.organizationId ?? currentOrganization.id,
+      createdAt: "2026-05-22T11:00:00.000Z",
+      updatedAt: "2026-05-22T11:00:00.000Z",
+    };
+
+    organizationDepartments = [...organizationDepartments, created];
+
+    return HttpResponse.json(created, { status: 201 });
+  }),
+  http.patch("http://localhost:3333/api/departments/:departmentId", async ({ params, request }) => {
+    const body = (await request.json().catch(() => null)) as Partial<
+      typeof departmentCreateResponse
+    > | null;
+    const departmentId = String(params.departmentId ?? departmentsListResponse.items[0].id);
+    const currentDepartment =
+      organizationDepartments.find((item) => item.id === departmentId) ??
+      departmentsListResponse.items[0];
+    const updatedDepartment = {
+      ...currentDepartment,
+      ...body,
+      id: departmentId,
+      updatedAt: "2026-05-21T00:00:00.000Z",
+    };
+
+    organizationDepartments = organizationDepartments.map((item) =>
+      item.id === departmentId ? updatedDepartment : item,
+    );
+
+    return HttpResponse.json(updatedDepartment);
+  }),
+  http.delete("http://localhost:3333/api/departments/:departmentId", ({ params }) => {
+    const departmentId = String(params.departmentId ?? "");
+
+    organizationDepartments = organizationDepartments.filter((item) => item.id !== departmentId);
+
+    return HttpResponse.json({ success: true });
   }),
   http.get("http://localhost:3333/api/processes/", () => {
     return HttpResponse.json(processesListResponse);
@@ -209,32 +424,32 @@ export const handlers = [
       ...(body?.attachments ?? []),
     ];
     const createdTicket = {
-        ...widgetSupportTicketResponse,
-        id: `widget-support-ticket-${requesterSupportTicketItems.length + 1}`,
-        subject: body?.subject ?? widgetSupportTicketResponse.subject,
-        context: body?.context ?? widgetSupportTicketResponse.context,
-        attachments: requestAttachments.map((attachment, index) => ({
-          ...widgetSupportTicketResponse.attachments[0],
-          id: `widget-support-attachment-${requesterSupportTicketItems.length + 1}-${index + 1}`,
-          messageId: createdMessageId,
-          type: attachment.type,
-          name: attachment.name,
-          description: attachment.description,
-          mimeType: attachment.type === "image" ? attachment.mimeType : undefined,
-          sizeBytes: attachment.type === "image" ? attachment.sizeBytes : undefined,
-          url:
-            attachment.type === "image"
-              ? `/api/support-tickets/widget-support-ticket-${requesterSupportTicketItems.length + 1}/attachments/widget-support-attachment-${requesterSupportTicketItems.length + 1}-${index + 1}/image`
-              : undefined,
-        })),
-        messages: [
-          {
-            ...widgetSupportTicketResponse.messages[0],
-            id: createdMessageId,
-            content: body?.content ?? widgetSupportTicketResponse.messages[0].content,
-          },
-        ],
-      };
+      ...widgetSupportTicketResponse,
+      id: `widget-support-ticket-${requesterSupportTicketItems.length + 1}`,
+      subject: body?.subject ?? widgetSupportTicketResponse.subject,
+      context: body?.context ?? widgetSupportTicketResponse.context,
+      attachments: requestAttachments.map((attachment, index) => ({
+        ...widgetSupportTicketResponse.attachments[0],
+        id: `widget-support-attachment-${requesterSupportTicketItems.length + 1}-${index + 1}`,
+        messageId: createdMessageId,
+        type: attachment.type,
+        name: attachment.name,
+        description: attachment.description,
+        mimeType: attachment.type === "image" ? attachment.mimeType : undefined,
+        sizeBytes: attachment.type === "image" ? attachment.sizeBytes : undefined,
+        url:
+          attachment.type === "image"
+            ? `/api/support-tickets/widget-support-ticket-${requesterSupportTicketItems.length + 1}/attachments/widget-support-attachment-${requesterSupportTicketItems.length + 1}-${index + 1}/image`
+            : undefined,
+      })),
+      messages: [
+        {
+          ...widgetSupportTicketResponse.messages[0],
+          id: createdMessageId,
+          content: body?.content ?? widgetSupportTicketResponse.messages[0].content,
+        },
+      ],
+    };
     requesterSupportTicketItems.unshift(createdTicket);
 
     return HttpResponse.json(createdTicket, { status: 201 });
@@ -353,11 +568,14 @@ export const handlers = [
       );
     },
   ),
-  http.get("http://localhost:3333/api/support-tickets/:ticketId/attachments/:attachmentId/image", () => {
-    return new HttpResponse(new Blob(["image"], { type: "image/png" }), {
-      headers: { "content-type": "image/png" },
-    });
-  }),
+  http.get(
+    "http://localhost:3333/api/support-tickets/:ticketId/attachments/:attachmentId/image",
+    () => {
+      return new HttpResponse(new Blob(["image"], { type: "image/png" }), {
+        headers: { "content-type": "image/png" },
+      });
+    },
+  ),
   http.post("http://localhost:3333/api/support-tickets/:ticketId/read", ({ params }) => {
     const ticketId = String(params.ticketId ?? "");
     const ticket =

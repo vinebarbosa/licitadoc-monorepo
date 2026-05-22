@@ -14,10 +14,11 @@ import type {
   StoredObject,
   StoredObjectContent,
   StoreObjectInput,
+  StoreOrganizationAssetInput,
   StoreOrganizationLetterheadInput,
   StoreSupportImageInput,
 } from "./types";
-import { getOrganizationLetterheadStorageKey } from "./types";
+import { getOrganizationAssetStorageKey, getOrganizationLetterheadStorageKey } from "./types";
 
 type S3FileStorageProviderOptions = {
   accessKeyId: string;
@@ -178,6 +179,36 @@ export class S3FileStorageProvider implements FileStorageProvider {
         Metadata: {
           originalfilename: input.fileName,
           organizationid: input.organizationId,
+        },
+      }),
+    );
+
+    return {
+      bucket: this.bucket,
+      contentType: input.contentType,
+      etag: response.ETag?.replaceAll('"', "") ?? null,
+      key,
+      sizeBytes: input.buffer.byteLength,
+      uploadedAt: now.toISOString(),
+    };
+  }
+
+  async storeOrganizationAsset(input: StoreOrganizationAssetInput) {
+    await this.ensureBucket();
+
+    const now = new Date();
+    const key = getOrganizationAssetStorageKey(input.organizationId, input.assetKind);
+
+    const response = await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: input.buffer,
+        ContentType: input.contentType,
+        Metadata: {
+          originalfilename: input.fileName,
+          organizationid: input.organizationId,
+          organizationassetkind: input.assetKind,
         },
       }),
     );

@@ -11,7 +11,7 @@ export function getQuickActionResponse(actionId: HelpQuickActionId) {
     case "import-pdf":
       return "Para importar um PDF, inicie um novo processo e selecione a opção de preencher a partir da solicitação de despesa. Depois revise objeto, itens, justificativa e departamentos antes de salvar.";
     case "invite-member":
-      return "Para convidar um membro, acesse Membros, informe nome e e-mail institucional e envie o convite. A pessoa concluirá o perfil antes de acessar os fluxos do órgão.";
+      return "Para convidar um membro, acesse Organização, abra a seção Membros, informe o e-mail institucional e envie o convite. A pessoa concluirá o perfil antes de acessar os fluxos do órgão.";
     case "support":
       return "Posso orientar por aqui com passos seguros. Se precisar de atendimento humano, registre a dúvida com o processo, documento ou tela em que você está trabalhando.";
   }

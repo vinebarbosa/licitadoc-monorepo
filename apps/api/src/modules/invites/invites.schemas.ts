@@ -72,6 +72,10 @@ export const inviteTokenParamsSchema = z.object({
   inviteToken: z.string().min(1),
 });
 
+export const inviteIdParamsSchema = z.object({
+  inviteId: openApiUuidSchema(),
+});
+
 export const createInviteSchema = {
   tags: ["Invites"],
   summary: "Create invite",
@@ -109,5 +113,25 @@ export const acceptInviteSchema = {
   response: {
     200: inviteSchema,
     ...pickErrorResponses(400, 401, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const revokeInviteSchema = {
+  tags: ["Invites"],
+  summary: "Revoke invite",
+  params: inviteIdParamsSchema,
+  response: {
+    200: inviteSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const resendInviteSchema = {
+  tags: ["Invites"],
+  summary: "Resend invite",
+  params: inviteIdParamsSchema,
+  response: {
+    200: inviteWithTokenSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
   },
 } satisfies AppRouteSchema;

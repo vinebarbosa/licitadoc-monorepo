@@ -138,14 +138,14 @@ const HELP_CONTEXTS: Record<string, HelpContext> = {
     ],
     quickActions: HELP_QUICK_ACTIONS,
   },
-  members: {
-    key: "members",
-    title: "Ajuda em membros",
-    subtitle: "Convites e acesso da equipe",
+  organization: {
+    key: "organization",
+    title: "Ajuda em organização",
+    subtitle: "Dados da prefeitura, equipe e departamentos",
     suggestions: [
+      "Como atualizo os dados da prefeitura?",
       "Como envio um convite para novo membro?",
-      "Qual perfil devo usar para a equipe?",
-      "Como acompanho convites pendentes?",
+      "Como cadastro um departamento com responsável?",
     ],
     quickActions: HELP_QUICK_ACTIONS,
   },
@@ -197,8 +197,8 @@ export function getContextualHelpContext(pathname: string): HelpContext {
     return HELP_CONTEXTS.documents;
   }
 
-  if (path === "/app/membros") {
-    return HELP_CONTEXTS.members;
+  if (path === "/app/organizacao" || path === "/app/membros") {
+    return HELP_CONTEXTS.organization;
   }
 
   if (path === "/admin/usuarios") {

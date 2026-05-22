@@ -1,9 +1,13 @@
+export type { DeleteApiDepartmentsDepartmentidMutationKey } from "./useDeleteApiDepartmentsDepartmentid";
 export type { GetApiDepartmentsQueryKey } from "./useGetApiDepartments";
 export type { GetApiDepartmentsDepartmentidQueryKey } from "./useGetApiDepartmentsDepartmentid";
 export type { GetApiDepartmentsDepartmentidSuspenseQueryKey } from "./useGetApiDepartmentsDepartmentidSuspense";
 export type { GetApiDepartmentsSuspenseQueryKey } from "./useGetApiDepartmentsSuspense";
 export type { PatchApiDepartmentsDepartmentidMutationKey } from "./usePatchApiDepartmentsDepartmentid";
 export type { PostApiDepartmentsMutationKey } from "./usePostApiDepartments";
+export { deleteApiDepartmentsDepartmentidMutationKey } from "./useDeleteApiDepartmentsDepartmentid";
+export { deleteApiDepartmentsDepartmentidMutationOptions } from "./useDeleteApiDepartmentsDepartmentid";
+export { useDeleteApiDepartmentsDepartmentid } from "./useDeleteApiDepartmentsDepartmentid";
 export { getApiDepartmentsQueryKey } from "./useGetApiDepartments";
 export { getApiDepartmentsQueryOptions } from "./useGetApiDepartments";
 export { useGetApiDepartments } from "./useGetApiDepartments";

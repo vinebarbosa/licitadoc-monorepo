@@ -53,11 +53,26 @@ export type OrganizationFormData = {
   authorityRole: string;
 };
 
-export const ORGANIZATION_LETTERHEAD_ACCEPT = "image/png,image/jpeg,image/webp";
-export const ORGANIZATION_LETTERHEAD_MAX_BYTES = 5 * 1024 * 1024;
+export const ORGANIZATION_LETTERHEAD_ACCEPT =
+  "image/png,image/jpeg,image/webp,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const ORGANIZATION_LETTERHEAD_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const ORGANIZATION_LETTERHEAD_DOCX_MAX_BYTES = 20 * 1024 * 1024;
 
-export function isAcceptedOrganizationLetterheadImage(file: File) {
-  return file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/webp";
+export function isAcceptedOrganizationLetterheadSource(file: File) {
+  return (
+    file.type === "image/png" ||
+    file.type === "image/jpeg" ||
+    file.type === "image/webp" ||
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    file.name.toLowerCase().endsWith(".docx")
+  );
+}
+
+export function isOrganizationLetterheadDocxSource(file: File) {
+  return (
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    file.name.toLowerCase().endsWith(".docx")
+  );
 }
 
 export function formatOrganizationLetterheadFileSize(sizeBytes: number) {
@@ -833,23 +848,23 @@ export function OrganizationOnboardingView({
 
           <FormSection
             title="Papel timbrado"
-            description="Imagem oficial usada nos documentos impressos"
+            description="Arquivo oficial usado como fundo dos documentos impressos"
             icon={FileImage}
           >
             <FileUploadField
               key={letterheadInputKey}
               id="letterhead"
               accept={ORGANIZATION_LETTERHEAD_ACCEPT}
-              actionLabel="Selecionar imagem"
-              description="PNG, JPEG ou WebP até 5 MB."
+              actionLabel="Selecionar arquivo"
+              description="PNG, JPEG ou WebP até 5 MB, ou DOCX até 20 MB."
               error={letterheadError}
               fileName={letterheadFile?.name}
               fileSizeLabel={
                 letterheadFile ? formatOrganizationLetterheadFileSize(letterheadFile.size) : null
               }
               idleDescription="Você pode concluir sem anexar."
-              idleTitle="Arraste a imagem aqui ou selecione do computador"
-              draggingTitle="Solte a imagem para anexar"
+              idleTitle="Arraste o arquivo aqui ou selecione do computador"
+              draggingTitle="Solte o arquivo para anexar"
               label="Papel timbrado da organização"
               onFilesChange={(files) => onLetterheadChange?.(files)}
               onRemove={onRemoveLetterhead}

@@ -69,3 +69,18 @@ export function canUpdateStoredDepartment(
 
   throw new ForbiddenError("You do not have permission to update this department.");
 }
+
+export function canDeleteStoredDepartment(
+  actor: Actor,
+  department: Pick<StoredDepartment, "organizationId">,
+) {
+  if (actor.role === "admin") {
+    return true;
+  }
+
+  if (actor.role === "organization_owner" && isActorInDepartmentOrganization(actor, department)) {
+    return true;
+  }
+
+  throw new ForbiddenError("You do not have permission to delete this department.");
+}

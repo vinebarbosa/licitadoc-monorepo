@@ -326,7 +326,7 @@ export const seededSupportTickets: SupportTicket[] = [
         role: "support",
         authorName: "Admin LicitaDoc",
         content:
-          "Voce pode abrir o menu Membros se tiver perfil de gestor. Consegue me confirmar seu papel no sistema?",
+          "Voce pode abrir o menu Organizacao se tiver perfil de gestor. Consegue me confirmar seu papel no sistema?",
         timestamp: "2026-05-16T10:46:00-03:00",
       },
     ],

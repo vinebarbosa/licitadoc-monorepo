@@ -1,9 +1,12 @@
+import type { FastifyReply } from "fastify";
 import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
+import type { Actor } from "../../authorization/actor";
 import { getSessionUser } from "../../shared/auth/get-session-user";
 import { createOrganization } from "./create-organization";
 import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
+import { getOrganizationAssetFile, uploadOrganizationAsset } from "./organization-assets";
 import {
   getOrganizationLetterheadImage,
   hasOrganizationLetterheadUpload,
@@ -16,12 +19,16 @@ import {
 import {
   createOrganizationSchema,
   getCurrentOrganizationSchema,
+  getOrganizationAssetFileSchema,
   getOrganizationLetterheadImageSchema,
   getOrganizationSchema,
   getOrganizationsSchema,
   organizationsPaginationQuerySchema,
   updateOrganizationSchema,
+  uploadOrganizationCrestSchema,
   uploadOrganizationLetterheadSchema,
+  uploadOrganizationLetterheadTemplateSchema,
+  uploadOrganizationLogoSchema,
 } from "./organizations.schemas";
 import { updateOrganization } from "./update-organization";
 
@@ -47,13 +54,14 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
         (rawBody.letterhead != null && !isMultipartFileValue(rawBody.letterhead)) ||
         (hasLetterheadUpload && !isMultipartFileValue(rawBody.letterhead))
       ) {
-        throw app.httpErrors.badRequest("Envie exatamente uma imagem de timbre.");
+        throw app.httpErrors.badRequest("Envie exatamente um arquivo de timbre.");
       }
 
       const letterheadFile = hasLetterheadUpload
         ? await normalizeLetterheadUpload({
             body: rawBody,
-            maxBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,
+            maxDocxBytes: app.config.ORGANIZATION_LETTERHEAD_TEMPLATE_MAX_BYTES,
+            maxImageBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,
           })
         : undefined;
 
@@ -124,7 +132,74 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
         actor,
         body: request.body as Record<string, unknown> | undefined,
         db: app.db,
-        maxBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,
+        maxDocxBytes: app.config.ORGANIZATION_LETTERHEAD_TEMPLATE_MAX_BYTES,
+        maxImageBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,
+        organizationId,
+        storage: app.storage,
+      });
+
+      return reply.status(201).send(organization);
+    },
+  );
+
+  app.post(
+    "/:organizationId/logo",
+    {
+      schema: uploadOrganizationLogoSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const { organizationId } = request.params;
+      const organization = await uploadOrganizationAsset({
+        actor,
+        assetKind: "logo",
+        body: request.body as Record<string, unknown> | undefined,
+        db: app.db,
+        maxBytes: app.config.ORGANIZATION_VISUAL_ASSET_MAX_BYTES,
+        organizationId,
+        storage: app.storage,
+      });
+
+      return reply.status(201).send(organization);
+    },
+  );
+
+  app.post(
+    "/:organizationId/crest",
+    {
+      schema: uploadOrganizationCrestSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const { organizationId } = request.params;
+      const organization = await uploadOrganizationAsset({
+        actor,
+        assetKind: "crest",
+        body: request.body as Record<string, unknown> | undefined,
+        db: app.db,
+        maxBytes: app.config.ORGANIZATION_VISUAL_ASSET_MAX_BYTES,
+        organizationId,
+        storage: app.storage,
+      });
+
+      return reply.status(201).send(organization);
+    },
+  );
+
+  app.post(
+    "/:organizationId/letterhead-template",
+    {
+      schema: uploadOrganizationLetterheadTemplateSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+      const { organizationId } = request.params;
+      const organization = await uploadOrganizationAsset({
+        actor,
+        assetKind: "letterhead-template",
+        body: request.body as Record<string, unknown> | undefined,
+        db: app.db,
+        maxBytes: app.config.ORGANIZATION_LETTERHEAD_TEMPLATE_MAX_BYTES,
         organizationId,
         storage: app.storage,
       });
@@ -161,6 +236,91 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
       return reply
         .type(storedObject.contentType ?? "application/octet-stream")
         .send(storedObject.body);
+    },
+  );
+
+  const sendOrganizationAsset = async ({
+    actor,
+    assetKind,
+    organizationId,
+    reply,
+  }: {
+    actor: Actor;
+    assetKind: "crest" | "letterhead-template" | "logo";
+    organizationId: string;
+    reply: FastifyReply;
+  }) => {
+    const asset = await getOrganizationAssetFile({
+      actor,
+      assetKind,
+      db: app.db,
+      organizationId,
+    });
+    const storedObject = await app.storage.getObject({ key: asset.storageKey });
+
+    if (storedObject.contentLength != null) {
+      reply.header("content-length", String(storedObject.contentLength));
+    }
+
+    reply.header("cache-control", "private, max-age=300");
+    reply.header(
+      "content-disposition",
+      `inline; filename*=UTF-8''${encodeURIComponent(asset.fileName)}`,
+    );
+
+    return reply
+      .type(storedObject.contentType ?? "application/octet-stream")
+      .send(storedObject.body);
+  };
+
+  app.get(
+    "/:organizationId/logo/file",
+    {
+      schema: getOrganizationAssetFileSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+
+      return sendOrganizationAsset({
+        actor,
+        assetKind: "logo",
+        organizationId: request.params.organizationId,
+        reply,
+      });
+    },
+  );
+
+  app.get(
+    "/:organizationId/crest/file",
+    {
+      schema: getOrganizationAssetFileSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+
+      return sendOrganizationAsset({
+        actor,
+        assetKind: "crest",
+        organizationId: request.params.organizationId,
+        reply,
+      });
+    },
+  );
+
+  app.get(
+    "/:organizationId/letterhead-template/file",
+    {
+      schema: getOrganizationAssetFileSchema,
+    },
+    async (request, reply) => {
+      const actor = await getSessionUser(request);
+
+      return sendOrganizationAsset({
+        actor,
+        assetKind: "letterhead-template",
+        organizationId: request.params.organizationId,
+        reply,
+      });
     },
   );
 

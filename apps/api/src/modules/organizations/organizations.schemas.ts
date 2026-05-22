@@ -48,9 +48,13 @@ const OPENAPI_EXAMPLE_ORGANIZATION_NAME = "Prefeitura de Fortaleza";
 const OPENAPI_EXAMPLE_ORGANIZATION_OFFICIAL_NAME = "Municipio de Fortaleza";
 const OPENAPI_EXAMPLE_ORGANIZATION_ADDRESS = "Rua Exemplo, 123, Centro";
 const OPENAPI_EXAMPLE_ORGANIZATION_LOGO_URL = `${OPENAPI_EXAMPLE_URL}/logo.png`;
+const OPENAPI_EXAMPLE_ORGANIZATION_CREST_URL =
+  "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/crest/file";
 const OPENAPI_EXAMPLE_ORGANIZATION_SLUG = "prefeitura-de-fortaleza";
 const OPENAPI_EXAMPLE_ORGANIZATION_LETTERHEAD_URL =
   "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/letterhead/image";
+const OPENAPI_EXAMPLE_ORGANIZATION_LETTERHEAD_TEMPLATE_URL =
+  "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/letterhead-template/file";
 const createOrganizationBodyExample = {
   name: OPENAPI_EXAMPLE_ORGANIZATION_NAME,
   slug: OPENAPI_EXAMPLE_ORGANIZATION_SLUG,
@@ -178,7 +182,12 @@ const organizationSchema = z.object({
   institutionalEmail: openApiEmailSchema(OPENAPI_EXAMPLE_INSTITUTIONAL_EMAIL),
   website: z.string().nullable(),
   logoUrl: z.string().nullable(),
+  crestUrl: z.string().nullable().meta({ example: OPENAPI_EXAMPLE_ORGANIZATION_CREST_URL }),
   letterhead: organizationLetterheadSchema,
+  letterheadTemplateUrl: z
+    .string()
+    .nullable()
+    .meta({ example: OPENAPI_EXAMPLE_ORGANIZATION_LETTERHEAD_TEMPLATE_URL }),
   authorityName: z.string(),
   authorityRole: z.string(),
   isActive: z.boolean(),
@@ -191,7 +200,7 @@ const organizationLetterheadUploadBodySchema = withOpenApiExample(
   z
     .object({
       file: z.any().meta({
-        description: "Organization letterhead image file",
+        description: "Organization paper letterhead source file (PNG, JPEG, WebP, or DOCX)",
         format: "binary",
         isFile: true,
       }),
@@ -202,8 +211,23 @@ const organizationLetterheadUploadBodySchema = withOpenApiExample(
   },
 );
 
+const organizationAssetUploadBodySchema = withOpenApiExample(
+  z
+    .object({
+      file: z.any().meta({
+        description: "Organization asset file",
+        format: "binary",
+        isFile: true,
+      }),
+    })
+    .strict(),
+  {
+    file: "(binary file)",
+  },
+);
+
 const organizationOnboardingLetterheadUploadSchema = z.any().optional().meta({
-  description: "Optional organization letterhead image file",
+  description: "Optional organization paper letterhead source file (PNG, JPEG, WebP, or DOCX)",
   format: "binary",
   isFile: true,
 });
@@ -239,7 +263,7 @@ export const createOrganizationBodySchema = withOpenApiExample(
     .strict(),
   {
     ...createOrganizationBodyExample,
-    letterhead: "(optional binary image file)",
+    letterhead: "(optional binary image or DOCX file)",
   },
 );
 
@@ -365,6 +389,47 @@ export const uploadOrganizationLetterheadSchema = {
 } satisfies AppRouteSchema;
 
 export const getOrganizationLetterheadImageSchema = {
+  hide: true,
+  params: organizationParamsSchema,
+} satisfies AppRouteSchema;
+
+export const uploadOrganizationLogoSchema = {
+  tags: ["Organizations"],
+  summary: "Upload organization logo",
+  consumes: ["multipart/form-data"],
+  params: organizationParamsSchema,
+  body: organizationAssetUploadBodySchema,
+  response: {
+    201: organizationSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const uploadOrganizationCrestSchema = {
+  tags: ["Organizations"],
+  summary: "Upload organization crest",
+  consumes: ["multipart/form-data"],
+  params: organizationParamsSchema,
+  body: organizationAssetUploadBodySchema,
+  response: {
+    201: organizationSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const uploadOrganizationLetterheadTemplateSchema = {
+  tags: ["Organizations"],
+  summary: "Upload organization paper letterhead template",
+  consumes: ["multipart/form-data"],
+  params: organizationParamsSchema,
+  body: organizationAssetUploadBodySchema,
+  response: {
+    201: organizationSchema,
+    ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;
+
+export const getOrganizationAssetFileSchema = {
   hide: true,
   params: organizationParamsSchema,
 } satisfies AppRouteSchema;

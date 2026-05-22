@@ -10,7 +10,7 @@ import { ConflictError } from "../../shared/errors/conflict-error";
 import { generateInviteToken, hashInviteToken } from "./invite.tokens";
 import { getInviteRoleForActor } from "./invites.policies";
 
-const DEFAULT_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 1; // 1 day
+export const DEFAULT_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 1; // 1 day
 
 type Input = {
   actor: Actor;

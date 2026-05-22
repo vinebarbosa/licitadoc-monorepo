@@ -8,6 +8,8 @@ import { acceptInvite } from "./accept-invite";
 import { createInvite } from "./create-invite";
 import { getInvites } from "./get-invites";
 import { hashInviteToken } from "./invite.tokens";
+import { resendInvite } from "./resend-invite";
+import { revokeInvite } from "./revoke-invite";
 
 function createInviteRow(
   overrides: Partial<typeof invites.$inferSelect> = {},
@@ -808,4 +810,171 @@ describe("acceptInvite rejects email mismatches and spent invites", () => {
         error instanceof BadRequestError && error.message === "Invite is no longer pending.",
     );
   });
+});
+
+test("revokeInvite marks pending invites as revoked and removes pending provisioned users", async () => {
+  let deletedUserId: string | undefined;
+  let updateValues: Record<string, unknown> | undefined;
+  const invite = createInviteRow({
+    role: "member",
+    provisionedUserId: "provisioned-user",
+  });
+  const provisionedUser = createUserRow({
+    id: "provisioned-user",
+    onboardingStatus: "pending_profile",
+  });
+  const tx = {
+    query: {
+      users: {
+        findFirst: async () => provisionedUser,
+      },
+    },
+    delete: () => ({
+      where: () => {
+        deletedUserId = provisionedUser.id;
+      },
+    }),
+    update: () => ({
+      set: (values: Record<string, unknown>) => {
+        updateValues = values;
+        return {
+          where: () => ({
+            returning: async () => [
+              createInviteRow({
+                ...invite,
+                provisionedUserId: null,
+                status: "revoked",
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  };
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => invite,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await revokeInvite({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: invite.organizationId,
+    },
+    db,
+    inviteId: invite.id,
+  });
+
+  assert.equal(response.status, "revoked");
+  assert.equal(response.provisionedUserId, null);
+  assert.equal(deletedUserId, "provisioned-user");
+  assert.equal(updateValues?.status, "revoked");
+});
+
+test("revokeInvite rejects spent invites", async () => {
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => createInviteRow({ status: "accepted" }),
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      revokeInvite({
+        actor: {
+          id: "admin_user",
+          role: "admin",
+          organizationId: null,
+        },
+        db,
+        inviteId: "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228",
+      }),
+    BadRequestError,
+  );
+});
+
+test("resendInvite rotates pending invite token and redelivers email", async () => {
+  const { deliveries, mailer } = createCapturingMailer();
+  let inviteUpdateValues: Record<string, unknown> | undefined;
+  let userUpdateValues: Record<string, unknown> | undefined;
+  let accountUpdated = false;
+  const invite = createInviteRow({
+    role: "member",
+    provisionedUserId: "provisioned-user",
+  });
+  const tx = {
+    update: (table: unknown) => ({
+      set: (values: Record<string, unknown>) => {
+        if (table === users) {
+          userUpdateValues = values;
+          return {
+            where: async () => undefined,
+          };
+        }
+
+        if (table === accounts) {
+          accountUpdated = true;
+          return {
+            where: () => ({
+              returning: async () => [{ id: "account-1" }],
+            }),
+          };
+        }
+
+        inviteUpdateValues = values;
+        return {
+          where: () => ({
+            returning: async () => [
+              createInviteRow({
+                ...invite,
+                expiresAt: values.expiresAt as Date,
+                tokenHash: String(values.tokenHash),
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  };
+  const db = {
+    query: {
+      invites: {
+        findFirst: async () => invite,
+      },
+    },
+    transaction: async (callback: (transaction: typeof tx) => Promise<unknown> | unknown) =>
+      callback(tx),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await resendInvite({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: invite.organizationId,
+    },
+    baseUrl: "https://app.example.com",
+    db,
+    inviteId: invite.id,
+    mailer,
+  });
+
+  assert.equal(response.id, invite.id);
+  assert.match(response.inviteUrl, /^https:\/\/app\.example\.com\/invites\//);
+  assert.notEqual(inviteUpdateValues?.tokenHash, invite.tokenHash);
+  assert.ok(inviteUpdateValues?.expiresAt instanceof Date);
+  assert.ok(userUpdateValues?.temporaryPasswordCreatedAt instanceof Date);
+  assert.ok(accountUpdated);
+  assert.equal(deliveries.length, 1);
+  assert.equal(deliveries[0]?.to, invite.email);
+  assert.equal(typeof deliveries[0]?.temporaryPassword, "string");
 });

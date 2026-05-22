@@ -120,6 +120,13 @@
       "when": 1779062400000,
       "tag": "0016_organization_letterhead_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1779428400000,
+      "tag": "0017_organization_workspace_assets",
+      "breakpoints": true
     }
   ]
 }

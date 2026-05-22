@@ -249,7 +249,9 @@ function createOrganizationRow(
     institutionalEmail: "contato@exemplo.ce.gov.br",
     website: null,
     logoUrl: null,
+    crestUrl: null,
     letterheadUrl: null,
+    letterheadTemplateUrl: null,
     authorityName: "Maria Silva",
     authorityRole: "Prefeita",
     isActive: true,
@@ -693,7 +695,9 @@ test("createProcess lets admins create for any organization and links department
 
         if (table === processItems) {
           return {
-            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+            returning: async () => [
+              createProcessItemRowFromInsert(values as Record<string, unknown>),
+            ],
           };
         }
 
@@ -1024,7 +1028,9 @@ test("createProcessFromExpenseRequest creates scoped process from SD text", asyn
 
         if (table === processItems) {
           return {
-            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+            returning: async () => [
+              createProcessItemRowFromInsert(values as Record<string, unknown>),
+            ],
           };
         }
 
@@ -1123,7 +1129,9 @@ test("createProcessFromExpenseRequestText creates a process when source file met
 
         if (table === processItems) {
           return {
-            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+            returning: async () => [
+              createProcessItemRowFromInsert(values as Record<string, unknown>),
+            ],
           };
         }
 
@@ -1227,7 +1235,9 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
 
         if (table === processItems) {
           return {
-            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+            returning: async () => [
+              createProcessItemRowFromInsert(values as Record<string, unknown>),
+            ],
           };
         }
 
@@ -1260,6 +1270,9 @@ test("createProcessFromExpenseRequestPdf uploads first, creates process, and cle
     storeExpenseRequestPdf: async () => {
       storedCalls += 1;
       return storedObject;
+    },
+    storeOrganizationAsset: async () => {
+      throw new Error("not implemented");
     },
     storeOrganizationLetterhead: async () => {
       throw new Error("not implemented");
@@ -1323,6 +1336,9 @@ test("createProcessFromExpenseRequestPdf reuses scope rules and stops when stora
     },
     storeExpenseRequestPdf: async () => {
       throw new Error("storage down");
+    },
+    storeOrganizationAsset: async () => {
+      throw new Error("not implemented");
     },
     storeOrganizationLetterhead: async () => {
       throw new Error("not implemented");
@@ -1403,6 +1419,9 @@ test("createProcessFromExpenseRequestPdf reuses scope rules and stops when stora
       sizeBytes: PUREZA_EXPENSE_REQUEST_PDF.byteLength,
       uploadedAt: "2026-04-21T12:00:00.000Z",
     }),
+    storeOrganizationAsset: async () => {
+      throw new Error("not implemented");
+    },
     storeOrganizationLetterhead: async () => {
       throw new Error("not implemented");
     },
@@ -1459,7 +1478,9 @@ test("createProcessFromExpenseRequest resolves admin organization by CNPJ", asyn
 
         if (table === processItems) {
           return {
-            returning: async () => [createProcessItemRowFromInsert(values as Record<string, unknown>)],
+            returning: async () => [
+              createProcessItemRowFromInsert(values as Record<string, unknown>),
+            ],
           };
         }
 

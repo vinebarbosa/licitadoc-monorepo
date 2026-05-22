@@ -6,7 +6,10 @@ export type { GetApiOrganizationsOrganizationidSuspenseQueryKey } from "./useGet
 export type { GetApiOrganizationsSuspenseQueryKey } from "./useGetApiOrganizationsSuspense";
 export type { PatchApiOrganizationsOrganizationidMutationKey } from "./usePatchApiOrganizationsOrganizationid";
 export type { PostApiOrganizationsMutationKey } from "./usePostApiOrganizations";
+export type { PostApiOrganizationsOrganizationidCrestMutationKey } from "./usePostApiOrganizationsOrganizationidCrest";
 export type { PostApiOrganizationsOrganizationidLetterheadMutationKey } from "./usePostApiOrganizationsOrganizationidLetterhead";
+export type { PostApiOrganizationsOrganizationidLetterheadTemplateMutationKey } from "./usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export type { PostApiOrganizationsOrganizationidLogoMutationKey } from "./usePostApiOrganizationsOrganizationidLogo";
 export { getApiOrganizationsQueryKey } from "./useGetApiOrganizations";
 export { getApiOrganizationsQueryOptions } from "./useGetApiOrganizations";
 export { useGetApiOrganizations } from "./useGetApiOrganizations";
@@ -31,6 +34,15 @@ export { usePatchApiOrganizationsOrganizationid } from "./usePatchApiOrganizatio
 export { postApiOrganizationsMutationKey } from "./usePostApiOrganizations";
 export { postApiOrganizationsMutationOptions } from "./usePostApiOrganizations";
 export { usePostApiOrganizations } from "./usePostApiOrganizations";
+export { postApiOrganizationsOrganizationidCrestMutationKey } from "./usePostApiOrganizationsOrganizationidCrest";
+export { postApiOrganizationsOrganizationidCrestMutationOptions } from "./usePostApiOrganizationsOrganizationidCrest";
+export { usePostApiOrganizationsOrganizationidCrest } from "./usePostApiOrganizationsOrganizationidCrest";
 export { postApiOrganizationsOrganizationidLetterheadMutationKey } from "./usePostApiOrganizationsOrganizationidLetterhead";
 export { postApiOrganizationsOrganizationidLetterheadMutationOptions } from "./usePostApiOrganizationsOrganizationidLetterhead";
 export { usePostApiOrganizationsOrganizationidLetterhead } from "./usePostApiOrganizationsOrganizationidLetterhead";
+export { postApiOrganizationsOrganizationidLetterheadTemplateMutationKey } from "./usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export { postApiOrganizationsOrganizationidLetterheadTemplateMutationOptions } from "./usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export { usePostApiOrganizationsOrganizationidLetterheadTemplate } from "./usePostApiOrganizationsOrganizationidLetterheadTemplate";
+export { postApiOrganizationsOrganizationidLogoMutationKey } from "./usePostApiOrganizationsOrganizationidLogo";
+export { postApiOrganizationsOrganizationidLogoMutationOptions } from "./usePostApiOrganizationsOrganizationidLogo";
+export { usePostApiOrganizationsOrganizationidLogo } from "./usePostApiOrganizationsOrganizationidLogo";

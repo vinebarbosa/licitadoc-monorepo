@@ -50,6 +50,16 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(5 * 1024 * 1024),
+  ORGANIZATION_VISUAL_ASSET_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 1024 * 1024),
+  ORGANIZATION_LETTERHEAD_TEMPLATE_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(20 * 1024 * 1024),
   REALTIME_PROVIDER: z.enum(["disabled", "ably"]).default("disabled"),
   ABLY_API_KEY: z.string().optional(),
   REALTIME_TOKEN_TTL_MS: z.coerce

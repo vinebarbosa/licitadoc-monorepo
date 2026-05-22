@@ -219,9 +219,9 @@ describe("Owner onboarding pages", () => {
     );
 
     fillOwnerOrganizationForm();
-    expect(screen.getByRole("button", { name: "Selecionar imagem" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Selecionar arquivo" })).toBeInTheDocument();
     expect(
-      screen.getByText("Arraste a imagem aqui ou selecione do computador"),
+      screen.getByText("Arraste o arquivo aqui ou selecione do computador"),
     ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
       target: { files: [letterhead] },
@@ -238,6 +238,40 @@ describe("Owner onboarding pages", () => {
       expect(navigateMock).toHaveBeenCalledWith("/onboarding/concluido", {
         replace: true,
         state: { organizationName: "Prefeitura de Fortaleza" },
+      });
+    });
+  });
+
+  it("submits the owner organization step with a selected DOCX letterhead", async () => {
+    organizationMutateAsyncMock.mockResolvedValue({
+      id: "organization-1",
+      name: "Prefeitura de Fortaleza",
+      letterhead: {
+        url: "/api/organizations/organization-1/letterhead/image",
+      },
+    });
+    const letterhead = new File(["docx"], "papel-timbrado.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    renderWithProviders(
+      <MemoryRouter>
+        <OwnerOrganizationOnboardingPage />
+      </MemoryRouter>,
+    );
+
+    fillOwnerOrganizationForm();
+    fireEvent.change(screen.getByLabelText("Papel timbrado da organização"), {
+      target: { files: [letterhead] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar configuração" }));
+
+    await waitFor(() => {
+      expect(organizationMutateAsyncMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          name: "Prefeitura de Fortaleza",
+          letterhead,
+        }),
       });
     });
   });
@@ -263,7 +297,7 @@ describe("Owner onboarding pages", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Remover arquivo" }));
     expect(
-      screen.getByText("Arraste a imagem aqui ou selecione do computador"),
+      screen.getByText("Arraste o arquivo aqui ou selecione do computador"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Finalizar configuração" }));
 
@@ -292,7 +326,9 @@ describe("Owner onboarding pages", () => {
       target: { files: [invalidLetterhead] },
     });
 
-    expect(screen.getByText("Envie uma imagem PNG, JPEG ou WebP.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Envie uma imagem PNG, JPEG, WebP ou um arquivo DOCX."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Finalizar configuração" })).toBeDisabled();
   });
 

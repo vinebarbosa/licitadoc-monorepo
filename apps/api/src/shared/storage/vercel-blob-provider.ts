@@ -6,10 +6,11 @@ import type {
   StoredObject,
   StoredObjectContent,
   StoreObjectInput,
+  StoreOrganizationAssetInput,
   StoreOrganizationLetterheadInput,
   StoreSupportImageInput,
 } from "./types";
-import { getOrganizationLetterheadStorageKey } from "./types";
+import { getOrganizationAssetStorageKey, getOrganizationLetterheadStorageKey } from "./types";
 
 type BlobAccess = "private" | "public";
 
@@ -110,6 +111,13 @@ export class VercelBlobStorageProvider implements FileStorageProvider {
   async storeOrganizationLetterhead(input: StoreOrganizationLetterheadInput) {
     const now = new Date();
     const key = getOrganizationLetterheadStorageKey(input.organizationId);
+
+    return this.storeObject(key, input, now, { allowOverwrite: true });
+  }
+
+  async storeOrganizationAsset(input: StoreOrganizationAssetInput) {
+    const now = new Date();
+    const key = getOrganizationAssetStorageKey(input.organizationId, input.assetKind);
 
     return this.storeObject(key, input, now, { allowOverwrite: true });
   }

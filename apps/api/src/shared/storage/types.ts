@@ -21,10 +21,24 @@ export type StoreOrganizationLetterheadInput = StoreObjectInput & {
   organizationId: string;
 };
 
+export type OrganizationAssetKind = "crest" | "letterhead-template" | "logo";
+
+export type StoreOrganizationAssetInput = StoreObjectInput & {
+  assetKind: OrganizationAssetKind;
+  organizationId: string;
+};
+
 export const ORGANIZATION_LETTERHEAD_FILE_NAME = "papel-timbrado";
 
 export function getOrganizationLetterheadStorageKey(organizationId: string) {
   return `organization-letterheads/${organizationId}/${ORGANIZATION_LETTERHEAD_FILE_NAME}`;
+}
+
+export function getOrganizationAssetStorageKey(
+  organizationId: string,
+  assetKind: OrganizationAssetKind,
+) {
+  return `organization-assets/${organizationId}/${assetKind}`;
 }
 
 export type StoredObjectContent = {
@@ -37,6 +51,7 @@ export interface FileStorageProvider {
   deleteObject(object: Pick<StoredObject, "bucket" | "key">): Promise<void>;
   getObject(object: Pick<StoredObject, "key">): Promise<StoredObjectContent>;
   storeExpenseRequestPdf(input: StoreObjectInput): Promise<StoredObject>;
+  storeOrganizationAsset(input: StoreOrganizationAssetInput): Promise<StoredObject>;
   storeOrganizationLetterhead(input: StoreOrganizationLetterheadInput): Promise<StoredObject>;
   storeSupportTicketImage(input: StoreSupportImageInput): Promise<StoredObject>;
 }

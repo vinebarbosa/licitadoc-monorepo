@@ -70,12 +70,14 @@ export type GetApiOrganizations200 = {
     institutionalEmail: string;
     website: string | null;
     logoUrl: string | null;
+    crestUrl: string | null;
     letterhead: {
       /**
        * @type string
        */
       url: string;
     } | null;
+    letterheadTemplateUrl: string | null;
     /**
      * @type string
      */

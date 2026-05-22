@@ -9,9 +9,11 @@ import {
 } from "../api/use-owner-onboarding";
 import {
   createEmptyOrganizationFormData,
-  isAcceptedOrganizationLetterheadImage,
+  isAcceptedOrganizationLetterheadSource,
+  isOrganizationLetterheadDocxSource,
   normalizeSlug,
-  ORGANIZATION_LETTERHEAD_MAX_BYTES,
+  ORGANIZATION_LETTERHEAD_DOCX_MAX_BYTES,
+  ORGANIZATION_LETTERHEAD_IMAGE_MAX_BYTES,
   OrganizationOnboardingView,
 } from "../ui/onboarding-views";
 
@@ -23,7 +25,7 @@ function getLetterheadValidationError(files: FileList | null) {
   }
 
   if (selectedFiles.length > 1) {
-    return "Envie apenas uma imagem de papel timbrado.";
+    return "Envie apenas um arquivo de papel timbrado.";
   }
 
   const file = selectedFiles[0];
@@ -32,15 +34,21 @@ function getLetterheadValidationError(files: FileList | null) {
     return null;
   }
 
-  if (!isAcceptedOrganizationLetterheadImage(file)) {
-    return "Envie uma imagem PNG, JPEG ou WebP.";
+  if (!isAcceptedOrganizationLetterheadSource(file)) {
+    return "Envie uma imagem PNG, JPEG, WebP ou um arquivo DOCX.";
   }
 
   if (file.size === 0) {
-    return "A imagem não pode estar vazia.";
+    return "O arquivo não pode estar vazio.";
   }
 
-  if (file.size > ORGANIZATION_LETTERHEAD_MAX_BYTES) {
+  if (isOrganizationLetterheadDocxSource(file)) {
+    return file.size > ORGANIZATION_LETTERHEAD_DOCX_MAX_BYTES
+      ? "O DOCX precisa ter até 20 MB."
+      : null;
+  }
+
+  if (file.size > ORGANIZATION_LETTERHEAD_IMAGE_MAX_BYTES) {
     return "A imagem precisa ter até 5 MB.";
   }
 

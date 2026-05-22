@@ -233,7 +233,7 @@ describe("appRoutes", () => {
       "href",
       "/app/documentos",
     );
-    expect(screen.getByText(/Contratacao de Servicos de TI/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Contratacao de Servicos de TI/).length).toBeGreaterThan(0);
   });
 
   it("redirects visitors away from the protected document preview route", async () => {
@@ -334,7 +334,7 @@ describe("appRoutes", () => {
     });
   });
 
-  it("redirects non-owner users away from the owner members route", async () => {
+  it("redirects non-owner users away from the owner organization route", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
         return HttpResponse.json(authenticatedSessionResponse);
@@ -342,7 +342,7 @@ describe("appRoutes", () => {
     );
 
     const router = createMemoryRouter(appRoutes as never, {
-      initialEntries: ["/app/membros"],
+      initialEntries: ["/app/organizacao"],
     });
 
     renderWithProviders(<RouterProvider router={router} />);
@@ -355,7 +355,7 @@ describe("appRoutes", () => {
     });
   });
 
-  it("renders the owner members route for organization_owner sessions", async () => {
+  it("renders the owner organization route for organization_owner sessions", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
         return HttpResponse.json({
@@ -388,14 +388,42 @@ describe("appRoutes", () => {
     );
 
     const router = createMemoryRouter(appRoutes as never, {
-      initialEntries: ["/app/membros"],
+      initialEntries: ["/app/organizacao"],
     });
 
     renderWithProviders(<RouterProvider router={router} />);
 
     await waitFor(() => {
       expect(
-        screen.getByRole("heading", { name: "Administração da Organização" }),
+        screen.getByRole("heading", { name: "Prefeitura de São Benedito do Rio Preto" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("redirects the legacy owner members route to organization management", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "organization_owner",
+            organizationId: "organization-1",
+          },
+        });
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app/membros"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/app/organizacao");
+      expect(
+        screen.getByRole("heading", { name: "Prefeitura de São Benedito do Rio Preto" }),
       ).toBeInTheDocument();
     });
   });

@@ -1,6 +1,7 @@
 import { useGetApiOrganizationsMe } from "@licitadoc/api-client";
 import {
   Bell,
+  Building2,
   ChevronDown,
   ClipboardList,
   FileSearch,
@@ -81,7 +82,7 @@ const adminNavItems = [
   { title: "Chamados", url: "/admin/chamados", icon: Headphones },
 ];
 
-const ownerNavItems = [{ title: "Membros", url: "/app/membros", icon: Users }];
+const ownerNavItems = [{ title: "Organização", url: "/app/organizacao", icon: Building2 }];
 
 const secondaryNavItems = [
   { title: "Configurações", url: "/app/configuracoes", icon: Settings },

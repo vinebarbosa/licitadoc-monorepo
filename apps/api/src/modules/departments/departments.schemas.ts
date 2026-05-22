@@ -186,3 +186,15 @@ export const updateDepartmentSchema = {
     ...pickErrorResponses(400, 401, 403, 404, 409, 500),
   },
 } satisfies AppRouteSchema;
+
+export const deleteDepartmentSchema = {
+  tags: ["Departments"],
+  summary: "Delete department",
+  params: departmentParamsSchema,
+  response: {
+    200: z.object({
+      success: z.literal(true),
+    }),
+    ...pickErrorResponses(400, 401, 403, 404, 500),
+  },
+} satisfies AppRouteSchema;

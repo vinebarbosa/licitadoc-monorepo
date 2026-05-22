@@ -950,6 +950,24 @@
               ]
             }
           }
+        },
+        {
+          "name": "Delete department",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/{{departmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments",
+                "{{departmentId}}"
+              ]
+            }
+          }
         }
       ]
     },
@@ -968,7 +986,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"processId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"documentType\": \"dfd\",\n  \"instructions\": \"Priorizar linguagem objetiva para avaliacao preliminar.\"\n}"
+              "raw": "{\n  \"processId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"documentType\": \"dfd\",\n  \"debug\": false,\n  \"name\": null,\n  \"instructions\": \"Priorizar linguagem objetiva para avaliacao preliminar.\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/documents/",
@@ -1013,6 +1031,91 @@
                 "api",
                 "documents",
                 "{{documentId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update document draft content",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"draftContentJson\": {\n    \"type\": \"doc\",\n    \"content\": [\n      {\n        \"type\": \"heading\",\n        \"attrs\": {\n          \"level\": 1\n        },\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"DOCUMENTO DE FORMALIZACAO DA DEMANDA\"\n          }\n        ]\n      },\n      {\n        \"type\": \"paragraph\",\n        \"content\": [\n          {\n            \"type\": \"text\",\n            \"text\": \"Conteudo revisado.\"\n          }\n        ]\n      }\n    ]\n  },\n  \"sourceContentHash\": \"sha256:3b6f7d0b4c2e1a9f\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/{{documentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "documents",
+                "{{documentId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suggest document text adjustment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"selectedText\": \"A contratação se faz necessária para atender à demanda apresentada.\",\n  \"instruction\": \"Deixe mais objetivo, mantendo o tom formal.\",\n  \"selectionContext\": {\n    \"prefix\": \"## 2. CONTEXTO E NECESSIDADE DA DEMANDA\",\n    \"suffix\": \"## 3. OBJETO DA CONTRATAÇÃO\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/{{documentId}}/adjustments/suggestions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "documents",
+                "{{documentId}}",
+                "adjustments",
+                "suggestions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Apply document text adjustment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceTarget\": {\n    \"start\": 42,\n    \"end\": 89,\n    \"sourceText\": \"A contratação se faz necessária para atender à demanda apresentada.\"\n  },\n  \"replacementText\": \"A contratação é necessária para atender à demanda apresentada pela Administração.\",\n  \"sourceContentHash\": \"sha256:3b6f7d0b4c2e1a9f\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/documents/{{documentId}}/adjustments/apply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "documents",
+                "{{documentId}}",
+                "adjustments",
+                "apply"
               ]
             }
           }
@@ -1117,6 +1220,44 @@
           }
         },
         {
+          "name": "Resend invite",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invites/{{inviteId}}/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invites",
+                "{{inviteId}}",
+                "resend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Revoke invite",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/invites/{{inviteId}}/revoke",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invites",
+                "{{inviteId}}",
+                "revoke"
+              ]
+            }
+          }
+        },
+        {
           "name": "Accept invite",
           "request": {
             "method": "POST",
@@ -1144,16 +1285,7 @@
           "name": "Create organization during onboarding",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Prefeitura de Fortaleza\",\n  \"slug\": \"prefeitura-de-fortaleza\",\n  \"officialName\": \"Municipio de Fortaleza\",\n  \"cnpj\": \"12.345.678/0001-90\",\n  \"city\": \"Fortaleza\",\n  \"state\": \"CE\",\n  \"address\": \"Rua Exemplo, 123, Centro\",\n  \"zipCode\": \"60000-000\",\n  \"phone\": \"(85) 3333-4444\",\n  \"institutionalEmail\": \"contato@example.gov.br\",\n  \"website\": \"https://licitadoc.example.gov.br\",\n  \"logoUrl\": \"https://licitadoc.example.gov.br/logo.png\",\n  \"authorityName\": \"Maria Silva\",\n  \"authorityRole\": \"Diretora Administrativa\"\n}"
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/organizations/",
               "host": [
@@ -1191,6 +1323,24 @@
                   "value": "1",
                   "disabled": true
                 }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get current organization",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "me"
               ]
             }
           }
@@ -1239,6 +1389,82 @@
               ]
             }
           }
+        },
+        {
+          "name": "Upload organization print letterhead",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/{{organizationId}}/letterhead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "{{organizationId}}",
+                "letterhead"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload organization logo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/{{organizationId}}/logo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "{{organizationId}}",
+                "logo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload organization crest",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/{{organizationId}}/crest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "{{organizationId}}",
+                "crest"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload organization paper letterhead template",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/organizations/{{organizationId}}/letterhead-template",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "organizations",
+                "{{organizationId}}",
+                "letterhead-template"
+              ]
+            }
+          }
         }
       ]
     },
@@ -1257,7 +1483,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"pregao-eletronico\",\n  \"processNumber\": \"PE-2026-0001\",\n  \"externalId\": \"PROC-2026-001\",\n  \"issuedAt\": \"2026-01-15T10:30:00.000Z\",\n  \"object\": \"Aquisicao de materiais de escritorio\",\n  \"justification\": \"Reposicao de estoque das unidades administrativas.\",\n  \"responsibleName\": \"Maria Silva\",\n  \"status\": \"draft\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"departmentIds\": [\n    \"123e4567-e89b-12d3-a456-426614174000\"\n  ],\n  \"sourceKind\": \"expense_request\",\n  \"sourceReference\": \"SD-6-2026\",\n  \"sourceMetadata\": {\n    \"extractedFields\": {\n      \"budgetUnitCode\": \"06.001\",\n      \"requestNumber\": \"6\"\n    },\n    \"sourceFile\": {\n      \"contentType\": \"application/pdf\",\n      \"etag\": \"abc123\",\n      \"fileName\": \"SD.pdf\",\n      \"sizeBytes\": 245760,\n      \"storageBucket\": \"licitadoc-expense-requests\",\n      \"storageKey\": \"expense-requests/2026/04/2026-04-21t12-00-00-000z-sd.pdf\",\n      \"uploadedAt\": \"2026-04-21T12:00:00.000Z\"\n    },\n    \"warnings\": []\n  }\n}"
+              "raw": "{\n  \"procurementMethod\": \"bidding\",\n  \"biddingModality\": \"reverse_auction\",\n  \"processNumber\": \"PE-2026-0001\",\n  \"externalId\": \"PROC-2026-001\",\n  \"issuedAt\": \"2026-01-15T10:30:00.000Z\",\n  \"title\": \"Materiais de escritorio\",\n  \"object\": \"Aquisicao de materiais de escritorio\",\n  \"justification\": \"Reposicao de estoque das unidades administrativas.\",\n  \"responsibleName\": \"Maria Silva\",\n  \"status\": \"draft\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"departmentIds\": [\n    \"123e4567-e89b-12d3-a456-426614174000\"\n  ],\n  \"items\": [\n    {\n      \"kind\": \"kit\",\n      \"code\": \"1\",\n      \"title\": \"Kit escolar\",\n      \"quantity\": \"100\",\n      \"unit\": \"kit\",\n      \"unitValue\": \"120.00\",\n      \"totalValue\": \"12000.00\",\n      \"components\": [\n        {\n          \"title\": \"Caderno\",\n          \"description\": \"Caderno brochura capa dura\",\n          \"quantity\": \"2\",\n          \"unit\": \"unidade\"\n        }\n      ]\n    },\n    {\n      \"kind\": \"simple\",\n      \"code\": \"2\",\n      \"title\": \"Caneta azul\",\n      \"description\": \"Caneta esferografica azul\",\n      \"quantity\": \"500\",\n      \"unit\": \"unidade\",\n      \"unitValue\": \"1.50\",\n      \"totalValue\": \"750.00\"\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/processes/",
@@ -1294,6 +1520,26 @@
                 {
                   "key": "pageSize",
                   "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "exemplo",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "draft",
+                  "disabled": true
+                },
+                {
+                  "key": "procurementMethod",
+                  "value": "exemplo",
+                  "disabled": true
+                },
+                {
+                  "key": "biddingModality",
+                  "value": "exemplo",
                   "disabled": true
                 }
               ]
@@ -1376,7 +1622,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"draft\",\n  \"justification\": \"Reposicao de estoque das unidades administrativas.\"\n}"
+              "raw": "{\n  \"status\": \"draft\",\n  \"justification\": \"Reposicao de estoque das unidades administrativas.\",\n  \"responsibleName\": \"Maria Silva\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/processes/{{processId}}",
@@ -1387,6 +1633,313 @@
                 "api",
                 "processes",
                 "{{processId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Support Tickets",
+      "item": [
+        {
+          "name": "Create support ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Não consigo concluir a geração do DFD\",\n  \"content\": \"O documento fica carregando e não sai da etapa de geração.\",\n  \"context\": {\n    \"screen\": \"Detalhe do processo\",\n    \"route\": \"/app/processo/987\",\n    \"source\": \"process\",\n    \"entityLabel\": \"PE-2024/0142\"\n  },\n  \"attachment\": {\n    \"type\": \"screenshot\",\n    \"name\": \"captura-de-tela.png\",\n    \"description\": \"Captura anexada a partir do widget de ajuda.\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List support tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "exemplo",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "open",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "urgent",
+                  "disabled": true
+                },
+                {
+                  "key": "source",
+                  "value": "process",
+                  "disabled": true
+                },
+                {
+                  "key": "assignee",
+                  "value": "all",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List requester support tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "me"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "exemplo",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "open",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "urgent",
+                  "disabled": true
+                },
+                {
+                  "key": "source",
+                  "value": "process",
+                  "disabled": true
+                },
+                {
+                  "key": "assignee",
+                  "value": "all",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload support ticket image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/attachments/images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "attachments",
+                "images"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create support realtime token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketId\": \"123e4567-e89b-12d3-a456-426614174000\",\n  \"organizationId\": \"123e4567-e89b-12d3-a456-426614174000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/realtime/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "realtime",
+                "token"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get support ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "{{ticketId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update support ticket",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"waiting\",\n  \"priority\": \"high\",\n  \"assigneeUserId\": \"admin-current-user\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "{{ticketId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create support ticket message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Vou verificar isso agora e retorno por aqui.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/{{ticketId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "{{ticketId}}",
+                "messages"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark support ticket as read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/{{ticketId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "{{ticketId}}",
+                "read"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Publish support ticket typing indicator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isTyping\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/support-tickets/{{ticketId}}/typing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "support-tickets",
+                "{{ticketId}}",
+                "typing"
               ]
             }
           }
@@ -1420,7 +1973,51 @@
                   "key": "pageSize",
                   "value": "1",
                   "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "user@example.com",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "member",
+                  "disabled": true
+                },
+                {
+                  "key": "organizationId",
+                  "value": "123e4567-e89b-12d3-a456-426614174000",
+                  "disabled": true
                 }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Complete current user profile onboarding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Maria Silva\",\n  \"password\": \"NovaSenha123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/onboarding/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "onboarding",
+                "profile"
               ]
             }
           }

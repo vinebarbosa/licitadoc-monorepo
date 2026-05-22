@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { resetOrganizationWorkspaceMockData } from "./msw/handlers";
 import { server } from "./msw/server";
 
 vi.mock("pagedjs", () => {
@@ -43,6 +44,7 @@ beforeAll(() => {
 });
 
 afterEach(() => {
+  resetOrganizationWorkspaceMockData();
   server.resetHandlers();
 });
 

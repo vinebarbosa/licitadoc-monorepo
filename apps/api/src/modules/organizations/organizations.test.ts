@@ -8,12 +8,15 @@ import { ForbiddenError } from "../../shared/errors/forbidden-error";
 import { NotFoundError } from "../../shared/errors/not-found-error";
 import {
   type FileStorageProvider,
+  getOrganizationAssetStorageKey,
   getOrganizationLetterheadStorageKey,
 } from "../../shared/storage/types";
 import { createOrganization } from "./create-organization";
 import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
+import { convertLetterheadDocxToJpeg } from "./letterhead-docx-converter";
+import { getOrganizationAssetFile, uploadOrganizationAsset } from "./organization-assets";
 import {
   createNormalizedLetterheadFileForImport,
   getLetterheadImageDimensions,
@@ -49,7 +52,9 @@ function createOrganizationRow(
     institutionalEmail: "contato@exemplo.ce.gov.br",
     website: "https://exemplo.ce.gov.br",
     logoUrl: "https://cdn.example.com/logo.png",
+    crestUrl: null,
     letterheadUrl: null,
+    letterheadTemplateUrl: null,
     authorityName: "Maria Silva",
     authorityRole: "Prefeita",
     isActive: true,
@@ -175,6 +180,9 @@ function createLetterheadStorageStub({
     storeExpenseRequestPdf: async () => {
       throw new Error("not implemented");
     },
+    storeOrganizationAsset: async () => {
+      throw new Error("not implemented");
+    },
     storeOrganizationLetterhead: async (input) => {
       storedObjects.push({
         contentType: input.contentType,
@@ -197,6 +205,118 @@ function createLetterheadStorageStub({
     },
   };
 }
+
+test("uploadOrganizationAsset stores logo and updates the organization asset URL", async () => {
+  let capturedAsset: { assetKind: string; organizationId: string; sizeBytes: number } | undefined;
+  let capturedUpdateValues: Record<string, unknown> | undefined;
+  const organization = createOrganizationRow();
+  const storage: FileStorageProvider = {
+    ...createLetterheadStorageStub(),
+    storeOrganizationAsset: async (input) => {
+      capturedAsset = {
+        assetKind: input.assetKind,
+        organizationId: input.organizationId,
+        sizeBytes: input.buffer.byteLength,
+      };
+
+      return {
+        bucket: "licitadoc-expense-requests",
+        contentType: input.contentType,
+        etag: "etag-logo",
+        key: getOrganizationAssetStorageKey(input.organizationId, input.assetKind),
+        sizeBytes: input.buffer.byteLength,
+        uploadedAt: "2026-05-22T00:00:00.000Z",
+      };
+    },
+  };
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => organization,
+      },
+    },
+    update: () => ({
+      set: (values: Record<string, unknown>) => {
+        capturedUpdateValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [
+              createOrganizationRow({
+                logoUrl: String(values.logoUrl),
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await uploadOrganizationAsset({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: organization.id,
+    },
+    assetKind: "logo",
+    body: createLetterheadUploadBody({ fileName: "logo.svg", mimeType: "image/svg+xml" }),
+    db,
+    maxBytes: 5 * 1024 * 1024,
+    organizationId: organization.id,
+    storage,
+  });
+
+  assert.deepEqual(capturedAsset, {
+    assetKind: "logo",
+    organizationId: organization.id,
+    sizeBytes: createPngBuffer(1448, 2048).byteLength,
+  });
+  assert.equal(capturedUpdateValues?.logoUrl, `/api/organizations/${organization.id}/logo/file`);
+  assert.equal(response.logoUrl, `/api/organizations/${organization.id}/logo/file`);
+});
+
+test("getOrganizationAssetFile enforces visibility and returns storage key", async () => {
+  const organization = createOrganizationRow({
+    crestUrl: "/api/organizations/4fd5b7df-e2e5-4876-b4c3-b35306c6e733/crest/file",
+  });
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => organization,
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const asset = await getOrganizationAssetFile({
+    actor: {
+      id: "member_user",
+      role: "member",
+      organizationId: organization.id,
+    },
+    assetKind: "crest",
+    db,
+    organizationId: organization.id,
+  });
+
+  assert.equal(asset.fileName, "brasao");
+  assert.equal(asset.storageKey, getOrganizationAssetStorageKey(organization.id, "crest"));
+
+  await assert.rejects(
+    () =>
+      getOrganizationAssetFile({
+        actor: {
+          id: "other_member",
+          role: "member",
+          organizationId: "7f7ef31b-f8ee-4ad9-8f97-fb9f6054b228",
+        },
+        assetKind: "crest",
+        db,
+        organizationId: organization.id,
+      }),
+    ForbiddenError,
+  );
+});
 
 test("getOrganizations returns paginated organizations for admins", async () => {
   let capturedLimit: number | undefined;
@@ -602,7 +722,7 @@ test("createOrganization stores an optional onboarding letterhead before complet
   } as unknown as FastifyInstance["db"];
   const letterheadFile = await normalizeLetterheadUpload({
     body: createLetterheadUploadBody(),
-    maxBytes: 5 * 1024 * 1024,
+    maxImageBytes: 5 * 1024 * 1024,
   });
 
   const response = await createOrganization({
@@ -661,7 +781,7 @@ test("createOrganization does not complete onboarding when letterhead storage fa
   } as unknown as FastifyInstance["db"];
   const letterheadFile = await normalizeLetterheadUpload({
     body: createLetterheadUploadBody(),
-    maxBytes: 5 * 1024 * 1024,
+    maxImageBytes: 5 * 1024 * 1024,
   });
   const storage = {
     ...createLetterheadStorageStub(),
@@ -1106,6 +1226,7 @@ test("uploadOrganizationLetterhead stores only the active letterhead url", async
     }),
   } as unknown as FastifyInstance["db"];
   const storage = createLetterheadStorageStub({ deletedObjects, storedObjects });
+  let converterCalls = 0;
 
   const response = await uploadOrganizationLetterhead({
     actor: {
@@ -1114,8 +1235,12 @@ test("uploadOrganizationLetterhead stores only the active letterhead url", async
       organizationId: existingOrganization.id,
     },
     body: createLetterheadUploadBody(),
+    convertDocx: async () => {
+      converterCalls += 1;
+      throw new Error("image uploads must not be converted");
+    },
     db,
-    maxBytes: 5 * 1024 * 1024,
+    maxImageBytes: 5 * 1024 * 1024,
     organizationId: existingOrganization.id,
     storage,
   });
@@ -1123,12 +1248,148 @@ test("uploadOrganizationLetterhead stores only the active letterhead url", async
   assert.equal(storedObjects.length, 1);
   assert.equal(storedObjects[0]?.organizationId, existingOrganization.id);
   assert.equal(storedObjects[0]?.contentType, "image/png");
+  assert.equal(converterCalls, 0);
   assert.deepEqual(Object.keys(capturedUpdateValues ?? {}).sort(), ["letterheadUrl", "updatedAt"]);
   assert.equal(
     response.letterhead?.url,
     `/api/organizations/${existingOrganization.id}/letterhead/image`,
   );
   assert.deepEqual(deletedObjects, []);
+});
+
+test("uploadOrganizationLetterhead converts DOCX uploads into the active JPEG letterhead", async () => {
+  const storedObjects: Array<{
+    contentType: string;
+    fileName: string;
+    organizationId: string;
+    sizeBytes: number;
+  }> = [];
+  let capturedUpdateValues: Record<string, unknown> | undefined;
+  let capturedDocx: { fileName: string; sizeBytes: number } | undefined;
+  const organization = createOrganizationRow();
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => organization,
+      },
+    },
+    update: () => ({
+      set: (values: Record<string, unknown>) => {
+        capturedUpdateValues = values;
+
+        return {
+          where: () => ({
+            returning: async () => [
+              createOrganizationRow({
+                letterheadUrl: String(values.letterheadUrl),
+                updatedAt: values.updatedAt as Date,
+              }),
+            ],
+          }),
+        };
+      },
+    }),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await uploadOrganizationLetterhead({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: organization.id,
+    },
+    body: createLetterheadUploadBody({
+      buffer: Buffer.from("docx-source"),
+      fileName: "papel-timbrado.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }),
+    convertDocx: async ({ buffer, fileName }) => {
+      capturedDocx = { fileName, sizeBytes: buffer.byteLength };
+
+      return {
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+        contentType: "image/jpeg",
+        fileName: "papel-timbrado.jpg",
+      };
+    },
+    db,
+    maxDocxBytes: 20 * 1024 * 1024,
+    maxImageBytes: 5 * 1024 * 1024,
+    organizationId: organization.id,
+    storage: createLetterheadStorageStub({ storedObjects }),
+  });
+
+  assert.deepEqual(capturedDocx, {
+    fileName: "papel-timbrado.docx",
+    sizeBytes: Buffer.from("docx-source").byteLength,
+  });
+  assert.equal(storedObjects.length, 1);
+  assert.equal(storedObjects[0]?.contentType, "image/jpeg");
+  assert.equal(storedObjects[0]?.fileName, "papel-timbrado.jpg");
+  assert.equal(
+    capturedUpdateValues?.letterheadUrl,
+    `/api/organizations/${organization.id}/letterhead/image`,
+  );
+  assert.deepEqual(response.letterhead, {
+    url: `/api/organizations/${organization.id}/letterhead/image`,
+  });
+});
+
+test("uploadOrganizationLetterhead rejects DOCX conversion failures before storage", async () => {
+  let storeCalls = 0;
+  const organization = createOrganizationRow();
+  const db = {
+    query: {
+      organizations: {
+        findFirst: async () => organization,
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+  const storage: FileStorageProvider = {
+    ...createLetterheadStorageStub(),
+    storeOrganizationLetterhead: async () => {
+      storeCalls += 1;
+      throw new Error("should not store");
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      uploadOrganizationLetterhead({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: organization.id,
+        },
+        body: createLetterheadUploadBody({
+          buffer: Buffer.from("bad-docx"),
+          fileName: "papel-timbrado.docx",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }),
+        convertDocx: async () => {
+          throw new BadRequestError("Não foi possível converter o DOCX do papel timbrado.");
+        },
+        db,
+        maxDocxBytes: 20 * 1024 * 1024,
+        maxImageBytes: 5 * 1024 * 1024,
+        organizationId: organization.id,
+        storage,
+      }),
+    BadRequestError,
+  );
+
+  assert.equal(storeCalls, 0);
+});
+
+test("convertLetterheadDocxToJpeg reports missing converter runtime clearly", async () => {
+  await assert.rejects(
+    () =>
+      convertLetterheadDocxToJpeg({
+        buffer: Buffer.from("docx-source"),
+        fileName: "papel-timbrado.docx",
+        libreOfficeBinary: "licitadoc-missing-soffice",
+      }),
+    /conversor de DOCX para timbre não está configurado/,
+  );
 });
 
 test("uploadOrganizationLetterhead rejects invalid or unauthorized uploads before storage", async () => {
@@ -1158,7 +1419,7 @@ test("uploadOrganizationLetterhead rejects invalid or unauthorized uploads befor
         },
         body: createLetterheadUploadBody(),
         db,
-        maxBytes: 5 * 1024 * 1024,
+        maxImageBytes: 5 * 1024 * 1024,
         organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
         storage,
       }),
@@ -1175,7 +1436,7 @@ test("uploadOrganizationLetterhead rejects invalid or unauthorized uploads befor
         },
         body: createLetterheadUploadBody({ mimeType: "text/plain" }),
         db,
-        maxBytes: 5 * 1024 * 1024,
+        maxImageBytes: 5 * 1024 * 1024,
         organizationId: "4fd5b7df-e2e5-4876-b4c3-b35306c6e733",
         storage,
       }),

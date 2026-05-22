@@ -853,14 +853,14 @@ Conteudo do documento.
     renderDocumentPreviewPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Pureza/RN, 08 de janeiro de 2026.")).toBeInTheDocument();
+      expect(screen.getAllByText("Pureza/RN, 08 de janeiro de 2026.").length).toBeGreaterThan(0);
     });
 
     expect(screen.queryByRole("heading", { name: /FECHO|ASSINATURA/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/<div/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/align=/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/_{8,}/)).not.toBeInTheDocument();
-    const dateParagraph = screen.getByText("Pureza/RN, 08 de janeiro de 2026.").closest("p");
+    const dateParagraph = screen.getAllByText("Pureza/RN, 08 de janeiro de 2026.")[0].closest("p");
 
     expect(dateParagraph).toHaveStyle({
       textAlign: "right",

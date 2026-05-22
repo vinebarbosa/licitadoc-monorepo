@@ -20,6 +20,7 @@ import {
   OwnerProfileOnboardingPage,
   OnboardingCompletePage as RealOnboardingCompletePage,
 } from "@/modules/onboarding";
+import { OwnerOrganizationPage } from "@/modules/organizations";
 import {
   ProcessCreatePage,
   ProcessDetailPage,
@@ -38,7 +39,7 @@ import {
 } from "@/modules/public";
 import { AdminSupportTicketsPage } from "@/modules/support";
 import { NotFoundPage, UnauthorizedPage } from "@/modules/system";
-import { AdminUsersPage, OwnerMembersPage } from "@/modules/users";
+import { AdminUsersPage } from "@/modules/users";
 import { AppLayout } from "@/shared/layouts/app-layout";
 import { RequireCompletedOnboarding, RequireOnboardingStep, RequireSession } from "./route-guards";
 
@@ -70,7 +71,7 @@ function AdminOnlyRoute({ children }: { children: ReactNode }) {
   );
 }
 
-function OwnerOnlyRoute() {
+function OwnerOnlyRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, onboardingStatus, role } = useAuthSession();
 
   return (
@@ -80,7 +81,7 @@ function OwnerOnlyRoute() {
       isAuthorized={hasRequiredRole(role, ["organization_owner"])}
     >
       <RequireCompletedOnboarding onboardingStatus={onboardingStatus} role={role}>
-        <OwnerMembersPage />
+        {children}
       </RequireCompletedOnboarding>
     </RequireSession>
   );
@@ -217,9 +218,26 @@ export const appRoutes: RouteObject[] = [
           },
           {
             path: "membros",
-            element: <OwnerOnlyRoute />,
+            element: <Navigate to="/app/organizacao" replace />,
             handle: {
-              breadcrumbs: [{ label: "Central de Trabalho", href: "/app" }, { label: "Membros" }],
+              breadcrumbs: [
+                { label: "Central de Trabalho", href: "/app" },
+                { label: "Organização" },
+              ],
+            },
+          },
+          {
+            path: "organizacao",
+            element: (
+              <OwnerOnlyRoute>
+                <OwnerOrganizationPage />
+              </OwnerOnlyRoute>
+            ),
+            handle: {
+              breadcrumbs: [
+                { label: "Central de Trabalho", href: "/app" },
+                { label: "Organização" },
+              ],
             },
           },
           {

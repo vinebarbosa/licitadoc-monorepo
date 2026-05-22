@@ -89,6 +89,18 @@ describe("AppSidebar", () => {
     expect(screen.queryByText("Analista de Licitações")).not.toBeInTheDocument();
   });
 
+  it("shows organization management for organization owners", async () => {
+    authSessionMock.role = "organization_owner";
+    authSessionMock.session.user.organizationId = "organization-1";
+
+    renderSidebar("/app/organizacao");
+
+    const organizationLink = await screen.findByRole("link", { name: /Organização/ });
+
+    expect(organizationLink).toHaveAttribute("href", "/app/organizacao");
+    expect(screen.queryByRole("link", { name: /Membros/ })).not.toBeInTheDocument();
+  });
+
   it("shows the API-backed process count instead of the old hardcoded badge", async () => {
     const requestedParams: Array<Record<string, string>> = [];
 

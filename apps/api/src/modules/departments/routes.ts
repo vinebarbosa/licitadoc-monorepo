@@ -1,8 +1,10 @@
 import type { FastifyPluginAsyncZodOpenApi } from "fastify-zod-openapi";
 import { getSessionUser } from "../../shared/auth/get-session-user";
 import { createDepartment } from "./create-department";
+import { deleteDepartment } from "./delete-department";
 import {
   createDepartmentSchema,
+  deleteDepartmentSchema,
   departmentsPaginationQuerySchema,
   getDepartmentSchema,
   getDepartmentsSchema,
@@ -13,7 +15,6 @@ import { getDepartments } from "./get-departments";
 import { updateDepartment } from "./update-department";
 
 export const registerDepartmentRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
-  // Department deletion remains out of scope for this change.
   app.post(
     "/",
     {
@@ -81,6 +82,19 @@ export const registerDepartmentRoutes: FastifyPluginAsyncZodOpenApi = async (app
         departmentId,
         changes: request.body,
       });
+    },
+  );
+
+  app.delete(
+    "/:departmentId",
+    {
+      schema: deleteDepartmentSchema,
+    },
+    async (request) => {
+      const actor = await getSessionUser(request);
+      const { departmentId } = request.params;
+
+      return deleteDepartment({ actor, db: app.db, departmentId });
     },
   );
 };

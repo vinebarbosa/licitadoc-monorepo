@@ -5,6 +5,7 @@ import type { departments, organizations } from "../../db";
 import { ConflictError } from "../../shared/errors/conflict-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
 import { createDepartment } from "./create-department";
+import { deleteDepartment } from "./delete-department";
 import { createDepartmentBodySchema, updateDepartmentBodySchema } from "./departments.schemas";
 import { getDepartment } from "./get-department";
 import { getDepartments } from "./get-departments";
@@ -31,7 +32,9 @@ function createOrganizationRow(
     institutionalEmail: "contato@exemplo.ce.gov.br",
     website: null,
     logoUrl: null,
+    crestUrl: null,
     letterheadUrl: null,
+    letterheadTemplateUrl: null,
     authorityName: "Maria Silva",
     authorityRole: "Prefeita",
     isActive: true,
@@ -569,5 +572,75 @@ test("updateDepartment rejects members and translates slug conflicts", async () 
         }),
       }),
     ConflictError,
+  );
+});
+
+test("deleteDepartment removes departments inside actor scope", async () => {
+  let deletedDepartmentId: string | undefined;
+  const db = {
+    query: {
+      departments: {
+        findFirst: async () => createDepartmentRow(),
+      },
+    },
+    delete: () => ({
+      where: () => ({
+        returning: async () => {
+          deletedDepartmentId = DEPARTMENT_ID;
+          return [{ id: DEPARTMENT_ID }];
+        },
+      }),
+    }),
+  } as unknown as FastifyInstance["db"];
+
+  const response = await deleteDepartment({
+    actor: {
+      id: "owner_user",
+      role: "organization_owner",
+      organizationId: ORGANIZATION_ID,
+    },
+    db,
+    departmentId: DEPARTMENT_ID,
+  });
+
+  assert.deepEqual(response, { success: true });
+  assert.equal(deletedDepartmentId, DEPARTMENT_ID);
+});
+
+test("deleteDepartment rejects members and foreign organization owners", async () => {
+  const db = {
+    query: {
+      departments: {
+        findFirst: async () => createDepartmentRow(),
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  await assert.rejects(
+    () =>
+      deleteDepartment({
+        actor: {
+          id: "member_user",
+          role: "member",
+          organizationId: ORGANIZATION_ID,
+        },
+        db,
+        departmentId: DEPARTMENT_ID,
+      }),
+    ForbiddenError,
+  );
+
+  await assert.rejects(
+    () =>
+      deleteDepartment({
+        actor: {
+          id: "owner_user",
+          role: "organization_owner",
+          organizationId: OTHER_ORGANIZATION_ID,
+        },
+        db,
+        departmentId: DEPARTMENT_ID,
+      }),
+    ForbiddenError,
   );
 });
