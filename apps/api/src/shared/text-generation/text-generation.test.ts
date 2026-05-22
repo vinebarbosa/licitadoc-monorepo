@@ -262,6 +262,31 @@ test("parseApiEnv rejects invalid text generation timeouts", () => {
   );
 });
 
+test("parseApiEnv accepts optional Gotenberg letterhead configuration", () => {
+  assert.equal(parseApiEnv({ LETTERHEAD_GOTENBERG_URL: "" }).LETTERHEAD_GOTENBERG_URL, undefined);
+
+  const parsedEnv = parseApiEnv({
+    LETTERHEAD_DOCX_CONVERSION_TIMEOUT_MS: "45000",
+    LETTERHEAD_GOTENBERG_URL: "https://gotenberg.example.com",
+  });
+
+  assert.equal(parsedEnv.LETTERHEAD_GOTENBERG_URL, "https://gotenberg.example.com");
+  assert.equal(parsedEnv.LETTERHEAD_DOCX_CONVERSION_TIMEOUT_MS, 45_000);
+});
+
+test("parseApiEnv rejects invalid Gotenberg letterhead configuration", () => {
+  assert.throws(() =>
+    parseApiEnv({
+      LETTERHEAD_GOTENBERG_URL: "not-a-url",
+    }),
+  );
+  assert.throws(() =>
+    parseApiEnv({
+      LETTERHEAD_DOCX_CONVERSION_TIMEOUT_MS: "0",
+    }),
+  );
+});
+
 test("OllamaTextGenerationProvider normalizes successful response and metadata", async () => {
   const fetchMock = vi.fn<typeof fetch>(
     async () =>

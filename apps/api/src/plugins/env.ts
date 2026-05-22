@@ -15,6 +15,13 @@ function parseBooleanEnv(defaultValue: boolean) {
     });
 }
 
+function parseOptionalUrlEnv() {
+  return z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url().optional(),
+  );
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HOST: z.string().default("0.0.0.0"),
@@ -60,6 +67,8 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(20 * 1024 * 1024),
+  LETTERHEAD_GOTENBERG_URL: parseOptionalUrlEnv(),
+  LETTERHEAD_DOCX_CONVERSION_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   REALTIME_PROVIDER: z.enum(["disabled", "ably"]).default("disabled"),
   ABLY_API_KEY: z.string().optional(),
   REALTIME_TOKEN_TTL_MS: z.coerce

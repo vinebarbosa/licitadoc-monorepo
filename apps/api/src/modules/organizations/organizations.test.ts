@@ -15,7 +15,10 @@ import { createOrganization } from "./create-organization";
 import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
-import { convertLetterheadDocxToJpeg } from "./letterhead-docx-converter";
+import {
+  convertLetterheadDocxToJpeg,
+  convertLetterheadDocxToPdfWithGotenberg,
+} from "./letterhead-docx-converter";
 import { getOrganizationAssetFile, uploadOrganizationAsset } from "./organization-assets";
 import {
   createNormalizedLetterheadFileForImport,
@@ -1380,12 +1383,64 @@ test("uploadOrganizationLetterhead rejects DOCX conversion failures before stora
   assert.equal(storeCalls, 0);
 });
 
+test("convertLetterheadDocxToPdfWithGotenberg posts DOCX to the LibreOffice endpoint", async () => {
+  const pdfBuffer = Buffer.from("%PDF-1.7\n");
+  let capturedUrl = "";
+  let capturedFile: (Blob & { name?: string }) | undefined;
+
+  const pdf = await convertLetterheadDocxToPdfWithGotenberg({
+    buffer: Buffer.from("docx-source"),
+    fetch: async (input, init) => {
+      capturedUrl = String(input);
+
+      const formData = init?.body as FormData;
+      const files = formData.getAll("files") as Array<Blob & { name?: string }>;
+      capturedFile = files[0];
+
+      return new Response(new Uint8Array(pdfBuffer), {
+        headers: { "content-type": "application/pdf" },
+        status: 200,
+      });
+    },
+    fileName: "papel-timbrado.docx",
+    gotenbergUrl: "https://gotenberg.example.com",
+    timeoutMs: 1000,
+  });
+
+  assert.equal(capturedUrl, "https://gotenberg.example.com/forms/libreoffice/convert");
+  assert.equal(capturedFile?.name, "papel-timbrado.docx");
+  assert.equal(
+    capturedFile?.type,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  );
+  assert.equal(capturedFile?.size, Buffer.from("docx-source").byteLength);
+  assert.deepEqual(pdf, {
+    buffer: pdfBuffer,
+    contentType: "application/pdf",
+  });
+});
+
+test("convertLetterheadDocxToPdfWithGotenberg reports conversion failures", async () => {
+  await assert.rejects(
+    () =>
+      convertLetterheadDocxToPdfWithGotenberg({
+        buffer: Buffer.from("docx-source"),
+        fetch: async () => new Response("service unavailable", { status: 503 }),
+        fileName: "papel-timbrado.docx",
+        gotenbergUrl: "https://gotenberg.example.com/forms/libreoffice/convert",
+        timeoutMs: 1000,
+      }),
+    /Gotenberg: service unavailable/,
+  );
+});
+
 test("convertLetterheadDocxToJpeg reports missing converter runtime clearly", async () => {
   await assert.rejects(
     () =>
       convertLetterheadDocxToJpeg({
         buffer: Buffer.from("docx-source"),
         fileName: "papel-timbrado.docx",
+        gotenbergUrl: null,
         libreOfficeBinary: "licitadoc-missing-soffice",
       }),
     /conversor de DOCX para timbre não está configurado/,

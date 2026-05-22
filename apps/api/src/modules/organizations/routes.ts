@@ -6,6 +6,7 @@ import { createOrganization } from "./create-organization";
 import { getCurrentOrganization } from "./get-current-organization";
 import { getOrganization } from "./get-organization";
 import { getOrganizations } from "./get-organizations";
+import { convertLetterheadDocxToJpeg } from "./letterhead-docx-converter";
 import { getOrganizationAssetFile, uploadOrganizationAsset } from "./organization-assets";
 import {
   getOrganizationLetterheadImage,
@@ -34,6 +35,14 @@ import { updateOrganization } from "./update-organization";
 
 export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (app) => {
   // Organization deletion remains out of scope for this change.
+  const convertLetterheadDocx = ({ buffer, fileName }: { buffer: Buffer; fileName: string }) =>
+    convertLetterheadDocxToJpeg({
+      buffer,
+      fileName,
+      gotenbergUrl: app.config.LETTERHEAD_GOTENBERG_URL,
+      timeoutMs: app.config.LETTERHEAD_DOCX_CONVERSION_TIMEOUT_MS,
+    });
+
   app.post(
     "/",
     {
@@ -60,6 +69,7 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
       const letterheadFile = hasLetterheadUpload
         ? await normalizeLetterheadUpload({
             body: rawBody,
+            convertDocx: convertLetterheadDocx,
             maxDocxBytes: app.config.ORGANIZATION_LETTERHEAD_TEMPLATE_MAX_BYTES,
             maxImageBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,
           })
@@ -131,6 +141,7 @@ export const registerOrganizationRoutes: FastifyPluginAsyncZodOpenApi = async (a
       const organization = await uploadOrganizationLetterhead({
         actor,
         body: request.body as Record<string, unknown> | undefined,
+        convertDocx: convertLetterheadDocx,
         db: app.db,
         maxDocxBytes: app.config.ORGANIZATION_LETTERHEAD_TEMPLATE_MAX_BYTES,
         maxImageBytes: app.config.SUPPORT_IMAGE_MAX_BYTES,

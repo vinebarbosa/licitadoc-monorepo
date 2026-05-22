@@ -7,8 +7,12 @@ import { createCanvas } from "@napi-rs/canvas";
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 
 const execFileAsync = promisify(execFile);
+const DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const GOTENBERG_LIBREOFFICE_CONVERT_PATH = "/forms/libreoffice/convert";
 const LETTERHEAD_JPEG_CONTENT_TYPE = "image/jpeg";
+const LETTERHEAD_PDF_CONTENT_TYPE = "application/pdf";
 const PDF_RENDER_SCALE = 2;
+const DEFAULT_CONVERSION_TIMEOUT_MS = 30_000;
 
 type PdfPage = {
   getViewport(input: { scale: number }): { height: number; width: number };
@@ -37,6 +41,8 @@ export type ConvertedLetterheadDocx = {
 export type LetterheadDocxConverter = (input: {
   buffer: Buffer;
   fileName: string;
+  fetch?: typeof fetch;
+  gotenbergUrl?: null | string;
   libreOfficeBinary?: string;
   timeoutMs?: number;
 }) => Promise<ConvertedLetterheadDocx>;
@@ -82,12 +88,117 @@ async function findConvertedPdf(directory: string) {
   return pdfs[0] ? join(directory, pdfs[0]) : null;
 }
 
-export const convertLetterheadDocxToJpeg: LetterheadDocxConverter = async ({
+function getDefaultConversionTimeoutMs() {
+  const timeoutMs = Number(process.env.LETTERHEAD_DOCX_CONVERSION_TIMEOUT_MS);
+
+  return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_CONVERSION_TIMEOUT_MS;
+}
+
+function getConfiguredGotenbergUrl(gotenbergUrl: null | string | undefined) {
+  if (gotenbergUrl === null) {
+    return null;
+  }
+
+  const value = gotenbergUrl ?? process.env.LETTERHEAD_GOTENBERG_URL;
+  const trimmedValue = value?.trim();
+
+  return trimmedValue ? trimmedValue : null;
+}
+
+function getGotenbergLibreOfficeConvertUrl(gotenbergUrl: string) {
+  const url = new URL(gotenbergUrl);
+
+  if (!url.pathname.endsWith(GOTENBERG_LIBREOFFICE_CONVERT_PATH)) {
+    url.pathname = `${url.pathname.replace(/\/$/, "")}${GOTENBERG_LIBREOFFICE_CONVERT_PATH}`;
+  }
+
+  return url;
+}
+
+async function readGotenbergError(response: Response) {
+  const text = await response.text().catch(() => "");
+
+  return text.trim().slice(0, 240);
+}
+
+export async function convertLetterheadDocxToPdfWithGotenberg({
+  buffer,
+  fetch: fetchImplementation = fetch,
+  fileName,
+  gotenbergUrl,
+  timeoutMs = getDefaultConversionTimeoutMs(),
+}: {
+  buffer: Buffer;
+  fetch?: typeof fetch;
+  fileName: string;
+  gotenbergUrl: string;
+  timeoutMs?: number;
+}) {
+  const formData = new FormData();
+  const docxBlob = new Blob([new Uint8Array(buffer)], { type: DOCX_CONTENT_TYPE });
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+
+  formData.append("files", docxBlob, fileName);
+
+  try {
+    const response = await fetchImplementation(getGotenbergLibreOfficeConvertUrl(gotenbergUrl), {
+      body: formData,
+      headers: {
+        "Gotenberg-Output-Filename": getLetterheadJpegFileName(fileName).replace(/\.jpg$/, ""),
+      },
+      method: "POST",
+      signal: abortController.signal,
+    });
+
+    if (!response.ok) {
+      const details = await readGotenbergError(response);
+      throw new BadRequestError(
+        details
+          ? `Não foi possível converter o DOCX do papel timbrado no Gotenberg: ${details}`
+          : "Não foi possível converter o DOCX do papel timbrado no Gotenberg.",
+      );
+    }
+
+    const pdfBuffer = Buffer.from(await response.arrayBuffer());
+
+    if (pdfBuffer.byteLength === 0) {
+      throw new BadRequestError("A conversão do papel timbrado gerou um PDF vazio.");
+    }
+
+    return {
+      buffer: pdfBuffer,
+      contentType: response.headers.get("content-type") ?? LETTERHEAD_PDF_CONTENT_TYPE,
+    };
+  } catch (error) {
+    if (error instanceof BadRequestError) {
+      throw error;
+    }
+
+    const isTimeout =
+      typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
+
+    throw new BadRequestError(
+      isTimeout
+        ? "O conversor Gotenberg demorou demais para processar o DOCX do papel timbrado."
+        : "Não foi possível acionar o conversor Gotenberg do papel timbrado.",
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function convertLetterheadDocxToPdfWithLibreOffice({
   buffer,
   fileName,
   libreOfficeBinary = process.env.LETTERHEAD_LIBREOFFICE_BIN || "soffice",
-  timeoutMs = Number(process.env.LETTERHEAD_DOCX_CONVERSION_TIMEOUT_MS || 30_000),
-}) => {
+  timeoutMs = getDefaultConversionTimeoutMs(),
+}: {
+  buffer: Buffer;
+  fileName: string;
+  libreOfficeBinary?: string;
+  timeoutMs?: number;
+}) {
   const workDir = await mkdtemp(join(tmpdir(), "licitadoc-letterhead-"));
   const sourcePath = join(
     workDir,
@@ -120,19 +231,47 @@ export const convertLetterheadDocxToJpeg: LetterheadDocxConverter = async ({
       throw new BadRequestError("Não foi possível converter o DOCX do papel timbrado.");
     }
 
-    const pdfBuffer = await readFile(pdfPath);
-    const jpegBuffer = await renderFirstPdfPageAsJpeg(pdfBuffer);
-
-    if (jpegBuffer.byteLength === 0) {
-      throw new BadRequestError("A conversão do papel timbrado gerou uma imagem vazia.");
-    }
-
     return {
-      buffer: jpegBuffer,
-      contentType: LETTERHEAD_JPEG_CONTENT_TYPE,
-      fileName: getLetterheadJpegFileName(fileName),
+      buffer: await readFile(pdfPath),
+      contentType: LETTERHEAD_PDF_CONTENT_TYPE,
     };
   } finally {
     await rm(workDir, { force: true, recursive: true });
   }
+}
+
+export const convertLetterheadDocxToJpeg: LetterheadDocxConverter = async ({
+  buffer,
+  fetch: fetchImplementation,
+  fileName,
+  gotenbergUrl,
+  libreOfficeBinary,
+  timeoutMs = getDefaultConversionTimeoutMs(),
+}) => {
+  const configuredGotenbergUrl = getConfiguredGotenbergUrl(gotenbergUrl);
+  const pdf = configuredGotenbergUrl
+    ? await convertLetterheadDocxToPdfWithGotenberg({
+        buffer,
+        fetch: fetchImplementation,
+        fileName,
+        gotenbergUrl: configuredGotenbergUrl,
+        timeoutMs,
+      })
+    : await convertLetterheadDocxToPdfWithLibreOffice({
+        buffer,
+        fileName,
+        libreOfficeBinary,
+        timeoutMs,
+      });
+  const jpegBuffer = await renderFirstPdfPageAsJpeg(pdf.buffer);
+
+  if (jpegBuffer.byteLength === 0) {
+    throw new BadRequestError("A conversão do papel timbrado gerou uma imagem vazia.");
+  }
+
+  return {
+    buffer: jpegBuffer,
+    contentType: LETTERHEAD_JPEG_CONTENT_TYPE,
+    fileName: getLetterheadJpegFileName(fileName),
+  };
 };

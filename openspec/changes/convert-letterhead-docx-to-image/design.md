@@ -41,10 +41,10 @@ Recommended conversion pipeline:
 DOCX upload
     │
     ▼
-temporary .docx
-    │  headless LibreOffice / soffice
+Gotenberg /forms/libreoffice/convert
+    │  LibreOffice-rendered PDF
     ▼
-temporary PDF
+PDF buffer
     │  pdfjs-dist + @napi-rs/canvas
     ▼
 JPEG buffer
@@ -53,7 +53,7 @@ JPEG buffer
 storeOrganizationLetterhead(...)
 ```
 
-The project already depends on `pdfjs-dist` and `@napi-rs/canvas`, so the new runtime dependency is the DOCX-to-PDF step. If LibreOffice is unavailable, the API should fail with a clear validation/configuration error rather than silently storing the DOCX as an unused asset.
+The project already depends on `pdfjs-dist` and `@napi-rs/canvas`, so the runtime boundary is the DOCX-to-PDF step. In deployed environments, the API should call a configured Gotenberg service (`LETTERHEAD_GOTENBERG_URL`) instead of requiring a LibreOffice binary inside the API runtime. Local/dev environments may still fall back to `soffice` when Gotenberg is not configured. If neither converter path is available, the API should fail with a clear validation/configuration error rather than silently storing the DOCX as an unused asset.
 
 Alternative considered: add a Node-only DOCX renderer. Rejected because DOCX layout fidelity is the important part of this feature, and headless LibreOffice is the more predictable conversion engine for real-world municipal templates.
 
@@ -71,7 +71,7 @@ Alternative considered: keep onboarding image-only and make DOCX available only 
 
 ## Risks / Trade-offs
 
-- [LibreOffice runtime dependency may be missing in local/dev/deploy environments] -> Add a converter health/config check, clear error messages, documentation, and tests that can stub the converter.
+- [DOCX conversion runtime may be missing or unreachable] -> Prefer Gotenberg in deploy, keep local `soffice` fallback, add clear error messages, documentation, and tests that can stub the converter.
 - [DOCX rendering can differ from the user's desktop Word rendering] -> Use LibreOffice as a consistent server renderer and document that the first rendered page becomes the active A4 letterhead image.
 - [Large or malformed DOCX files can be slow or fail conversion] -> Enforce existing upload size limits, add conversion timeout, and return a friendly validation error.
 - [Converted JPEG may not match A4 proportions] -> Validate/render at a fixed A4 portrait target and reuse/extend letterhead dimension checks.
