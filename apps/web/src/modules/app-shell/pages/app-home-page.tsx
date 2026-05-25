@@ -1,15 +1,19 @@
 import {
   ArrowRight,
+  Building2,
   ClipboardList,
-  FileEdit,
+  FileImage,
   FileSearch,
+  FolderOpen,
   Plus,
   RefreshCw,
   Scale,
   ScrollText,
   Search,
+  UserPlus,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuthSession } from "@/modules/auth";
 import {
   formatProcessListDate,
   getProcessDetailPath,
@@ -34,6 +38,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 
 const HOME_PROCESS_PAGE_SIZE = 5;
+const HOME_RESUME_PROCESS_LIMIT = 3;
 
 const quickActions = [
   {
@@ -66,39 +71,50 @@ const quickActions = [
   },
 ] as const;
 
-const inProgressDocuments = [
+const prefeituraQuickActions = [
   {
-    id: "DOC-2024-0089",
-    name: "ETP - Serviços de TI",
-    type: "ETP",
-    process: "PE 045/2024",
-    lastEdited: "há 2 horas",
-    progress: 75,
+    title: "Dados da Prefeitura",
+    description: "Atualizar informações institucionais",
+    icon: Building2,
+    href: "/app/organizacao?tab=dados",
+    color: "text-primary",
   },
   {
-    id: "DOC-2024-0088",
-    name: "TR - Material de Escritório",
-    type: "TR",
-    process: "PE 044/2024",
-    lastEdited: "há 1 dia",
-    progress: 40,
+    title: "Convidar membros",
+    description: "Gerenciar acessos da equipe",
+    icon: UserPlus,
+    href: "/app/organizacao?tab=membros",
+    color: "text-primary",
   },
   {
-    id: "DOC-2024-0085",
-    name: "DFD - Equipamentos de Informática",
-    type: "DFD",
-    process: "PE 043/2024",
-    lastEdited: "há 3 dias",
-    progress: 90,
+    title: "Departamentos",
+    description: "Organizar secretarias e unidades",
+    icon: FolderOpen,
+    href: "/app/organizacao?tab=departamentos",
+    color: "text-primary",
+  },
+  {
+    title: "Documentos institucionais",
+    description: "Logo, brasão e papel timbrado",
+    icon: FileImage,
+    href: "/app/organizacao?tab=documentos",
+    color: "text-primary",
   },
 ] as const;
 
-const documentTypeConfig: Record<string, { className: string }> = {
-  DFD: { className: "bg-chart-1/15 text-chart-1 border-chart-1/30" },
-  ETP: { className: "bg-chart-2/15 text-chart-2 border-chart-2/30" },
-  TR: { className: "bg-chart-3/15 text-chart-3 border-chart-3/30" },
-  Minuta: { className: "bg-chart-5/15 text-chart-5 border-chart-5/30" },
-};
+function getProcessProgressPercentage({
+  completedCount,
+  totalRequiredCount,
+}: {
+  completedCount: number;
+  totalRequiredCount: number;
+}) {
+  if (totalRequiredCount <= 0) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, Math.round((completedCount / totalRequiredCount) * 100)));
+}
 
 function HomeProcessesTableSkeleton() {
   return (
@@ -141,13 +157,42 @@ function HomeProcessesTableSkeleton() {
   );
 }
 
+function HomeResumeCardsSkeleton() {
+  return (
+    <>
+      {["one", "two", "three"].map((rowKey) => (
+        <Card key={rowKey} aria-label="Carregando processos recentes" className="bg-card py-0">
+          <CardContent className="p-4">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <Skeleton className="mb-2 h-4 w-48 max-w-full" />
+            <Skeleton className="mb-3 h-4 w-32 max-w-full" />
+            <div className="flex items-center justify-between gap-4">
+              <Skeleton className="h-2 flex-1" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  );
+}
+
 export function AppHomePage() {
+  const { organizationId, role } = useAuthSession();
   const processesQuery = useProcessesList({ page: 1, pageSize: HOME_PROCESS_PAGE_SIZE });
   const hasInvalidResponse = Boolean(
     processesQuery.data && !Array.isArray(processesQuery.data.items),
   );
   const hasProcessError = processesQuery.isError || hasInvalidResponse;
   const processes = hasInvalidResponse ? [] : (processesQuery.data?.items ?? []);
+  const resumeProcesses = processes.slice(0, HOME_RESUME_PROCESS_LIMIT);
+  const shouldShowPrefeituraActions = role === "organization_owner" && Boolean(organizationId);
 
   return (
     <main aria-label="Área inicial do app" className="flex-1 overflow-auto p-6">
@@ -192,62 +237,143 @@ export function AppHomePage() {
           </div>
         </section>
 
+        {shouldShowPrefeituraActions ? (
+          <section>
+            <h2 className="mb-4 text-lg font-medium">Gestão da Prefeitura</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {prefeituraQuickActions.map((action) => (
+                <Link key={action.title} to={action.href} className="group">
+                  <Card className="h-full cursor-pointer bg-card py-0 transition-all hover:border-primary/30 hover:bg-accent/5 hover:shadow-md">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col gap-4">
+                        <div className="w-fit rounded-lg bg-primary/10 p-3 transition-colors group-hover:bg-primary/15">
+                          <action.icon className={cn("h-6 w-6", action.color)} />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-foreground transition-colors group-hover:text-primary">
+                            {action.title}
+                          </h3>
+                          <p className="mt-1 text-muted-foreground text-sm">{action.description}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-medium">Continuar de onde parei</h2>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/app/documentos">
+              <Link to="/app/processos">
                 Ver todos
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            {inProgressDocuments.map((doc) => (
-              <Card key={doc.id} className="bg-card py-0 transition-shadow hover:shadow-sm">
-                <CardContent className="p-4">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="rounded-md bg-muted p-2">
-                        <FileEdit className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={cn("font-medium", documentTypeConfig[doc.type]?.className)}
-                      >
-                        {doc.type}
-                      </Badge>
-                    </div>
-                    <span className="whitespace-nowrap text-muted-foreground text-xs">
-                      {doc.lastEdited}
-                    </span>
-                  </div>
-                  <h3 className="mb-1 line-clamp-1 font-medium text-sm">{doc.name}</h3>
-                  <p className="mb-3 text-muted-foreground text-xs">Processo: {doc.process}</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-1 items-center gap-2">
-                      <div
-                        className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
-                        role="progressbar"
-                        aria-label={`Progresso: ${doc.progress}%`}
-                        aria-valuemax={100}
-                        aria-valuemin={0}
-                        aria-valuenow={doc.progress}
-                      >
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${doc.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-muted-foreground text-xs">{doc.progress}%</span>
-                    </div>
-                    <Button variant="outline" size="sm" className="ml-4" asChild>
-                      <Link to={`/app/documento/${doc.id}`}>Continuar</Link>
+            {processesQuery.isLoading ? (
+              <HomeResumeCardsSkeleton />
+            ) : hasProcessError ? (
+              <div className="md:col-span-3">
+                <Empty className="rounded-lg border bg-card py-8">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <RefreshCw className="h-6 w-6" />
+                    </EmptyMedia>
+                    <EmptyTitle>Não foi possível carregar seus processos recentes</EmptyTitle>
+                    <EmptyDescription>
+                      Verifique a conexão e tente atualizar a listagem.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button onClick={() => void processesQuery.refetch()}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Tentar novamente
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </EmptyContent>
+                </Empty>
+              </div>
+            ) : resumeProcesses.length === 0 ? (
+              <div className="md:col-span-3">
+                <Empty className="rounded-lg border bg-card py-8">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Search className="h-6 w-6" />
+                    </EmptyMedia>
+                    <EmptyTitle>Nenhum processo recente</EmptyTitle>
+                    <EmptyDescription>
+                      Crie um processo de contratação para acompanhar o avanço dos documentos.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button asChild>
+                      <Link to="/app/processo/novo">
+                        <Plus className="h-4 w-4" />
+                        Novo Processo
+                      </Link>
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              </div>
+            ) : (
+              resumeProcesses.map((process) => {
+                const detailPath = getProcessDetailPath(process);
+                const progress = getProcessProgressPercentage(process.documents);
+                const status = getProcessStatusConfig(process.status);
+
+                return (
+                  <Card key={process.id} className="bg-card py-0 transition-shadow hover:shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <div className="rounded-md bg-muted p-2">
+                            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <Badge variant="outline" className={cn("font-medium", status.className)}>
+                            {status.label}
+                          </Badge>
+                        </div>
+                        <span className="whitespace-nowrap text-muted-foreground text-xs">
+                          {formatProcessListDate(process.listUpdatedAt)}
+                        </span>
+                      </div>
+                      <h3 className="mb-1 line-clamp-1 font-medium text-sm">
+                        {getProcessDisplayName(process)}
+                      </h3>
+                      <p className="mb-3 text-muted-foreground text-xs">
+                        Processo: {process.processNumber} · {process.documents.completedCount}/
+                        {process.documents.totalRequiredCount} documentos
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-1 items-center gap-2">
+                          <div
+                            className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+                            role="progressbar"
+                            aria-label={`Progresso do processo ${process.processNumber}: ${progress}%`}
+                            aria-valuemax={100}
+                            aria-valuemin={0}
+                            aria-valuenow={progress}
+                          >
+                            <div
+                              className="h-full rounded-full bg-primary transition-all"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <span className="text-muted-foreground text-xs">{progress}%</span>
+                        </div>
+                        <Button variant="outline" size="sm" className="ml-4" asChild>
+                          <Link to={detailPath}>Continuar</Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
         </section>
 

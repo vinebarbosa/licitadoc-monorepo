@@ -1,7 +1,23 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "@/test/render";
 import { OwnerOrganizationPage } from "./owner-organization-page";
+
+function LocationProbe() {
+  const location = useLocation();
+
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
+
+function renderOwnerOrganizationPage(initialEntry = "/app/organizacao") {
+  return renderWithProviders(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <LocationProbe />
+      <OwnerOrganizationPage />
+    </MemoryRouter>,
+  );
+}
 
 async function openTab(name: RegExp | string) {
   const tab = await screen.findByRole("tab", { name });
@@ -11,7 +27,7 @@ async function openTab(name: RegExp | string) {
 
 describe("OwnerOrganizationPage", () => {
   it("renders the v0 organization workspace with institutional overview and tabs", async () => {
-    renderWithProviders(<OwnerOrganizationPage />);
+    renderOwnerOrganizationPage();
 
     expect(
       await screen.findByRole("heading", {
@@ -30,7 +46,7 @@ describe("OwnerOrganizationPage", () => {
   });
 
   it("persists prefeitura profile data through the API", async () => {
-    renderWithProviders(<OwnerOrganizationPage />);
+    renderOwnerOrganizationPage();
 
     await screen.findByRole("heading", { name: "Prefeitura de São Benedito do Rio Preto" });
     fireEvent.click(screen.getByRole("button", { name: "Editar" }));
@@ -54,7 +70,7 @@ describe("OwnerOrganizationPage", () => {
   });
 
   it("shows the v0 members and invites workflow with local filtering and invite actions", async () => {
-    renderWithProviders(<OwnerOrganizationPage />);
+    renderOwnerOrganizationPage();
 
     await openTab(/Membros & Convites/);
 
@@ -80,7 +96,7 @@ describe("OwnerOrganizationPage", () => {
   });
 
   it("creates departments through the API with required responsible data", async () => {
-    renderWithProviders(<OwnerOrganizationPage />);
+    renderOwnerOrganizationPage();
 
     await openTab("Departamentos");
     fireEvent.click(screen.getByRole("button", { name: "Novo departamento" }));
@@ -111,7 +127,7 @@ describe("OwnerOrganizationPage", () => {
   });
 
   it("uploads institutional document assets through the API", async () => {
-    renderWithProviders(<OwnerOrganizationPage />);
+    renderOwnerOrganizationPage();
 
     await openTab("Documentos");
     const file = new File(["papel"], "papel.docx", {
@@ -126,5 +142,33 @@ describe("OwnerOrganizationPage", () => {
       expect(screen.getByText("Papel Timbrado")).toBeInTheDocument();
     });
     expect(screen.getByText(/Papel timbrado cadastrado/)).toBeInTheDocument();
+  });
+
+  it("activates organization tabs from valid query params", async () => {
+    renderOwnerOrganizationPage("/app/organizacao?tab=departamentos");
+
+    const departmentsTab = await screen.findByRole("tab", { name: "Departamentos" });
+
+    expect(departmentsTab).toHaveAttribute("aria-selected", "true");
+    expect(
+      await screen.findByRole("heading", { name: "Departamentos e Unidades" }),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to prefeitura data for invalid tab query params", async () => {
+    renderOwnerOrganizationPage("/app/organizacao?tab=desconhecida");
+
+    const dataTab = await screen.findByRole("tab", { name: "Dados da Prefeitura" });
+
+    expect(dataTab).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("heading", { name: "Dados da Prefeitura" })).toBeInTheDocument();
+  });
+
+  it("updates the URL when changing organization tabs", async () => {
+    renderOwnerOrganizationPage();
+
+    await openTab("Documentos");
+
+    expect(screen.getByTestId("location")).toHaveTextContent("/app/organizacao?tab=documentos");
   });
 });

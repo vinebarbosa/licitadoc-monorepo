@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import type { ChangeEvent, DragEvent, ElementType } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { cn } from "@/shared/lib/utils";
 import {
   type OwnerOrganizationDepartment,
@@ -102,6 +103,14 @@ const TABS: Array<{ id: Tab; label: string; icon: ElementType }> = [
   { id: "departamentos", label: "Departamentos", icon: FolderOpen },
   { id: "documentos", label: "Documentos", icon: FileImage },
 ];
+
+function getTabFromQuery(value: string | null): Tab {
+  if (value === "membros" || value === "departamentos" || value === "documentos") {
+    return value;
+  }
+
+  return "dados";
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", {
@@ -1965,7 +1974,9 @@ function TabDocumentos({
 }
 
 export function OwnerOrganizationWorkspace() {
-  const [activeTab, setActiveTab] = useState<Tab>("dados");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = getTabFromQuery(searchParams.get("tab"));
+  const [activeTab, setActiveTab] = useState<Tab>(requestedTab);
   const organizationQuery = useOwnerOrganizationProfile();
   const membersQuery = useOwnerOrganizationMembers();
   const invitesQuery = useOwnerOrganizationInvites();
@@ -1982,6 +1993,22 @@ export function OwnerOrganizationWorkspace() {
     membersQuery.isLoading ||
     invitesQuery.isLoading ||
     departmentsQuery.isLoading;
+
+  useEffect(() => {
+    setActiveTab(requestedTab);
+  }, [requestedTab]);
+
+  function handleTabChange(tab: Tab) {
+    setActiveTab(tab);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("tab", tab);
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -2081,7 +2108,7 @@ export function OwnerOrganizationWorkspace() {
                     : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
                 )}
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 role="tab"
                 type="button"
               >

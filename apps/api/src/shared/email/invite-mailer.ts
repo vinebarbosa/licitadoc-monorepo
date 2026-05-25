@@ -3,6 +3,7 @@ import { renderInviteEmailHtml, renderInviteEmailText } from "./invite-email-tem
 type InviteRole = "organization_owner" | "member";
 
 export type InviteEmailInput = {
+  brandMarkUrl?: string;
   expiresAt: Date;
   inviteId: string;
   inviteUrl: string;
@@ -59,6 +60,7 @@ export class StubInviteMailer implements InviteMailer {
 
 type ResendInviteMailerInput = {
   apiKey?: string;
+  brandMarkUrl?: string;
   fetchFn?: InviteMailerFetch;
   fromEmail?: string;
 };
@@ -68,11 +70,18 @@ const RESEND_USER_AGENT = "licitadoc-api/1.0";
 
 export class ResendInviteMailer implements InviteMailer {
   private readonly apiKey: string;
+  private readonly brandMarkUrl: string | undefined;
   private readonly fetchFn: InviteMailerFetch;
   private readonly fromEmail: string;
 
-  constructor({ apiKey, fetchFn = fetch as InviteMailerFetch, fromEmail }: ResendInviteMailerInput) {
+  constructor({
+    apiKey,
+    brandMarkUrl,
+    fetchFn = fetch as InviteMailerFetch,
+    fromEmail,
+  }: ResendInviteMailerInput) {
     const normalizedApiKey = apiKey?.trim();
+    const normalizedBrandMarkUrl = brandMarkUrl?.trim();
     const normalizedFromEmail = fromEmail?.trim();
 
     if (!normalizedApiKey || !normalizedFromEmail) {
@@ -80,12 +89,16 @@ export class ResendInviteMailer implements InviteMailer {
     }
 
     this.apiKey = normalizedApiKey;
+    this.brandMarkUrl = normalizedBrandMarkUrl || undefined;
     this.fetchFn = fetchFn;
     this.fromEmail = normalizedFromEmail;
   }
 
   async sendInviteEmail(input: InviteEmailInput) {
-    const html = await renderInviteEmailHtml(input);
+    const html = await renderInviteEmailHtml({
+      ...input,
+      brandMarkUrl: input.brandMarkUrl ?? this.brandMarkUrl,
+    });
 
     const response = await this.fetchFn(`${RESEND_API_BASE_URL}/emails`, {
       method: "POST",

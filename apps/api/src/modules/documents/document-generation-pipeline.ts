@@ -5,6 +5,10 @@ import type {
   TextGenerationResult,
 } from "../../shared/text-generation/types";
 import { TextGenerationError } from "../../shared/text-generation/types";
+import {
+  normalizeTextGenerationUsage,
+  type TextGenerationUsage,
+} from "../../shared/text-generation/usage-cost";
 import type { SerializedProcessItem } from "../processes/processes.shared";
 import {
   type DocumentGenerationPipelineDebug,
@@ -41,6 +45,17 @@ import {
 } from "./sd-document-intelligence-contract";
 
 export const MAX_DOCUMENT_REWRITE_CYCLES = 2;
+
+type DocumentGenerationPipelineCallStage = "writer" | "humanization" | "rewrite";
+
+type DocumentGenerationPipelineCallMetadata = {
+  costUsd: number | null;
+  model: string;
+  providerKey: string;
+  responseId: string | null;
+  stage: DocumentGenerationPipelineCallStage;
+  usage: TextGenerationUsage;
+};
 
 type BuildPipelineInput = {
   departments: StoredDepartment[];
@@ -1809,10 +1824,12 @@ function createSubject({
 }
 
 function createPipelineResponseMetadata({
+  calls,
   debug,
   debugRequested,
   providerMetadata,
 }: {
+  calls?: DocumentGenerationPipelineCallMetadata[];
   debug: DocumentGenerationPipelineDebug | null;
   debugRequested: boolean;
   providerMetadata: Record<string, unknown>;
@@ -1822,7 +1839,10 @@ function createPipelineResponseMetadata({
   }
 
   const lastReview = debug.reviewResults.at(-1) ?? null;
+  const pipelineCalls = calls ?? [];
   const summary = {
+    ...createPipelineCallAggregate(pipelineCalls),
+    calls: pipelineCalls,
     classification: debug.enrichedContext.classification,
     finalReviewStatus: lastReview?.status ?? null,
     finalReviewScore: lastReview?.score ?? null,
@@ -1833,6 +1853,54 @@ function createPipelineResponseMetadata({
   return {
     ...providerMetadata,
     pipeline: debugRequested ? { ...summary, debug } : summary,
+  };
+}
+
+function getNullableString(value: unknown) {
+  return typeof value === "string" ? value : null;
+}
+
+function getNullableCostUsd(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function createPipelineCallMetadata({
+  result,
+  stage,
+}: {
+  result: TextGenerationResult;
+  stage: DocumentGenerationPipelineCallStage;
+}): DocumentGenerationPipelineCallMetadata {
+  return {
+    costUsd: getNullableCostUsd(result.responseMetadata.costUsd),
+    model: result.model,
+    providerKey: result.providerKey,
+    responseId: getNullableString(result.responseMetadata.responseId),
+    stage,
+    usage: normalizeTextGenerationUsage(result.responseMetadata.usage),
+  };
+}
+
+function roundPipelineCostUsd(value: number) {
+  return Math.round(value * 1_000_000_000_000) / 1_000_000_000_000;
+}
+
+function createPipelineCallAggregate(calls: DocumentGenerationPipelineCallMetadata[]) {
+  const hasUnknownCost = calls.some((call) => call.costUsd == null);
+  const totalCostUsd = hasUnknownCost
+    ? null
+    : calls.reduce((total, call) => total + (call.costUsd ?? 0), 0);
+
+  return {
+    callCount: calls.length,
+    totalCachedInputTokens: calls.reduce(
+      (total, call) => total + call.usage.input_tokens_details.cached_tokens,
+      0,
+    ),
+    totalCostUsd: totalCostUsd == null ? null : roundPipelineCostUsd(totalCostUsd),
+    totalInputTokens: calls.reduce((total, call) => total + call.usage.input_tokens, 0),
+    totalOutputTokens: calls.reduce((total, call) => total + call.usage.output_tokens, 0),
+    totalTokens: calls.reduce((total, call) => total + call.usage.total_tokens, 0),
   };
 }
 
@@ -1960,6 +2028,9 @@ export async function executeDocumentGenerationPipeline({
     prompt: pipeline.prompt,
     subject,
   });
+  const pipelineCalls: DocumentGenerationPipelineCallMetadata[] = [
+    createPipelineCallMetadata({ result: writerResult, stage: "writer" }),
+  ];
   let finalResult: TextGenerationResult = writerResult;
   const firstDraft = sanitizeGeneratedDocumentDraft({
     documentType,
@@ -1985,6 +2056,9 @@ export async function executeDocumentGenerationPipeline({
       }),
       subject,
     });
+    pipelineCalls.push(
+      createPipelineCallMetadata({ result: humanizationResult, stage: "humanization" }),
+    );
     const humanizedDraft = sanitizeGeneratedDocumentDraft({
       documentType,
       text: humanizationResult.text,
@@ -2047,6 +2121,7 @@ export async function executeDocumentGenerationPipeline({
     });
 
     finalResult = rewriteResult;
+    pipelineCalls.push(createPipelineCallMetadata({ result: rewriteResult, stage: "rewrite" }));
     currentDraft = sanitizeGeneratedDocumentDraft({
       documentType,
       text: rewriteResult.text,
@@ -2076,6 +2151,7 @@ export async function executeDocumentGenerationPipeline({
     model: finalResult.model,
     providerKey: finalResult.providerKey,
     responseMetadata: createPipelineResponseMetadata({
+      calls: pipelineCalls,
       debug,
       debugRequested: pipeline.debugRequested,
       providerMetadata: finalResult.responseMetadata,

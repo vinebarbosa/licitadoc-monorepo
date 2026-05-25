@@ -2,12 +2,14 @@ import { type InviteMailer, ResendInviteMailer, StubInviteMailer } from "./invit
 
 type ResolveInviteMailerInput = {
   apiKey?: string;
+  brandMarkUrl?: string;
   fromEmail?: string;
   providerKey: "stub" | "resend";
 };
 
 export function resolveInviteMailer({
   apiKey,
+  brandMarkUrl,
   fromEmail,
   providerKey,
 }: ResolveInviteMailerInput): InviteMailer {
@@ -17,6 +19,7 @@ export function resolveInviteMailer({
 
   return new ResendInviteMailer({
     apiKey,
+    brandMarkUrl,
     fromEmail,
   });
 }

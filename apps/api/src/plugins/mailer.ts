@@ -11,6 +11,7 @@ declare module "fastify" {
 export const registerMailerPlugin = fp(async (app) => {
   const mailer = resolveInviteMailer({
     apiKey: app.config.RESEND_API_KEY,
+    brandMarkUrl: app.config.INVITE_EMAIL_BRAND_MARK_URL,
     fromEmail: app.config.RESEND_FROM_EMAIL,
     providerKey: app.config.INVITE_EMAIL_PROVIDER,
   });

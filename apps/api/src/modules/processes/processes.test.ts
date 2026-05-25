@@ -378,6 +378,44 @@ function createDeleteMock() {
   };
 }
 
+function createProcessIdListQuery({
+  onLimit,
+  onOffset,
+  onWhere,
+  rows,
+}: {
+  onLimit?: (limit: number) => void;
+  onOffset?: (offset: number) => void;
+  onWhere?: (where: unknown) => void;
+  rows: Array<{ id: string }>;
+}) {
+  return {
+    leftJoin: () => ({
+      where: (where?: unknown) => {
+        onWhere?.(where);
+
+        return {
+          groupBy: () => ({
+            orderBy: () => ({
+              limit: (limit: number) => {
+                onLimit?.(limit);
+
+                return {
+                  offset: async (offset: number) => {
+                    onOffset?.(offset);
+
+                    return rows;
+                  },
+                };
+              },
+            }),
+          }),
+        };
+      },
+    }),
+  };
+}
+
 function createProcessItemRowFromInsert(
   values: Record<string, unknown>,
 ): typeof processItems.$inferSelect {
@@ -1654,8 +1692,22 @@ test("getProcesses returns paginated processes for admins and empty page without
   let capturedOffset: number | undefined;
 
   const db = {
-    select: () => ({
+    select: (selection?: Record<string, unknown>) => ({
       from: (table: unknown) => ({
+        ...(table === processes && selection && "id" in selection
+          ? createProcessIdListQuery({
+              onLimit: (limit) => {
+                capturedLimit = limit;
+              },
+              onOffset: (offset) => {
+                capturedOffset = offset;
+              },
+              onWhere: (where) => {
+                capturedListWhere = where;
+              },
+              rows: [{ id: PROCESS_ID }],
+            })
+          : {}),
         where: async () => {
           if (table === processes) {
             return [{ total: 3 }];
@@ -1687,13 +1739,7 @@ test("getProcesses returns paginated processes for admins and empty page without
     }),
     query: {
       processes: {
-        findMany: async (options?: { where?: unknown; limit?: number; offset?: number }) => {
-          capturedListWhere = options?.where;
-          capturedLimit = options?.limit;
-          capturedOffset = options?.offset;
-
-          return [createProcessRow()];
-        },
+        findMany: async () => [createProcessRow()],
       },
     },
   } as unknown as FastifyInstance["db"];
@@ -1738,6 +1784,93 @@ test("getProcesses returns paginated processes for admins and empty page without
   assert.equal(emptyResponse.totalPages, 0);
 });
 
+test("getProcesses orders default listings by latest process or document activity", async () => {
+  const olderActiveProcessId = "2f2f2f2f-e2e5-4876-b4c3-b35306c6e733";
+  const newerCreatedProcessId = "3f3f3f3f-e2e5-4876-b4c3-b35306c6e733";
+  const orderedIds = [{ id: olderActiveProcessId }, { id: newerCreatedProcessId }];
+  const processRows = [
+    createProcessRow({
+      id: newerCreatedProcessId,
+      processNumber: "2026-NEW",
+      createdAt: new Date("2029-12-05T00:00:00.000Z"),
+      updatedAt: new Date("2029-12-05T00:00:00.000Z"),
+    }),
+    createProcessRow({
+      id: olderActiveProcessId,
+      processNumber: "2026-ACTIVE",
+      createdAt: new Date("2029-12-01T00:00:00.000Z"),
+      updatedAt: new Date("2029-12-01T00:00:00.000Z"),
+    }),
+  ];
+  const documentRows = [
+    createDocumentRow({
+      processId: olderActiveProcessId,
+      type: "dfd",
+      status: "completed",
+      updatedAt: new Date("2029-12-10T00:00:00.000Z"),
+    }),
+    createDocumentRow({
+      processId: newerCreatedProcessId,
+      type: "dfd",
+      status: "completed",
+      updatedAt: new Date("2029-12-02T00:00:00.000Z"),
+    }),
+  ];
+
+  const db = {
+    select: (selection?: Record<string, unknown>) => ({
+      from: (table: unknown) => ({
+        ...(table === processes && selection && "id" in selection
+          ? createProcessIdListQuery({
+              rows: orderedIds,
+            })
+          : {}),
+        where: async () => {
+          if (table === processes) {
+            return [{ total: 2 }];
+          }
+
+          if (table === documents) {
+            return documentRows;
+          }
+
+          if (table === processDepartments) {
+            return [
+              { processId: olderActiveProcessId, departmentId: DEPARTMENT_ID },
+              { processId: newerCreatedProcessId, departmentId: SECOND_DEPARTMENT_ID },
+            ];
+          }
+
+          return [];
+        },
+      }),
+    }),
+    query: {
+      processes: {
+        findMany: async () => processRows,
+      },
+    },
+  } as unknown as FastifyInstance["db"];
+
+  const response = await getProcesses({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db,
+    page: 1,
+    pageSize: 2,
+  });
+
+  assert.deepEqual(
+    response.items.map((item) => item.processNumber),
+    ["2026-ACTIVE", "2026-NEW"],
+  );
+  assert.equal(response.items[0]?.listUpdatedAt, "2029-12-10T00:00:00.000Z");
+  assert.equal(response.items[1]?.listUpdatedAt, "2029-12-05T00:00:00.000Z");
+});
+
 test("getProcesses applies listing filters and aggregates completed document types once", async () => {
   let capturedListWhere: unknown;
   let capturedCountWhere: unknown;
@@ -1775,8 +1908,16 @@ test("getProcesses applies listing filters and aggregates completed document typ
   ];
 
   const db = {
-    select: () => ({
+    select: (selection?: Record<string, unknown>) => ({
       from: (table: unknown) => ({
+        ...(table === processes && selection && "id" in selection
+          ? createProcessIdListQuery({
+              onWhere: (where) => {
+                capturedListWhere = where;
+              },
+              rows: [{ id: PROCESS_ID }],
+            })
+          : {}),
         where: async (where?: unknown) => {
           if (table === processes) {
             capturedCountWhere = where;
@@ -1794,21 +1935,17 @@ test("getProcesses applies listing filters and aggregates completed document typ
     }),
     query: {
       processes: {
-        findMany: async (options?: { where?: unknown }) => {
-          capturedListWhere = options?.where;
-
-          return [
-            createProcessRow({
-              processNumber: "PROC-SEARCH-001",
-              externalId: "EXT-SEARCH-001",
-              object: "Aquisicao de material permanente",
-              responsibleName: "Maria Costa",
-              status: "em_edicao",
-              type: "pregao-eletronico",
-              updatedAt: new Date("2029-12-02T00:00:00.000Z"),
-            }),
-          ];
-        },
+        findMany: async () => [
+          createProcessRow({
+            processNumber: "PROC-SEARCH-001",
+            externalId: "EXT-SEARCH-001",
+            object: "Aquisicao de material permanente",
+            responsibleName: "Maria Costa",
+            status: "em_edicao",
+            type: "pregao-eletronico",
+            updatedAt: new Date("2029-12-02T00:00:00.000Z"),
+          }),
+        ],
       },
     },
   } as unknown as FastifyInstance["db"];

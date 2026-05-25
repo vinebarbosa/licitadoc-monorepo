@@ -544,7 +544,32 @@ test("executeDocumentGenerationPipeline rewrites a generic misaligned draft once
   );
   assert.match(result.text, /Kit Dia das Maes/);
   assert.doesNotMatch(result.text, /Rascunho gerado automaticamente/i);
-  assert.equal((result.responseMetadata.pipeline as { revisionCount?: number }).revisionCount, 1);
+  const pipelineMetadata = result.responseMetadata.pipeline as {
+    callCount: number;
+    calls: Array<{ costUsd: number | null; responseId: string | null; stage: string }>;
+    revisionCount: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTokens: number;
+  };
+
+  assert.equal(pipelineMetadata.revisionCount, 1);
+  assert.equal(pipelineMetadata.callCount, 3);
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.stage),
+    ["writer", "humanization", "rewrite"],
+  );
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.responseId),
+    [null, null, null],
+  );
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.costUsd),
+    [null, null, null],
+  );
+  assert.equal(pipelineMetadata.totalInputTokens, 0);
+  assert.equal(pipelineMetadata.totalOutputTokens, 0);
+  assert.equal(pipelineMetadata.totalTokens, 0);
 });
 
 test("executeDocumentGenerationPipeline fails closed when strict pipeline contract is missing", async () => {
@@ -824,7 +849,21 @@ test("executeDocumentGenerationPipeline caps automatic rewrites at two cycles", 
   const provider = createProvider(async (_input, callIndex) => ({
     model: "stub-model",
     providerKey: "stub",
-    responseMetadata: { finishReason: "stop", callIndex },
+    responseMetadata: {
+      callIndex,
+      costUsd: callIndex / 100,
+      finishReason: "stop",
+      responseId: `response_${callIndex}`,
+      status: "completed",
+      usage: {
+        input_tokens: callIndex * 100,
+        input_tokens_details: {
+          cached_tokens: callIndex,
+        },
+        output_tokens: callIndex * 10,
+        total_tokens: callIndex * 110,
+      },
+    },
     text: "# ESTUDO TECNICO PRELIMINAR\n\nRascunho gerado automaticamente para avaliacao interna.",
   }));
 
@@ -838,14 +877,69 @@ test("executeDocumentGenerationPipeline caps automatic rewrites at two cycles", 
     textGeneration: provider,
   });
   const pipelineMetadata = result.responseMetadata.pipeline as {
+    callCount: number;
+    calls: Array<{
+      costUsd: number | null;
+      model: string;
+      providerKey: string;
+      responseId: string | null;
+      stage: string;
+      usage: {
+        input_tokens: number;
+        input_tokens_details: {
+          cached_tokens: number;
+        };
+        output_tokens: number;
+        output_tokens_details: {
+          reasoning_tokens: number;
+        };
+        total_tokens: number;
+      };
+    }>;
     debug: { reviewResults: unknown[]; rewriteAttempts: unknown[] };
     finalReviewStatus: string;
     revisionCount: number;
+    status: string;
+    totalCachedInputTokens: number;
+    totalCostUsd: number | null;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTokens: number;
   };
 
   assert.equal(provider.calls.length, 4);
+  assert.equal(result.responseMetadata.responseId, "response_4");
+  assert.equal(result.responseMetadata.status, "completed");
   assert.equal(pipelineMetadata.revisionCount, 2);
   assert.equal(pipelineMetadata.finalReviewStatus, "needs_revision");
+  assert.equal(pipelineMetadata.status, "completed");
   assert.equal(pipelineMetadata.debug.reviewResults.length, 3);
   assert.equal(pipelineMetadata.debug.rewriteAttempts.length, 2);
+  assert.equal(pipelineMetadata.callCount, 4);
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.stage),
+    ["writer", "humanization", "rewrite", "rewrite"],
+  );
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.responseId),
+    ["response_1", "response_2", "response_3", "response_4"],
+  );
+  assert.equal(pipelineMetadata.calls[0]?.model, "stub-model");
+  assert.equal(pipelineMetadata.calls[0]?.providerKey, "stub");
+  assert.deepEqual(pipelineMetadata.calls[0]?.usage, {
+    input_tokens: 100,
+    input_tokens_details: {
+      cached_tokens: 1,
+    },
+    output_tokens: 10,
+    output_tokens_details: {
+      reasoning_tokens: 0,
+    },
+    total_tokens: 110,
+  });
+  assert.equal(pipelineMetadata.totalInputTokens, 1_000);
+  assert.equal(pipelineMetadata.totalCachedInputTokens, 10);
+  assert.equal(pipelineMetadata.totalOutputTokens, 100);
+  assert.equal(pipelineMetadata.totalTokens, 1_100);
+  assert.equal(pipelineMetadata.totalCostUsd, 0.1);
 });

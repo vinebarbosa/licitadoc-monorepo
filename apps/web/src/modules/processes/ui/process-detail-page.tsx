@@ -642,8 +642,8 @@ function Summary({ process }: { process: ProcessDetailResponse }) {
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/50">
-            <Scale className="h-5 w-5 text-muted-foreground/60" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+            <Scale className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
             <p className="text-lg font-semibold text-foreground/80">

@@ -4,6 +4,9 @@ import { renderInviteEmailHtml, renderInviteEmailText } from "./invite-email-tem
 import type { InviteEmailInput } from "./invite-mailer";
 import { ResendInviteMailer } from "./invite-mailer";
 
+const brandMarkBlobUrl =
+  "https://50luyxulth2yamqj.public.blob.vercel-storage.com/brand/licitadoc-email-mark.png";
+
 const ownerInviteInput: InviteEmailInput = {
   expiresAt: new Date("2030-01-01T00:00:00.000Z"),
   inviteId: "invite-owner-1",
@@ -66,6 +69,7 @@ test("ResendInviteMailer keeps invite delivery semantics with branded HTML", asy
   }> = [];
   const mailer = new ResendInviteMailer({
     apiKey: "resend-key",
+    brandMarkUrl: brandMarkBlobUrl,
     fetchFn: async (input, init) => {
       requests.push({ input, init });
 
@@ -99,7 +103,7 @@ test("ResendInviteMailer keeps invite delivery semantics with branded HTML", asy
   assert.equal(payload.from, "LicitaDoc <convites@licitadoc.test>");
   assert.deepEqual(payload.to, ["owner@example.com"]);
   assert.equal(payload.subject, "Seu convite para acessar o Licitadoc");
-  assertLandingPageBranding(payload.html);
+  assertLandingPageBranding(payload.html, brandMarkBlobUrl);
   assertNoSvgLogoAssets(payload.html);
   assert.match(payload.html, /Aceitar convite/);
   assert.match(
@@ -125,6 +129,7 @@ test("ResendInviteMailer keeps provisioned member delivery semantics", async () 
   }> = [];
   const mailer = new ResendInviteMailer({
     apiKey: "resend-key",
+    brandMarkUrl: brandMarkBlobUrl,
     fetchFn: async (input, init) => {
       requests.push({ input, init });
 
@@ -152,7 +157,7 @@ test("ResendInviteMailer keeps provisioned member delivery semantics", async () 
   };
 
   assert.deepEqual(payload.to, ["member@example.com"]);
-  assertLandingPageBranding(payload.html);
+  assertLandingPageBranding(payload.html, brandMarkBlobUrl);
   assertNoSvgLogoAssets(payload.html);
   assert.match(payload.html, /Acessar o sistema/);
   assert.match(payload.html, /https:\/\/app\.licitadoc\.test\/sign-in/);
@@ -172,7 +177,10 @@ test("ResendInviteMailer keeps provisioned member delivery semantics", async () 
   ]);
 });
 
-function assertLandingPageBranding(html: string) {
+function assertLandingPageBranding(
+  html: string,
+  expectedBrandMarkUrl = "https://app.licitadoc.test/brand/licitadoc-email-mark.png",
+) {
   const cardIndex = html.indexOf("background-color:#ffffff;border:1px solid #d9dfe5");
   const brandIndex = html.indexOf('data-brand-mark="landing-scale"');
 
@@ -181,7 +189,7 @@ function assertLandingPageBranding(html: string) {
   assert.match(html, /Logo LicitaDoc/);
   assert.match(html, /data-brand-mark="landing-scale"/);
   assert.match(html, /<img/);
-  assert.match(html, /src="https:\/\/app\.licitadoc\.test\/brand\/licitadoc-email-mark\.png"/);
+  assert.match(html, new RegExp(`src="${escapeRegExp(expectedBrandMarkUrl)}"`));
   assert.match(html, /alt="Logo LicitaDoc"/);
   assert.match(html, /height="32"/);
   assert.match(html, /width="32"/);
@@ -189,6 +197,10 @@ function assertLandingPageBranding(html: string) {
   assert.match(html, /width:56px/);
   assert.match(html, /LicitaDoc/);
   assert.doesNotMatch(html, />LD</);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function assertNoSvgLogoAssets(html: string) {

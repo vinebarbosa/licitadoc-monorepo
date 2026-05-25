@@ -5,6 +5,7 @@ import type {
   TextGenerationResult,
 } from "./types";
 import { TextGenerationError as ProviderError } from "./types";
+import { calculateOpenAiTextGenerationCostUsd, normalizeTextGenerationUsage } from "./usage-cost";
 
 type OpenAiResponse = {
   error?: {
@@ -22,6 +23,7 @@ type OpenAiResponse = {
   }>;
   output_text?: string;
   status?: string;
+  usage?: unknown;
 };
 
 type OpenAiFetchResponse = {
@@ -185,14 +187,20 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
           status: body.status ?? null,
         },
       });
+      const usage = normalizeTextGenerationUsage(body.usage);
 
       return {
         providerKey: this.providerKey,
         model: this.model,
         text,
         responseMetadata: {
+          costUsd: calculateOpenAiTextGenerationCostUsd({
+            model: this.model,
+            usage,
+          }),
           responseId: body.id ?? null,
           status: body.status ?? null,
+          usage,
         },
       };
     } catch (error) {

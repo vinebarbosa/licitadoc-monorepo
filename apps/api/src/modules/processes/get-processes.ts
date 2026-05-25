@@ -1,4 +1,4 @@
-import { and, count, ilike, inArray, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { Actor } from "../../authorization/actor";
 import { documents, processes } from "../../db";
@@ -9,8 +9,8 @@ import {
   type ExpectedProcessDocumentType,
   expectedProcessDocumentTypes,
   getDepartmentIdsByProcessIds,
-  getProcessItemsByProcessIds,
   getProcessesVisibilityScope,
+  getProcessItemsByProcessIds,
   isExpectedProcessDocumentType,
   type ProcessListAggregation,
   serializeProcessListItem,
@@ -154,6 +154,35 @@ async function getProcessListAggregations({
   return aggregations;
 }
 
+async function getActivityOrderedProcessIds({
+  db,
+  limit,
+  offset,
+  scope,
+}: {
+  db: FastifyInstance["db"];
+  limit: number;
+  offset: number;
+  scope: SQL<unknown> | undefined;
+}) {
+  const latestDocumentUpdatedAt = sql<Date | null>`max(${documents.updatedAt})`;
+  const activityUpdatedAt = sql<Date>`greatest(${processes.updatedAt}, coalesce(${latestDocumentUpdatedAt}, ${processes.updatedAt}))`;
+
+  const rows = await db
+    .select({
+      id: processes.id,
+    })
+    .from(processes)
+    .leftJoin(documents, eq(documents.processId, processes.id))
+    .where(scope)
+    .groupBy(processes.id, processes.updatedAt, processes.createdAt)
+    .orderBy(desc(activityUpdatedAt), desc(processes.createdAt), desc(processes.id))
+    .limit(limit)
+    .offset(offset);
+
+  return rows.map((row) => row.id);
+}
+
 export async function getProcesses({
   actor,
   biddingModality,
@@ -185,22 +214,30 @@ export async function getProcesses({
     search,
     status,
   });
-  const [[countResult], rows] = await Promise.all([
+  const [[countResult], orderedProcessIds] = await Promise.all([
     db
       .select({
         total: count(),
       })
       .from(processes)
       .where(scope),
-    db.query.processes.findMany({
-      where: scope,
-      orderBy: (table, { desc }) => [desc(table.createdAt)],
+    getActivityOrderedProcessIds({
+      db,
       limit: pagination.pageSize,
       offset: pagination.offset,
+      scope,
     }),
   ]);
 
   const total = Number(countResult?.total ?? 0);
+  const rows =
+    orderedProcessIds.length === 0
+      ? []
+      : await db.query.processes.findMany({
+          where: inArray(processes.id, orderedProcessIds),
+        });
+  const processOrder = new Map(orderedProcessIds.map((id, index) => [id, index]));
+  rows.sort((left, right) => (processOrder.get(left.id) ?? 0) - (processOrder.get(right.id) ?? 0));
   const departmentIdsByProcessId = await getDepartmentIdsByProcessIds({
     db,
     processIds: rows.map((row) => row.id),

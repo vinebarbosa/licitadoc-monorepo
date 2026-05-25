@@ -191,6 +191,12 @@ function getRoleLabel(role: InviteEmailInput["role"]) {
 }
 
 function getBrandMarkUrl(input: InviteEmailInput) {
+  const configuredBrandMarkUrl = input.brandMarkUrl?.trim();
+
+  if (configuredBrandMarkUrl) {
+    return configuredBrandMarkUrl;
+  }
+
   const baseUrl = input.signInUrl ?? input.inviteUrl;
 
   try {

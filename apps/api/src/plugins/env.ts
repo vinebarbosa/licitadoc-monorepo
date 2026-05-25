@@ -22,6 +22,9 @@ function parseOptionalUrlEnv() {
   );
 }
 
+const DEFAULT_INVITE_EMAIL_BRAND_MARK_URL =
+  "https://50luyxulth2yamqj.public.blob.vercel-storage.com/brand/licitadoc-email-mark.png";
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HOST: z.string().default("0.0.0.0"),
@@ -31,6 +34,7 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().default("http://localhost:3333"),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
   INVITE_EMAIL_PROVIDER: z.enum(["stub", "resend"]).default("stub"),
+  INVITE_EMAIL_BRAND_MARK_URL: z.string().url().default(DEFAULT_INVITE_EMAIL_BRAND_MARK_URL),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().optional(),
   TEXT_GENERATION_PROVIDER: z.string().default("stub"),

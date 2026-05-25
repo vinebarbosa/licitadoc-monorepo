@@ -6,6 +6,7 @@ import { OpenAiTextGenerationProvider } from "./openai-provider";
 import { resolveTextGenerationProvider } from "./resolve-provider";
 import { StubTextGenerationProvider } from "./stub-provider";
 import { TextGenerationError } from "./types";
+import { calculateOpenAiTextGenerationCostUsd, normalizeTextGenerationUsage } from "./usage-cost";
 
 const generationInput = {
   documentType: "dfd" as const,
@@ -183,6 +184,237 @@ test("OpenAiTextGenerationProvider remains compatible with incremental callbacks
 
   assert.deepEqual(chunks, ["Documento gerado pela OpenAI."]);
   assert.equal(result.text, "Documento gerado pela OpenAI.");
+  assert.equal(result.responseMetadata.responseId, "response_123");
+  assert.equal(result.responseMetadata.status, "completed");
+  assert.deepEqual(result.responseMetadata.usage, normalizeTextGenerationUsage(null));
+  assert.equal(result.responseMetadata.costUsd, null);
+});
+
+test("normalizeTextGenerationUsage defaults missing OpenAI usage fields predictably", () => {
+  assert.deepEqual(normalizeTextGenerationUsage(null), {
+    input_tokens: 0,
+    input_tokens_details: {
+      cached_tokens: 0,
+    },
+    output_tokens: 0,
+    output_tokens_details: {
+      reasoning_tokens: 0,
+    },
+    total_tokens: 0,
+  });
+
+  assert.deepEqual(
+    normalizeTextGenerationUsage({
+      input_tokens: 1_000.8,
+      output_tokens: 500,
+    }),
+    {
+      input_tokens: 1_000,
+      input_tokens_details: {
+        cached_tokens: 0,
+      },
+      output_tokens: 500,
+      output_tokens_details: {
+        reasoning_tokens: 0,
+      },
+      total_tokens: 1_500,
+    },
+  );
+});
+
+test("calculateOpenAiTextGenerationCostUsd prices input, cached input, and output tokens", () => {
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-4.1-mini",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 1_000,
+        output_tokens: 0,
+        total_tokens: 1_000,
+      }),
+    }),
+    0.0004,
+  );
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-4.1-mini",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 1_000,
+        input_tokens_details: {
+          cached_tokens: 600,
+        },
+        output_tokens: 0,
+        total_tokens: 1_000,
+      }),
+    }),
+    0.00022,
+  );
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-4.1-mini",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 0,
+        output_tokens: 1_000,
+        total_tokens: 1_000,
+      }),
+    }),
+    0.0016,
+  );
+});
+
+test("calculateOpenAiTextGenerationCostUsd returns null for unknown OpenAI models", () => {
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-unknown",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 1_000,
+        output_tokens: 1_000,
+      }),
+    }),
+    null,
+  );
+});
+
+test("calculateOpenAiTextGenerationCostUsd prices gpt-4.1 tokens", () => {
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-4.1",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 1_000,
+        input_tokens_details: {
+          cached_tokens: 500,
+        },
+        output_tokens: 1_000,
+      }),
+    }),
+    0.00925,
+  );
+});
+
+test("calculateOpenAiTextGenerationCostUsd prices gpt-5.5 tokens and long context", () => {
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-5.5",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 1_000,
+        input_tokens_details: {
+          cached_tokens: 500,
+        },
+        output_tokens: 1_000,
+      }),
+    }),
+    0.03275,
+  );
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-5.5-2026-04-23",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 300_000,
+        output_tokens: 1_000,
+      }),
+    }),
+    3.045,
+  );
+});
+
+test("OpenAiTextGenerationProvider records normalized usage and cost metadata", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "response_usage_123",
+            status: "completed",
+            output_text: "Documento gerado pela OpenAI.",
+            usage: {
+              input_tokens: 1_000,
+              input_tokens_details: {
+                cached_tokens: 600,
+              },
+              output_tokens: 1_000,
+              output_tokens_details: {
+                reasoning_tokens: 250,
+              },
+              total_tokens: 2_000,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+    ),
+  );
+
+  const provider = new OpenAiTextGenerationProvider({
+    apiKey: "test-key",
+    model: "gpt-4.1-mini",
+  });
+
+  const result = await provider.generateText(generationInput);
+
+  assert.equal(result.responseMetadata.responseId, "response_usage_123");
+  assert.equal(result.responseMetadata.status, "completed");
+  assert.deepEqual(result.responseMetadata.usage, {
+    input_tokens: 1_000,
+    input_tokens_details: {
+      cached_tokens: 600,
+    },
+    output_tokens: 1_000,
+    output_tokens_details: {
+      reasoning_tokens: 250,
+    },
+    total_tokens: 2_000,
+  });
+  assert.equal(result.responseMetadata.costUsd, 0.00182);
+});
+
+test("OpenAiTextGenerationProvider records null cost for unpriced models", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "response_unknown_model",
+            status: "completed",
+            output_text: "Documento gerado pela OpenAI.",
+            usage: {
+              input_tokens: 1_000,
+              output_tokens: 1_000,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+    ),
+  );
+
+  const provider = new OpenAiTextGenerationProvider({
+    apiKey: "test-key",
+    model: "gpt-test",
+  });
+
+  const result = await provider.generateText(generationInput);
+
+  assert.equal(result.responseMetadata.costUsd, null);
+  assert.deepEqual(result.responseMetadata.usage, {
+    input_tokens: 1_000,
+    input_tokens_details: {
+      cached_tokens: 0,
+    },
+    output_tokens: 1_000,
+    output_tokens_details: {
+      reasoning_tokens: 0,
+    },
+    total_tokens: 2_000,
+  });
 });
 
 test("StubTextGenerationProvider remains compatible with incremental callbacks", async () => {
