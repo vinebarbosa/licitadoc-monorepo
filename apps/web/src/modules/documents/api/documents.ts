@@ -230,17 +230,6 @@ export function useDocumentGenerationEvents({
     [startDrainLoop],
   );
 
-  const flushVisibleContent = useCallback(
-    (nextContent: string) => {
-      stopDrainLoop();
-      pendingTextRef.current = "";
-      receivedContentRef.current = nextContent;
-      visibleContentRef.current = nextContent;
-      setContent(nextContent);
-    },
-    [stopDrainLoop],
-  );
-
   const reconcilePlanningContent = useCallback((nextPlanningContent: string) => {
     receivedPlanningContentRef.current = nextPlanningContent;
     setPlanningContent(nextPlanningContent);
@@ -288,7 +277,9 @@ export function useDocumentGenerationEvents({
       const payload = parseDocumentGenerationEvent(event);
 
       if (payload?.type === "completed" && payload.documentId === documentId) {
-        flushVisibleContent(payload.content);
+        // Don't dump the finished content into the live view — the preview page
+        // reveals the persisted draft with a writing animation on completion.
+        stopDrainLoop();
       }
 
       source.close();
@@ -319,7 +310,6 @@ export function useDocumentGenerationEvents({
     documentId,
     enabled,
     enqueueTextDelta,
-    flushVisibleContent,
     onCompleted,
     onFailed,
     reconcilePlanningContent,

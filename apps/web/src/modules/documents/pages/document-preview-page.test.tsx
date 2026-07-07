@@ -1633,6 +1633,116 @@ Conteudo do documento.
     expect(requests).toBe(2);
   });
 
+  it("does not render raw Tiptap JSON streamed during generation", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () =>
+        HttpResponse.json(generatingDocumentDetailResponse),
+      ),
+    );
+
+    renderDocumentPreviewPage("/app/documento/document-2/preview");
+
+    expect(await screen.findByText("Preview em geração")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(MockEventSource.instances).toHaveLength(1);
+    });
+
+    const tiptapJson =
+      '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"ESTUDO TECNICO PRELIMINAR"}]}]}';
+
+    vi.useFakeTimers();
+
+    act(() => {
+      MockEventSource.instances[0]?.emit("chunk", {
+        type: "chunk",
+        documentId: "document-2",
+        textDelta: tiptapJson,
+        content: tiptapJson,
+        status: "generating",
+      });
+      vi.advanceTimersByTime(24 * 40);
+    });
+
+    expect(screen.getByText("Preview em geração")).toBeInTheDocument();
+    expect(screen.queryByTestId("document-preview-sheet")).not.toBeInTheDocument();
+    expect(screen.queryByText(/"type":\s*"doc"/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ESTUDO TECNICO PRELIMINAR/)).not.toBeInTheDocument();
+  });
+
+  it("plays the writing reveal after a document finishes generating", async () => {
+    const revealDraft = [
+      "# ESTUDO TECNICO PRELIMINAR",
+      "",
+      "## 1. INTRODUCAO",
+      "",
+      "O presente estudo tecnico preliminar foi elaborado para subsidiar a fase preparatoria da contratacao pretendida, com base no processo administrativo indicado e nas diretrizes gerais de planejamento aplicaveis.",
+      "",
+      "## 2. NECESSIDADE DA CONTRATACAO",
+      "",
+      "A necessidade decorre da demanda administrativa registrada, observadas as justificativas tecnicas apresentadas e a compatibilidade com o planejamento institucional vigente.",
+      "",
+      "FIM DO ESTUDO TECNICO PRELIMINAR.",
+    ].join("\n");
+
+    let requests = 0;
+
+    server.use(
+      http.get("http://localhost:3333/api/documents/:documentId", () => {
+        requests += 1;
+
+        if (requests === 1) {
+          return HttpResponse.json(generatingDocumentDetailResponse);
+        }
+
+        return HttpResponse.json({
+          ...documentDetailResponse,
+          id: "document-2",
+          name: "ETP - PE-2024-045",
+          type: "etp",
+          status: "completed",
+          draftContent: revealDraft,
+          draftContentJson: null,
+        });
+      }),
+    );
+
+    renderDocumentPreviewPage("/app/documento/document-2/preview");
+
+    expect(await screen.findByText("Preview em geração")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(MockEventSource.instances).toHaveLength(1);
+    });
+
+    vi.useFakeTimers();
+
+    // Complete generation; the persisted draft refetch drives the reveal.
+    await act(async () => {
+      MockEventSource.instances[0]?.emit("completed", {
+        type: "completed",
+        documentId: "document-2",
+        content: revealDraft,
+        status: "completed",
+      });
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    // The writing animation plays: the sheet is shown but the end of the
+    // document has not been revealed yet.
+    expect(screen.getByText("Gerando documento em tempo real")).toBeInTheDocument();
+    expect(screen.queryByText(/FIM DO ESTUDO TECNICO/)).not.toBeInTheDocument();
+
+    // Advance enough to reveal the full draft, then the final view takes over.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(24 * (Math.ceil(revealDraft.length / 12) + 10));
+    });
+
+    expect(screen.getByText(/FIM DO ESTUDO TECNICO/)).toBeInTheDocument();
+    expect(screen.queryByText("Gerando documento em tempo real")).not.toBeInTheDocument();
+    expect(requests).toBe(2);
+  });
+
   it("shows failed generation state", async () => {
     server.use(
       http.get("http://localhost:3333/api/documents/:documentId", () =>

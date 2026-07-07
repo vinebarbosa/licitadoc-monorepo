@@ -63,6 +63,13 @@ function resolveApiAssetUrl(url: string | null | undefined) {
   }
 }
 
+// A readable document draft is Markdown and never starts with "{". When the
+// generation stream carries the raw Tiptap JSON envelope instead, we must not
+// render it as text — it is suppressed in favor of the progress state.
+function looksLikeTiptapJson(content: string) {
+  return content.trimStart().startsWith("{");
+}
+
 function DocumentPreviewLoadingState() {
   return (
     <main className="flex-1 overflow-auto bg-muted/30">
@@ -315,6 +322,64 @@ function usePrefersReducedMotion() {
   }, []);
 
   return prefersReducedMotion;
+}
+
+const DRAFT_REVEAL_INTERVAL_MS = 24;
+const DRAFT_REVEAL_MIN_CHARS_PER_TICK = 12;
+const DRAFT_REVEAL_TARGET_DURATION_MS = 4000;
+
+// Reveals a finished text draft progressively (like the old streaming preview)
+// so a completed document can play the "sentence by sentence" writing effect
+// before switching to the final rendered view. The step scales up for long
+// drafts so the animation stays a pleasant few seconds instead of dozens.
+function useTypewriterReveal({ enabled, text }: { enabled: boolean; text: string | null }) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [revealedLength, setRevealedLength] = useState(0);
+
+  useEffect(() => {
+    if (!enabled || !text) {
+      return;
+    }
+
+    if (prefersReducedMotion) {
+      setRevealedLength(text.length);
+      return;
+    }
+
+    setRevealedLength(0);
+
+    const targetTicks = Math.max(
+      1,
+      Math.round(DRAFT_REVEAL_TARGET_DURATION_MS / DRAFT_REVEAL_INTERVAL_MS),
+    );
+    const charsPerTick = Math.max(
+      DRAFT_REVEAL_MIN_CHARS_PER_TICK,
+      Math.ceil(text.length / targetTicks),
+    );
+
+    const timer = setInterval(() => {
+      setRevealedLength((previousLength) => {
+        const nextLength = Math.min(text.length, previousLength + charsPerTick);
+
+        if (nextLength >= text.length) {
+          clearInterval(timer);
+        }
+
+        return nextLength;
+      });
+    }, DRAFT_REVEAL_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [enabled, prefersReducedMotion, text]);
+
+  if (!enabled || !text) {
+    return { isComplete: true, revealedText: text ?? "" };
+  }
+
+  return {
+    isComplete: revealedLength >= text.length,
+    revealedText: text.slice(0, revealedLength),
+  };
 }
 
 function getPlanningStepIndex({
@@ -688,15 +753,50 @@ export function DocumentPreviewPageUI() {
   const previewSource = getDocumentPreviewSource(document);
   const letterheadUrl =
     document?.status === "completed" ? resolveApiAssetUrl(document.letterhead?.url) : null;
-  const liveDraftContent =
-    document?.status === "generating" ? getPreviewableDraftContent(livePreview.content) : null;
-  const canUsePersistedDocument = document?.status === "completed" && Boolean(previewSource);
+  const isGeneratingStatus = document?.status === "generating";
+  const liveDraftContent = isGeneratingStatus
+    ? getPreviewableDraftContent(livePreview.content)
+    : null;
+  // Only stream readable Markdown live. If the provider streams the raw Tiptap
+  // JSON envelope, suppress it and keep the progress state instead.
+  const showLiveWriting = Boolean(liveDraftContent) && !looksLikeTiptapJson(liveDraftContent ?? "");
+  const hasSeenGeneratingRef = useRef(false);
+  const hasStreamedReadableContentRef = useRef(false);
+
+  useEffect(() => {
+    if (isGeneratingStatus) {
+      hasSeenGeneratingRef.current = true;
+    }
+  }, [isGeneratingStatus]);
+
+  useEffect(() => {
+    if (showLiveWriting) {
+      hasStreamedReadableContentRef.current = true;
+    }
+  }, [showLiveWriting]);
+
+  // When a document finishes generating in this session, play the writing
+  // reveal from the persisted Markdown draft before showing the final view.
+  const revealText =
+    document?.status === "completed" ? getPreviewableDraftContent(document.draftContent) : null;
+  const shouldRevealDraft =
+    hasSeenGeneratingRef.current &&
+    document?.status === "completed" &&
+    !hasStreamedReadableContentRef.current &&
+    Boolean(revealText);
+  const draftReveal = useTypewriterReveal({ enabled: shouldRevealDraft, text: revealText });
+  const isRevealingDraft = shouldRevealDraft && !draftReveal.isComplete;
+
+  const canUsePersistedDocument =
+    document?.status === "completed" && Boolean(previewSource) && !isRevealingDraft;
   const liveWritingEndpointRef = useRef<HTMLDivElement | null>(null);
-  const isLiveWritingVisible = document?.status === "generating" && Boolean(liveDraftContent);
+  const isLiveWritingVisible = showLiveWriting || isRevealingDraft;
   const { handleScroll, scrollContainerRef } = useLiveWritingAutoFollow({
     enabled: isLiveWritingVisible,
     endpointRef: liveWritingEndpointRef,
-    visibleContentLength: liveDraftContent?.length ?? 0,
+    visibleContentLength: isRevealingDraft
+      ? draftReveal.revealedText.length
+      : (liveDraftContent?.length ?? 0),
   });
   const handleExportPdf = useCallback(async () => {
     if (!document || isExportingPdf) {
@@ -790,9 +890,9 @@ export function DocumentPreviewPageUI() {
                 planningContent={livePreview.planningContent}
                 documentContent={liveDraftContent ?? ""}
               />
-              {liveDraftContent ? (
+              {showLiveWriting ? (
                 <DocumentSheet
-                  draftContent={liveDraftContent}
+                  draftContent={liveDraftContent ?? ""}
                   isGenerating
                   letterheadUrl={null}
                   liveWritingEndpointRef={liveWritingEndpointRef}
@@ -816,6 +916,13 @@ export function DocumentPreviewPageUI() {
               title="Geração do documento falhou"
               description="Não há conteúdo para visualizar porque a geração deste documento terminou com erro."
               icon="alert"
+            />
+          ) : isRevealingDraft ? (
+            <DocumentSheet
+              draftContent={draftReveal.revealedText}
+              isGenerating
+              letterheadUrl={null}
+              liveWritingEndpointRef={liveWritingEndpointRef}
             />
           ) : previewSource ? (
             <PagedDocumentPreview
