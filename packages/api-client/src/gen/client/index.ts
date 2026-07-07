@@ -3,6 +3,7 @@ export { changePassword } from "./changePassword";
 export { deleteApiDepartmentsDepartmentid } from "./deleteApiDepartmentsDepartmentid";
 export { deleteApiUsersUserid } from "./deleteApiUsersUserid";
 export { deleteUser } from "./deleteUser";
+export { getApiAdminAiUsage } from "./getApiAdminAiUsage";
 export { getApiAuthAccountInfo } from "./getApiAuthAccountInfo";
 export { getApiAuthCallbackId } from "./getApiAuthCallbackId";
 export { getApiAuthDeleteUserCallback } from "./getApiAuthDeleteUserCallback";

@@ -54,6 +54,31 @@ const OPENAI_MODEL_PRICING: Record<string, OpenAiModelPricing> = {
     inputUsdPerMillion: 0.4,
     outputUsdPerMillion: 1.6,
   },
+  "gpt-5.4": {
+    cachedInputUsdPerMillion: 0.25,
+    inputUsdPerMillion: 2.5,
+    longContext: {
+      inputMultiplier: 2,
+      inputTokenThreshold: 272_000,
+      outputMultiplier: 1.5,
+    },
+    outputUsdPerMillion: 15,
+  },
+  "gpt-5.4-mini": {
+    cachedInputUsdPerMillion: 0.075,
+    inputUsdPerMillion: 0.75,
+    outputUsdPerMillion: 4.5,
+  },
+  "gpt-5.4-mini-2026-03-17": {
+    cachedInputUsdPerMillion: 0.075,
+    inputUsdPerMillion: 0.75,
+    outputUsdPerMillion: 4.5,
+  },
+  "gpt-5.4-nano": {
+    cachedInputUsdPerMillion: 0.02,
+    inputUsdPerMillion: 0.2,
+    outputUsdPerMillion: 1.25,
+  },
   "gpt-5.5": {
     cachedInputUsdPerMillion: 0.5,
     inputUsdPerMillion: 5,

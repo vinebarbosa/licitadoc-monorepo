@@ -334,6 +334,27 @@ describe("appRoutes", () => {
     });
   });
 
+  it("redirects non-admin users away from the admin AI usage route", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json(authenticatedSessionResponse);
+      }),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/admin/ia/uso"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/nao-autorizado");
+      expect(
+        screen.getByRole("heading", { name: "Você não tem permissão para esta área" }),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("redirects non-owner users away from the owner organization route", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
@@ -478,6 +499,71 @@ describe("appRoutes", () => {
     });
   });
 
+  it("renders the admin AI usage route for admin sessions", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "admin",
+            organizationId: null,
+          },
+        });
+      }),
+      http.get("http://localhost:3333/api/admin/ai-usage/", () =>
+        HttpResponse.json({
+          breakdowns: {
+            documentTypes: [],
+            models: [],
+            organizations: [],
+            providers: [],
+            statuses: [],
+          },
+          filters: {
+            documentType: null,
+            from: "2026-04-26T12:00:00.000Z",
+            model: null,
+            organizationId: null,
+            page: 1,
+            pageSize: 10,
+            providerKey: null,
+            sort: "recent",
+            status: null,
+            to: "2026-05-26T12:00:00.000Z",
+          },
+          recentRuns: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 },
+          summary: {
+            averageCostPerCompletedDocumentUsd: null,
+            cacheInputTokenShare: null,
+            completedRunCount: 0,
+            failedRunCount: 0,
+            failureRate: null,
+            generatedDocumentCount: 0,
+            knownCostUsd: 0,
+            runCount: 0,
+            totalCachedInputTokens: 0,
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalTokens: 0,
+            unknownCostRunCount: 0,
+          },
+          trend: [],
+        }),
+      ),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/admin/ia/uso"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Uso de IA" })).toBeInTheDocument();
+    });
+  });
+
   it("redirects the deprecated app-scoped admin users route to the canonical route", async () => {
     server.use(
       http.get("http://localhost:3333/api/auth/get-session", () => {
@@ -527,6 +613,72 @@ describe("appRoutes", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/admin/chamados");
       expect(screen.getByRole("heading", { name: "Chamados de suporte" })).toBeInTheDocument();
+    });
+  });
+
+  it("redirects the deprecated app-scoped admin AI usage route to the canonical route", async () => {
+    server.use(
+      http.get("http://localhost:3333/api/auth/get-session", () => {
+        return HttpResponse.json({
+          ...authenticatedSessionResponse,
+          user: {
+            ...authenticatedSessionResponse.user,
+            role: "admin",
+            organizationId: null,
+          },
+        });
+      }),
+      http.get("http://localhost:3333/api/admin/ai-usage/", () =>
+        HttpResponse.json({
+          breakdowns: {
+            documentTypes: [],
+            models: [],
+            organizations: [],
+            providers: [],
+            statuses: [],
+          },
+          filters: {
+            documentType: null,
+            from: "2026-04-26T12:00:00.000Z",
+            model: null,
+            organizationId: null,
+            page: 1,
+            pageSize: 10,
+            providerKey: null,
+            sort: "recent",
+            status: null,
+            to: "2026-05-26T12:00:00.000Z",
+          },
+          recentRuns: { items: [], page: 1, pageSize: 10, total: 0, totalPages: 0 },
+          summary: {
+            averageCostPerCompletedDocumentUsd: null,
+            cacheInputTokenShare: null,
+            completedRunCount: 0,
+            failedRunCount: 0,
+            failureRate: null,
+            generatedDocumentCount: 0,
+            knownCostUsd: 0,
+            runCount: 0,
+            totalCachedInputTokens: 0,
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalTokens: 0,
+            unknownCostRunCount: 0,
+          },
+          trend: [],
+        }),
+      ),
+    );
+
+    const router = createMemoryRouter(appRoutes as never, {
+      initialEntries: ["/app/admin/ia/uso"],
+    });
+
+    renderWithProviders(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/admin/ia/uso");
+      expect(screen.getByRole("heading", { name: "Uso de IA" })).toBeInTheDocument();
     });
   });
 

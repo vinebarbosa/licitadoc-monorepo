@@ -15,11 +15,20 @@ export type TextGenerationInput = {
   onChunk?: (chunk: TextGenerationChunk) => void | Promise<void>;
   onPlanningChunk?: (chunk: TextGenerationPlanningChunk) => void | Promise<void>;
   prompt: string;
+  structuredOutput?: TextGenerationStructuredOutputRequest;
   subject: {
     documentId: string;
     organizationId: string;
     processId: string;
   };
+};
+
+export type TextGenerationStructuredOutputRequest = {
+  instructions?: string;
+  name: string;
+  outputFormat?: "tiptap_json";
+  schema: Record<string, unknown>;
+  strict?: boolean;
 };
 
 export type TextGenerationChunk = {
@@ -70,6 +79,8 @@ export class TextGenerationError extends Error {
 export interface TextGenerationProvider {
   readonly model: string;
   readonly providerKey: string;
+  readonly supportsStructuredOutput?: boolean;
+  readonly supportsTiptapJsonOutput?: boolean;
 
   generateText(input: TextGenerationInput): Promise<TextGenerationResult>;
 }

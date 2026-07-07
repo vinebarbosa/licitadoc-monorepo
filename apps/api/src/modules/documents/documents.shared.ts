@@ -140,6 +140,68 @@ function toDisplayText(value: string | null | undefined) {
   return firstText(value) ?? "não informado";
 }
 
+const DOCUMENT_PROCESS_TYPE_LABELS: Record<string, string> = {
+  "compra direta": "Compra Direta",
+  compra_direta: "Compra Direta",
+  concorrencia: "Concorrência",
+  "concorrencia eletronica": "Concorrência Eletrônica",
+  concorrencia_eletronica: "Concorrência Eletrônica",
+  dispensa: "Dispensa",
+  "dispensa eletronica": "Dispensa Eletrônica",
+  dispensa_eletronica: "Dispensa Eletrônica",
+  inexigibilidade: "Inexigibilidade",
+  leilao: "Leilão",
+  licitacao: "Licitação",
+  locacao: "Locação",
+  material: "Material",
+  obra: "Obra",
+  pregao: "Pregão",
+  "pregao eletronico": "Pregão Eletrônico",
+  pregao_eletronico: "Pregão Eletrônico",
+  servico: "Serviço",
+};
+
+function normalizeProcessTypeKey(value: string) {
+  return normalizeSearchText(value).replace(/[-_]+/g, " ");
+}
+
+function titleCaseProcessType(value: string) {
+  const keepLowercase = new Set(["da", "das", "de", "do", "dos", "e"]);
+
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .split(" ")
+    .map((word, index) => {
+      if (index > 0 && keepLowercase.has(word)) {
+        return word;
+      }
+
+      return `${word.charAt(0).toLocaleUpperCase("pt-BR")}${word.slice(1)}`;
+    })
+    .join(" ");
+}
+
+export function formatDocumentProcessType(value: string | null | undefined) {
+  const processType = firstText(value);
+
+  if (!processType) {
+    return null;
+  }
+
+  const directLabel = DOCUMENT_PROCESS_TYPE_LABELS[processType];
+
+  if (directLabel) {
+    return directLabel;
+  }
+
+  const normalizedLabel = DOCUMENT_PROCESS_TYPE_LABELS[normalizeProcessTypeKey(processType)];
+
+  return normalizedLabel ?? titleCaseProcessType(processType);
+}
+
 function formatDateBr(value: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "UTC",
@@ -715,11 +777,13 @@ export function buildDfdGenerationContext({
     ),
     organizationName: firstText(canonicalOrganizationName, sourceOrganizationName),
     processJustification: firstText(process.justification),
-    processType: firstText(
-      process.procurementMethod,
-      process.biddingModality,
-      getExtractedTextField(process, "processType"),
-      process.type,
+    processType: formatDocumentProcessType(
+      firstText(
+        process.procurementMethod,
+        process.biddingModality,
+        getExtractedTextField(process, "processType"),
+        process.type,
+      ),
     ),
     requestNumber: firstText(getExtractedTextField(process, "requestNumber"), process.externalId),
     requester: firstText(
@@ -912,7 +976,7 @@ function buildDfdGenerationPrompt({
   return [
     recipe.instructions,
     "",
-    "## Modelo Markdown canônico",
+    "## Modelo estrutural canônico",
     recipe.template,
     "",
     "## Contexto estruturado do processo",
@@ -950,13 +1014,13 @@ function buildDfdGenerationPrompt({
     instructions ?? "Nenhuma instrução adicional informada.",
     "",
     "## Regras finais obrigatórias",
-    "- Retorne somente o DFD final em Markdown.",
+    "- Retorne o DFD final diretamente no contrato JSON Tiptap restrito solicitado pelo backend.",
     "- Siga a estrutura do modelo canônico.",
     "- Trate o DFD como documento inicial de formalização da demanda: objetivo, administrativo, introdutório, proporcional e revisável.",
     "- Mantenha contexto, objeto e justificativa em 1 ou 2 parágrafos cada, salvo complexidade real presente no contexto.",
     "- Use requisitos essenciais mínimos em 3 a 6 bullets curtos e diretamente ligados ao objeto.",
     "- Não inclua seções, títulos ou conteúdo de ETP, ESTUDO TÉCNICO PRELIMINAR, TR ou TERMO DE REFERÊNCIA.",
-    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
+    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em parágrafos Tiptap simples.",
     "- Evite estudo de mercado, metodologia de pesquisa de preços, análise de alternativas, estudo de viabilidade, matriz de riscos ou riscos sofisticados.",
     "- Evite obrigações contratuais detalhadas, fiscalização contratual, critérios de pagamento, medição, aceite, SLA, sanções ou cláusulas de execução.",
     "- Não use crases ou código inline para valores dos campos do DFD.",
@@ -1435,7 +1499,7 @@ function buildEtpGenerationPrompt({
   return [
     recipe.instructions,
     "",
-    "## Modelo Markdown canônico",
+    "## Modelo estrutural canônico",
     recipe.template,
     "",
     "## Contexto estruturado do processo",
@@ -1469,10 +1533,10 @@ function buildEtpGenerationPrompt({
     instructions ?? "Nenhuma instrução adicional informada.",
     "",
     "## Regras finais obrigatórias",
-    "- Retorne somente o ETP final em Markdown.",
+    "- Retorne o ETP final diretamente no contrato JSON Tiptap restrito solicitado pelo backend.",
     "- Siga a estrutura do modelo canônico, mantendo a seção ESTIMATIVA DO VALOR DA CONTRATAÇÃO.",
     "- Não inclua seções, títulos ou conteúdo de DFD, DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA, TR ou TERMO DE REFERÊNCIA.",
-    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
+    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em parágrafos Tiptap simples.",
     "- Você pode reutilizar ou adaptar contexto de DFD/SD apenas como conteúdo narrativo, sem copiar headings de DFD.",
     "- Use o pacote de contexto enriquecido e o plano documental para ajustar a ênfase técnica do ETP; eles não autorizam criar fatos ausentes.",
     "- Preserve a consistência entre objeto, município, organização, unidade administrativa, itens da SD e estimativa disponível.",
@@ -1515,7 +1579,7 @@ function buildTrGenerationPrompt({
   return [
     recipe.instructions,
     "",
-    "## Modelo Markdown canônico",
+    "## Modelo estrutural canônico",
     recipe.template,
     "",
     "## Contexto estruturado do processo",
@@ -1549,7 +1613,7 @@ function buildTrGenerationPrompt({
     instructions ?? "Nenhuma instrução adicional informada.",
     "",
     "## Regras finais obrigatórias",
-    "- Retorne somente o TR final em Markdown.",
+    "- Retorne o TR final diretamente no contrato JSON Tiptap restrito solicitado pelo backend.",
     "- Siga a estrutura do modelo canônico, mantendo a seção VALOR ESTIMADO E DOTAÇÃO ORÇAMENTÁRIA.",
     "- Trate o TR como documento técnico-operacional: ele deve explicar como o objeto será executado, acompanhado, fiscalizado, recebido e entregue.",
     "- Operacionalize sem inventar: estruture execução, responsabilidades, fluxos, alinhamentos, condicionantes e fiscalização somente a partir do contexto disponível.",
@@ -1557,7 +1621,7 @@ function buildTrGenerationPrompt({
     "- Obrigações da contratada e da contratante devem ser práticas, executáveis, fiscalizáveis e proporcionais ao objeto.",
     "- Não inclua seções, títulos ou conteúdo de DFD, DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA, ETP ou ESTUDO TÉCNICO PRELIMINAR.",
     "- Não inclua headings como DADOS DA SOLICITAÇÃO, LEVANTAMENTO DE MERCADO ou ANÁLISE DE ALTERNATIVAS.",
-    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em linhas Markdown simples.",
+    "- Não inclua heading de FECHO, ASSINATURA ou equivalente; mantenha o bloco final sem título, com local/data, nome e cargo em parágrafos Tiptap simples.",
     "- Não transforme o TR em ETP, parecer jurídico, minuta contratual ou checklist genérico.",
     "- Você pode reutilizar ou adaptar contexto de DFD/ETP/SD apenas como conteúdo operacional, sem copiar headings desses documentos.",
     "- Use redação operacional natural para lacunas: placeholder, providência objetiva ou frase curta.",
@@ -1601,7 +1665,7 @@ function buildMinutaGenerationPrompt({
   return [
     recipe.instructions,
     "",
-    "## Modelo Markdown canônico",
+    "## Modelo estrutural canônico",
     replaceMinutaTemplatePlaceholders(removeFixedClauseMarkerComments(recipe.template)),
     "",
     "## Contexto estruturado do processo",
@@ -1649,7 +1713,7 @@ function buildMinutaGenerationPrompt({
     instructions ?? "Nenhuma instrução adicional informada.",
     "",
     "## Regras finais obrigatórias",
-    "- Retorne somente a MINUTA DE CONTRATO final em Markdown.",
+    "- Retorne a MINUTA DE CONTRATO final diretamente no contrato JSON Tiptap restrito solicitado pelo backend.",
     "- Siga a estrutura do modelo canônico, mantendo todas as cláusulas contratuais.",
     "- Trate a Minuta como o instrumento que formaliza contratualmente a operação descrita pelo TR e pelos documentos do processo.",
     "- Converta contexto operacional em linguagem contratual: obrigações, condições de execução, fiscalização, recebimento, pagamento e consequências administrativas.",

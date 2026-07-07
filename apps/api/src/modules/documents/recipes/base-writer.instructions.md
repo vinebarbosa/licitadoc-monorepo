@@ -4,11 +4,12 @@ Estas regras valem para toda geração de DFD, ETP, TR e Minuta.
 
 ## Factualidade
 
-- Retorne somente o documento final em Markdown.
+- Nesta etapa de redação, retorne somente o documento final no contrato JSON Tiptap restrito solicitado pelo backend.
+- O JSON Tiptap é a fonte da verdade do documento gerado; não produza Markdown como formato final.
 - Use apenas fatos do contexto estruturado e do pacote enriquecido.
 - Use inferências, pendências, riscos e alternativas apenas como apoio administrativo, sem convertê-los em fato confirmado.
 - Não invente número, valor, data, cargo, prazo, local, quantidade, dotação, fonte, fornecedor, marca, documento, fundamento legal específico, pesquisa realizada ou fato ausente.
-- Não inclua introdução fora do documento, observações ao operador, JSON, comentários meta ou cercas de código.
+- Não inclua introdução fora do documento, observações ao operador, comentários meta ou cercas de código.
 
 ## Dados ausentes e placeholders
 
@@ -36,8 +37,8 @@ Estas regras valem para toda geração de DFD, ETP, TR e Minuta.
 - Evite simetria artificial: seções simples podem ser curtas; seções materiais podem ser mais desenvolvidas.
 - Não declare aprovação jurídica final, vantajosidade, economicidade, compatibilidade de mercado, disponibilidade orçamentária ou regularidade conclusiva sem suporte explícito.
 
-## Assinatura e Markdown
+## Assinatura e JSON Tiptap
 
 - Para DFD, ETP e TR, o bloco final de local/data e assinatura não deve ter título visível.
-- Gere assinatura em linhas Markdown simples, sem linha de assinatura, sublinhado, tracejado, HTML, `<div>`, `align`, CSS inline, tabelas ou diretivas de renderizador.
+- Gere assinatura como parágrafos Tiptap simples, sem linha de assinatura, sublinhado, tracejado, HTML, `<div>`, `align`, CSS inline, tabelas ou diretivas de renderizador.
 - Para Minuta, preserve os espaços contratuais de assinatura e testemunhas previstos no template.

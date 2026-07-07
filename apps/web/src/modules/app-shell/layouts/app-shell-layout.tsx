@@ -8,6 +8,7 @@ import { AppSidebar } from "../components/app-sidebar";
 
 type AppShellHeaderHandle = {
   breadcrumbs?: Array<{ label: string; href?: string }>;
+  hideHeader?: boolean;
   title?: string;
 };
 
@@ -64,8 +65,14 @@ export function AppShellLayout() {
     <AppShellHeaderContext.Provider value={setHeaderOverride}>
       <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <AppSidebar />
-        <SidebarInset className={isDocumentEditorWorkspace ? "bg-[#f6f7f9]" : undefined}>
-          {isDocumentEditorWorkspace ? null : (
+        <SidebarInset
+          className={
+            isDocumentEditorWorkspace
+              ? "min-w-0 overflow-x-hidden bg-[#f6f7f9]"
+              : "min-w-0 overflow-x-hidden"
+          }
+        >
+          {isDocumentEditorWorkspace || headerHandle?.hideHeader ? null : (
             <AppHeader
               breadcrumbs={headerHandle?.breadcrumbs ?? [{ label: "Central de Trabalho" }]}
               title={headerHandle?.title}

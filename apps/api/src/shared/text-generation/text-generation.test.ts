@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { afterEach, test, vi } from "vitest";
 import { parseApiEnv } from "../../plugins/env";
+import { createGeneratedTiptapJsonOutputJsonSchema } from "../generated-tiptap-json-output";
+import { validGeneratedTiptapDfdFixture } from "../generated-tiptap-json-output.fixtures";
 import { OllamaTextGenerationProvider } from "./ollama-provider";
 import { OpenAiTextGenerationProvider } from "./openai-provider";
 import { resolveTextGenerationProvider } from "./resolve-provider";
@@ -190,6 +192,120 @@ test("OpenAiTextGenerationProvider remains compatible with incremental callbacks
   assert.equal(result.responseMetadata.costUsd, null);
 });
 
+test("OpenAiTextGenerationProvider sends structured output schema when requested", async () => {
+  const structuredResponse = { documentType: "dfd", ok: true };
+  const fetchMock = vi.fn<typeof fetch>(
+    async () =>
+      new Response(
+        JSON.stringify({
+          id: "response_structured_123",
+          status: "completed",
+          output_text: JSON.stringify(structuredResponse),
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      ),
+  );
+
+  vi.stubGlobal("fetch", fetchMock);
+
+  const provider = new OpenAiTextGenerationProvider({
+    apiKey: "test-key",
+    model: "gpt-test",
+  });
+  const result = await provider.generateText({
+    ...generationInput,
+    structuredOutput: {
+      instructions: "Retorne somente JSON.",
+      name: "test_document",
+      schema: {
+        type: "object",
+      },
+      strict: true,
+    },
+  });
+  const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+  const requestBody = JSON.parse(String(requestInit?.body)) as {
+    input: string;
+    text?: {
+      format?: {
+        name?: string;
+        schema?: unknown;
+        strict?: boolean;
+        type?: string;
+      };
+    };
+  };
+
+  assert.equal(requestBody.input, `${generationInput.prompt}\n\nRetorne somente JSON.`);
+  assert.equal(requestBody.text?.format?.type, "json_schema");
+  assert.equal(requestBody.text?.format?.name, "test_document");
+  assert.deepEqual(requestBody.text?.format?.schema, { type: "object" });
+  assert.equal(requestBody.text?.format?.strict, true);
+  assert.equal(result.text, JSON.stringify(structuredResponse));
+  assert.equal(result.responseMetadata.outputFormat, "json_schema");
+  assert.equal(result.responseMetadata.structuredOutputRequested, true);
+});
+
+test("OpenAiTextGenerationProvider sends direct Tiptap JSON schema when requested", async () => {
+  const fetchMock = vi.fn<typeof fetch>(
+    async () =>
+      new Response(
+        JSON.stringify({
+          id: "response_tiptap_123",
+          status: "completed",
+          output_text: JSON.stringify(validGeneratedTiptapDfdFixture),
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      ),
+  );
+
+  vi.stubGlobal("fetch", fetchMock);
+
+  const provider = new OpenAiTextGenerationProvider({
+    apiKey: "test-key",
+    model: "gpt-test",
+  });
+  const schema = createGeneratedTiptapJsonOutputJsonSchema();
+  const result = await provider.generateText({
+    ...generationInput,
+    structuredOutput: {
+      instructions: "Retorne somente JSON Tiptap.",
+      name: "licitadoc_tiptap_document",
+      outputFormat: "tiptap_json",
+      schema,
+      strict: false,
+    },
+  });
+  const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+  const requestBody = JSON.parse(String(requestInit?.body)) as {
+    text?: {
+      format?: {
+        name?: string;
+        schema?: unknown;
+        strict?: boolean;
+        type?: string;
+      };
+    };
+  };
+
+  assert.equal(requestBody.text?.format?.type, "json_schema");
+  assert.equal(requestBody.text?.format?.name, "licitadoc_tiptap_document");
+  assert.deepEqual(requestBody.text?.format?.schema, schema);
+  assert.equal(requestBody.text?.format?.strict, false);
+  assert.equal(result.responseMetadata.outputFormat, "tiptap_json");
+  assert.equal(result.responseMetadata.structuredOutputRequested, true);
+});
+
 test("normalizeTextGenerationUsage defaults missing OpenAI usage fields predictably", () => {
   assert.deepEqual(normalizeTextGenerationUsage(null), {
     input_tokens: 0,
@@ -290,6 +406,32 @@ test("calculateOpenAiTextGenerationCostUsd prices gpt-4.1 tokens", () => {
   );
 });
 
+test("calculateOpenAiTextGenerationCostUsd prices gpt-5.4 mini aliases", () => {
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-5.4-mini",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 1_000,
+        input_tokens_details: {
+          cached_tokens: 500,
+        },
+        output_tokens: 1_000,
+      }),
+    }),
+    0.0049125,
+  );
+  assert.equal(
+    calculateOpenAiTextGenerationCostUsd({
+      model: "gpt-5.4-mini-2026-03-17",
+      usage: normalizeTextGenerationUsage({
+        input_tokens: 1_000,
+        output_tokens: 1_000,
+      }),
+    }),
+    0.00525,
+  );
+});
+
 test("calculateOpenAiTextGenerationCostUsd prices gpt-5.5 tokens and long context", () => {
   assert.equal(
     calculateOpenAiTextGenerationCostUsd({
@@ -371,6 +513,42 @@ test("OpenAiTextGenerationProvider records normalized usage and cost metadata", 
   assert.equal(result.responseMetadata.costUsd, 0.00182);
 });
 
+test("OpenAiTextGenerationProvider records cost for priced model aliases", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "response_priced_alias",
+            status: "completed",
+            output_text: "Documento gerado pela OpenAI.",
+            usage: {
+              input_tokens: 1_000,
+              output_tokens: 1_000,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+    ),
+  );
+
+  const provider = new OpenAiTextGenerationProvider({
+    apiKey: "test-key",
+    model: "gpt-5.4-mini",
+  });
+
+  const result = await provider.generateText(generationInput);
+
+  assert.equal(result.model, "gpt-5.4-mini");
+  assert.equal(result.responseMetadata.costUsd, 0.00525);
+});
+
 test("OpenAiTextGenerationProvider records null cost for unpriced models", async () => {
   vi.stubGlobal(
     "fetch",
@@ -432,6 +610,23 @@ test("StubTextGenerationProvider remains compatible with incremental callbacks",
   assert.match(result.text, /Documento DFD/);
 });
 
+test("StubTextGenerationProvider returns valid JSON when structured output is requested", async () => {
+  const provider = new StubTextGenerationProvider("stub-model");
+  const result = await provider.generateText({
+    ...generationInput,
+    structuredOutput: {
+      name: "test_document",
+      schema: { type: "object" },
+    },
+  });
+  const parsed = JSON.parse(result.text) as { documentType?: string; processId?: string };
+
+  assert.equal(parsed.documentType, "dfd");
+  assert.equal(parsed.processId, generationInput.subject.processId);
+  assert.equal(result.responseMetadata.outputFormat, "json_schema");
+  assert.equal(result.responseMetadata.structuredOutputRequested, true);
+});
+
 // ─── Ollama provider tests ────────────────────────────────────────────────────
 
 test("resolveTextGenerationProvider selects ollama with model and base URL", () => {
@@ -479,6 +674,42 @@ test("parseApiEnv accepts a positive text generation timeout", () => {
   });
 
   assert.equal(parsedEnv.TEXT_GENERATION_TIMEOUT_MS, 300_000);
+});
+
+test("parseApiEnv accepts text generation boolean feature flags", () => {
+  assert.equal(parseApiEnv({}).TEXT_GENERATION_STRUCTURED_OUTPUT, false);
+  assert.equal(
+    parseApiEnv({
+      TEXT_GENERATION_STRUCTURED_OUTPUT: "true",
+    }).TEXT_GENERATION_STRUCTURED_OUTPUT,
+    true,
+  );
+  assert.equal(
+    parseApiEnv({
+      TEXT_GENERATION_STRUCTURED_OUTPUT: "false",
+    }).TEXT_GENERATION_STRUCTURED_OUTPUT,
+    false,
+  );
+  assert.equal(parseApiEnv({}).TEXT_GENERATION_COMBINE_WRITER_HUMANIZATION, false);
+  assert.equal(
+    parseApiEnv({
+      TEXT_GENERATION_COMBINE_WRITER_HUMANIZATION: "true",
+    }).TEXT_GENERATION_COMBINE_WRITER_HUMANIZATION,
+    true,
+  );
+});
+
+test("parseApiEnv rejects invalid boolean feature flags", () => {
+  assert.throws(() =>
+    parseApiEnv({
+      TEXT_GENERATION_COMBINE_WRITER_HUMANIZATION: "yes",
+    }),
+  );
+  assert.throws(() =>
+    parseApiEnv({
+      TEXT_GENERATION_STRUCTURED_OUTPUT: "enabled",
+    }),
+  );
 });
 
 test("parseApiEnv rejects invalid text generation timeouts", () => {

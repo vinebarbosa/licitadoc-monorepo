@@ -74,6 +74,15 @@ describe("AppSidebar", () => {
     expect(supportLink).toHaveAttribute("href", "/admin/chamados");
   });
 
+  it("shows the AI usage entry for admin users", () => {
+    renderSidebar("/admin/ia/uso");
+
+    const usageLink = screen.getByRole("link", { name: /Uso de IA/ });
+
+    expect(usageLink).toBeInTheDocument();
+    expect(usageLink).toHaveAttribute("href", "/admin/ia/uso");
+  });
+
   it("shows the current organization in the user footer", async () => {
     authSessionMock.role = "member";
     authSessionMock.session.user.organizationId = "organization-1";
@@ -85,7 +94,7 @@ describe("AppSidebar", () => {
 
     renderSidebar("/app");
 
-    expect(await screen.findByText("Prefeitura de Sao Paulo")).toBeInTheDocument();
+    expect(await screen.findByText(currentOrganizationResponse.name)).toBeInTheDocument();
     expect(screen.queryByText("Analista de Licitações")).not.toBeInTheDocument();
   });
 

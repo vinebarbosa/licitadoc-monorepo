@@ -1,6 +1,7 @@
 import sensible from "@fastify/sensible";
 import Fastify from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-zod-openapi";
+import { registerAiUsageRoutes } from "../modules/ai-usage/routes";
 import { registerAuthRoutes } from "../modules/auth/routes";
 import { registerDepartmentRoutes } from "../modules/departments/routes";
 import { registerDocumentGenerationEventsPlugin } from "../modules/documents/document-generation-events";
@@ -75,6 +76,7 @@ export async function buildApp() {
   await app.register(registerProcessRoutes, { prefix: "/api/processes" });
   await app.register(registerDocumentRoutes, { prefix: "/api/documents" });
   await app.register(registerSupportTicketRoutes, { prefix: "/api/support-tickets" });
+  await app.register(registerAiUsageRoutes, { prefix: "/api/admin/ai-usage" });
 
   if (isDevelopment) {
     app.addHook("onResponse", async (request, reply) => {

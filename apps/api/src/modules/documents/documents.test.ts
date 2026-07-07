@@ -15,6 +15,7 @@ import {
 import { BadRequestError } from "../../shared/errors/bad-request-error";
 import { ConflictError } from "../../shared/errors/conflict-error";
 import { ForbiddenError } from "../../shared/errors/forbidden-error";
+import { validGeneratedTiptapDfdFixture } from "../../shared/generated-tiptap-json-output.fixtures";
 import {
   TextGenerationError,
   type TextGenerationProvider,
@@ -167,10 +168,13 @@ function createDocumentRow(
 
 function createTextGenerationProvider(
   generateText: TextGenerationProvider["generateText"],
+  options: { supportsStructuredOutput?: boolean; supportsTiptapJsonOutput?: boolean } = {},
 ): TextGenerationProvider {
   return {
     providerKey: "stub",
     model: "stub-model",
+    supportsStructuredOutput: options.supportsStructuredOutput,
+    supportsTiptapJsonOutput: options.supportsTiptapJsonOutput,
     generateText,
   };
 }
@@ -433,7 +437,29 @@ test("createDocument returns a generating draft before provider completion", asy
   assert.equal(scheduledGenerationRunId, GENERATION_RUN_ID);
   assert.equal(generationRun?.status, "generating");
   assert.equal(generationRun?.requestMetadata.documentType, "dfd");
-  assert.match(String(generationRun?.requestMetadata.prompt), /## Modelo Markdown canônico/);
+  assert.match(String(generationRun?.requestMetadata.prompt), /## Modelo estrutural canônico/);
+});
+
+test("serializeDocumentDetail resolves JSON and text-only drafts", () => {
+  const jsonOnly = serializeDocumentDetail(
+    createDocumentRow({
+      status: "completed",
+      draftContent: "Texto legado",
+      draftContentJson: documentTextToTiptapJson("Texto legado"),
+    }),
+  );
+  const textOnly = serializeDocumentDetail(
+    createDocumentRow({
+      status: "completed",
+      draftContent: "# Texto legado",
+      draftContentJson: null,
+    }),
+  );
+
+  assert.equal(jsonOnly.draftContent, "Texto legado");
+  assert.equal(jsonOnly.draftContentJson?.type, "doc");
+  assert.equal(textOnly.draftContent, "# Texto legado");
+  assert.equal(textOnly.draftContentJson?.type, "doc");
 });
 
 test("createDocument uses responsible user display name when available", async () => {
@@ -543,12 +569,75 @@ test("createDocument generates and persists a completed draft", async () => {
   assert.equal(response.status, "completed");
   assert.equal(response.draftContent, updatedDocument?.draftContent);
   assertDraftJsonSignatureClosing(response.draftContentJson);
-  assert.match(receivedPrompt ?? "", /## Modelo Markdown canônico/);
+  assert.match(receivedPrompt ?? "", /## Modelo estrutural canônico/);
   assert.match(receivedPrompt ?? "", /# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA \(DFD\)/);
   assert.match(receivedPrompt ?? "", /Não inclua heading de FECHO, ASSINATURA ou equivalente/);
   assert.match(receivedPrompt ?? "", /sem linha de assinatura, sublinhado, tracejado, HTML/i);
   assert.match(receivedPrompt ?? "", /<div>.*align.*CSS inline.*tabelas/i);
   assert.match(receivedPrompt ?? "", /Usar linguagem objetiva\./);
+});
+
+test("createDocument persists direct Tiptap JSON and derived projections when enabled", async () => {
+  let updatedDocument: Record<string, unknown> | undefined;
+  let tiptapRequestSeen = false;
+
+  const response = await createDocument({
+    actor: {
+      id: "admin_user",
+      role: "admin",
+      organizationId: null,
+    },
+    db: createDb({
+      onDocumentUpdate: (values) => {
+        updatedDocument = values;
+      },
+    }),
+    document: createDocumentBodySchema.parse({
+      processId: PROCESS_ID,
+      documentType: "dfd",
+      instructions: "Usar linguagem objetiva.",
+    }),
+    structuredOutputEnabled: true,
+    textGeneration: createTextGenerationProvider(
+      async (input) => {
+        if (input.structuredOutput?.outputFormat === "tiptap_json") {
+          tiptapRequestSeen = true;
+
+          return {
+            providerKey: "stub",
+            model: "stub-model",
+            text: JSON.stringify(validGeneratedTiptapDfdFixture),
+            responseMetadata: {
+              finishReason: "stop",
+            },
+          };
+        }
+
+        return {
+          providerKey: "stub",
+          model: "stub-model",
+          text: [
+            "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)",
+            "",
+            "Conteudo intermediario em Markdown.",
+          ].join("\n"),
+          responseMetadata: {
+            finishReason: "stop",
+          },
+        };
+      },
+      { supportsStructuredOutput: true, supportsTiptapJsonOutput: true },
+    ),
+  });
+
+  assert.equal(tiptapRequestSeen, true);
+  assert.equal(updatedDocument?.status, "completed");
+  assert.equal(Object.hasOwn(updatedDocument ?? {}, "draftContentAst"), false);
+  assert.match(String(updatedDocument?.draftContent), /DOCUMENTO DE FORMALIZACAO DE DEMANDA/);
+  assert.deepEqual(updatedDocument?.draftContentJson, validGeneratedTiptapDfdFixture);
+  assert.equal((updatedDocument?.draftContentJson as { type?: string } | undefined)?.type, "doc");
+  assert.equal(response.draftContent, updatedDocument?.draftContent);
+  assert.deepEqual(response.draftContentJson, updatedDocument?.draftContentJson);
 });
 
 test("createDocument strips provider closing alignment HTML before persistence", async () => {

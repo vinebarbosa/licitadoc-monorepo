@@ -123,6 +123,8 @@ export const registerDocumentRoutes: FastifyPluginAsyncZodOpenApi = async (app) 
         db: app.db,
         document: request.body,
         scheduleGeneration: app.documentGenerationQueue.schedule,
+        combineWriterHumanizationEnabled: app.config.TEXT_GENERATION_COMBINE_WRITER_HUMANIZATION,
+        structuredOutputEnabled: app.config.TEXT_GENERATION_STRUCTURED_OUTPUT,
       });
 
       return reply.status(201).send(document);

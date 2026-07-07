@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronDown,
   ClipboardList,
+  Coins,
   FileSearch,
   FileText,
   FolderKanban,
@@ -80,6 +81,7 @@ const documentTypes = [
 const adminNavItems = [
   { title: "Usuários", url: "/admin/usuarios", icon: Users },
   { title: "Chamados", url: "/admin/chamados", icon: Headphones },
+  { title: "Uso de IA", url: "/admin/ia/uso", icon: Coins },
 ];
 
 const ownerNavItems = [{ title: "Organização", url: "/app/organizacao", icon: Building2 }];

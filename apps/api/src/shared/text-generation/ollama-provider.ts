@@ -100,6 +100,8 @@ export class OllamaTextGenerationProvider implements TextGenerationProvider {
   readonly baseUrl: string;
   readonly model: string;
   readonly providerKey = "ollama";
+  readonly supportsStructuredOutput = false;
+  readonly supportsTiptapJsonOutput = false;
   readonly timeoutMs: number;
 
   constructor({

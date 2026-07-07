@@ -6,12 +6,27 @@ function parseBooleanEnv(defaultValue: boolean) {
   return z
     .string()
     .optional()
-    .transform((value) => {
+    .transform((value, context) => {
       if (value == null) {
         return defaultValue;
       }
 
-      return value.toLowerCase() === "true";
+      const normalizedValue = value.trim().toLowerCase();
+
+      if (normalizedValue === "true") {
+        return true;
+      }
+
+      if (normalizedValue === "false") {
+        return false;
+      }
+
+      context.addIssue({
+        code: "custom",
+        message: 'Expected boolean environment value to be "true" or "false".',
+      });
+
+      return z.NEVER;
     });
 }
 
@@ -41,6 +56,8 @@ const envSchema = z.object({
   TEXT_GENERATION_MODEL: z.string().default("gpt-4.1-mini"),
   TEXT_GENERATION_API_KEY: z.string().optional(),
   TEXT_GENERATION_BASE_URL: z.string().optional(),
+  TEXT_GENERATION_COMBINE_WRITER_HUMANIZATION: parseBooleanEnv(false),
+  TEXT_GENERATION_STRUCTURED_OUTPUT: parseBooleanEnv(false),
   TEXT_GENERATION_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   STORAGE_PROVIDER: z.enum(["s3", "vercel-blob"]).default("s3"),
   STORAGE_S3_ENDPOINT: z.string().default("http://localhost:4566"),

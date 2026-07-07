@@ -5,7 +5,7 @@
 - Unidade Orçamentária: {{department.budgetUnitCode}} - {{department.name}}
 - Número da Solicitação: {{process.externalId_or_sourceRequestNumber}}
 - Data de Emissão: {{process.issuedAt_br}}
-- Processo: {{process.type}}
+- Processo: {{process.typeLabel}}
 - Objeto da Solicitação: {{process.object}}
 - Solicitante: {{department.name_or_organization.name}}
 - Responsável pela Solicitação: {{process.responsibleName}}

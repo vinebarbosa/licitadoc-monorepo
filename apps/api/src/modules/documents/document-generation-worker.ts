@@ -10,7 +10,7 @@ import {
   supportedGeneratedDocumentTypes,
   TextGenerationError,
 } from "../../shared/text-generation/types";
-import { documentTextToTiptapJson } from "../../shared/tiptap-json";
+import { documentTextToTiptapJson, tiptapJsonToDocumentText } from "../../shared/tiptap-json";
 import type { DocumentGenerationEvents } from "./document-generation-events";
 import {
   executeDocumentGenerationPipeline,
@@ -67,12 +67,14 @@ function getGenerationInput(metadata: Record<string, unknown>) {
   }
 
   return {
+    combineWriterHumanizationEnabled: metadata.combineWriterHumanizationEnabled === true,
     documentType: documentType as GeneratedDocumentType,
     organizationId,
     pipeline: getStoredPipelineFromMetadata(metadata),
     pipelineRequired: metadata.pipelineRequired === true,
     processId,
     prompt,
+    structuredOutputEnabled: metadata.structuredOutputEnabled === true,
   };
 }
 
@@ -177,6 +179,7 @@ export async function executeDocumentGeneration({
 
   try {
     const result = await executeDocumentGenerationPipeline({
+      combineWriterHumanizationEnabled: input.combineWriterHumanizationEnabled,
       documentId: document.id,
       documentType: input.documentType,
       organizationId: input.organizationId,
@@ -184,6 +187,7 @@ export async function executeDocumentGeneration({
       pipelineRequired: input.pipelineRequired,
       prompt: input.prompt,
       processId: input.processId,
+      structuredOutputEnabled: input.structuredOutputEnabled,
       textGeneration,
       onChunk: (chunk) => {
         if (chunk.textDelta.length > 0) {
@@ -202,7 +206,10 @@ export async function executeDocumentGeneration({
         }
       },
     });
-    const draftContent = result.text;
+    const draftContentJson = result.draftContentJson ?? documentTextToTiptapJson(result.text);
+    const draftContent = result.draftContentJson
+      ? tiptapJsonToDocumentText(result.draftContentJson)
+      : result.text;
     const now = new Date();
 
     await db.transaction(async (tx) => {
@@ -211,7 +218,7 @@ export async function executeDocumentGeneration({
         .set({
           status: "completed",
           draftContent,
-          draftContentJson: documentTextToTiptapJson(draftContent),
+          draftContentJson,
           updatedAt: now,
         })
         .where(and(eq(documents.id, document.id), eq(documents.status, "generating")));

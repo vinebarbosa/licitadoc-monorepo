@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+type TiptapDocumentJson = {
+  type: "doc";
+  content: Array<Record<string, unknown>>;
+};
+
+function createEditableDocumentJson(text: string): TiptapDocumentJson {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "heading",
+        attrs: { level: 1 },
+        content: [{ type: "text", text: "DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)" }],
+      },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text }],
+      },
+    ],
+  };
+}
+
 test("authenticated user can navigate to documents listing page", async ({ page }) => {
   await page.route("**/api/auth/get-session", async (route) => {
     await route.fulfill({
@@ -153,7 +175,7 @@ test("authenticated user can open a document preview page", async ({ page }) => 
 });
 
 test("authenticated user can edit, save, and preview a document", async ({ page }) => {
-  let draftContent = "# DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)\n\nTexto original do documento.";
+  let draftContentJson = createEditableDocumentJson("Texto original do documento.");
 
   await page.route("**/api/auth/get-session", async (route) => {
     await route.fulfill({
@@ -181,8 +203,10 @@ test("authenticated user can edit, save, and preview a document", async ({ page 
 
   await page.route("**/api/documents/document-1", async (route) => {
     if (route.request().method() === "PATCH") {
-      const body = (await route.request().postDataJSON()) as { draftContent: string };
-      draftContent = body.draftContent;
+      const body = (await route.request().postDataJSON()) as {
+        draftContentJson: TiptapDocumentJson;
+      };
+      draftContentJson = body.draftContentJson;
     }
 
     await route.fulfill({
@@ -197,7 +221,8 @@ test("authenticated user can edit, save, and preview a document", async ({ page 
         responsibles: ["Maria Costa"],
         createdAt: "2024-03-20T00:00:00.000Z",
         updatedAt: "2024-04-01T00:00:00.000Z",
-        draftContent,
+        draftContent: "DOCUMENTO DE FORMALIZACAO DE DEMANDA (DFD)\n\nTexto original do documento.",
+        draftContentJson,
         storageKey: null,
       },
     });
@@ -208,7 +233,7 @@ test("authenticated user can edit, save, and preview a document", async ({ page 
   await expect(page.getByRole("heading", { name: "DFD - PE-2024-045" })).toBeVisible();
   await expect(page.locator("[data-document-editor-workspace]")).toBeVisible();
   await expect(page.locator('[data-slot="sidebar"][data-state="collapsed"]')).toBeVisible();
-  await expect(page.getByRole("toolbar", { name: "Ferramentas do editor" })).toBeVisible();
+  await expect(page.getByRole("toolbar", { name: "Ferramentas de formatação" })).toBeVisible();
   const editor = page.getByLabel("Editor do documento");
   await editor.fill("Texto final revisado pelo editor.");
   await expect(page.getByText("Alterações não salvas")).toBeVisible();
@@ -216,5 +241,7 @@ test("authenticated user can edit, save, and preview a document", async ({ page 
   await expect(page.getByText("Salvo")).toBeVisible();
 
   await page.getByRole("link", { name: "Preview" }).click();
-  await expect(page.getByText("Texto final revisado pelo editor.")).toBeVisible();
+  await expect(
+    page.getByText("Texto final revisado pelo editor.", { exact: true }).filter({ visible: true }),
+  ).toBeVisible();
 });

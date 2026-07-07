@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { RouteObject } from "react-router-dom";
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import { AdminAiUsagePage } from "@/modules/ai-usage";
 import { AppHomePage, AppShellLayout } from "@/modules/app-shell";
 import {
   hasRequiredRole,
@@ -209,6 +210,10 @@ export const appRoutes: RouteObject[] = [
         element: <Navigate to="/admin/chamados" replace />,
       },
       {
+        path: "app/admin/ia/uso",
+        element: <Navigate to="/admin/ia/uso" replace />,
+      },
+      {
         path: "app",
         element: <ProtectedAppRoute />,
         children: [
@@ -349,6 +354,18 @@ export const appRoutes: RouteObject[] = [
             ),
             handle: {
               breadcrumbs: [{ label: "Admin", href: "/app" }, { label: "Chamados" }],
+            },
+          },
+          {
+            path: "ia/uso",
+            element: (
+              <AdminOnlyRoute>
+                <AdminAiUsagePage />
+              </AdminOnlyRoute>
+            ),
+            handle: {
+              breadcrumbs: [{ label: "Admin", href: "/app" }, { label: "Uso de IA" }],
+              hideHeader: true,
             },
           },
         ],

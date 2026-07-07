@@ -1,3 +1,10 @@
+import {
+  buildGeneratedTiptapJsonOutputInstructions,
+  buildGeneratedTiptapJsonOutputPrompt,
+  createGeneratedTiptapJsonOutputJsonSchema,
+  GeneratedTiptapJsonOutputValidationError,
+  parseGeneratedTiptapJsonOutputText,
+} from "../../shared/generated-tiptap-json-output";
 import type {
   GeneratedDocumentType,
   TextGenerationInput,
@@ -9,6 +16,7 @@ import {
   normalizeTextGenerationUsage,
   type TextGenerationUsage,
 } from "../../shared/text-generation/usage-cost";
+import { type TiptapDocumentJson, tiptapJsonToDocumentText } from "../../shared/tiptap-json";
 import type { SerializedProcessItem } from "../processes/processes.shared";
 import {
   type DocumentGenerationPipelineDebug,
@@ -45,8 +53,14 @@ import {
 } from "./sd-document-intelligence-contract";
 
 export const MAX_DOCUMENT_REWRITE_CYCLES = 2;
+const MAX_STRUCTURED_OUTPUT_REPAIR_ATTEMPTS = 1;
 
-type DocumentGenerationPipelineCallStage = "writer" | "humanization" | "rewrite";
+type DocumentGenerationPipelineCallStage =
+  | "final_writer"
+  | "writer"
+  | "humanization"
+  | "rewrite"
+  | "tiptap_json";
 
 type DocumentGenerationPipelineCallMetadata = {
   costUsd: number | null;
@@ -78,6 +92,7 @@ export type InitialDocumentGenerationPipeline = {
 };
 
 type ExecutePipelineInput = {
+  combineWriterHumanizationEnabled?: boolean;
   documentId: string;
   documentType: GeneratedDocumentType;
   organizationId: string;
@@ -85,12 +100,14 @@ type ExecutePipelineInput = {
   pipelineRequired?: boolean;
   processId: string;
   prompt: string;
+  structuredOutputEnabled?: boolean;
   textGeneration: TextGenerationProvider;
   onChunk?: TextGenerationInput["onChunk"];
   onPlanningChunk?: TextGenerationInput["onPlanningChunk"];
 };
 
 export type ExecutedDocumentGenerationPipeline = {
+  draftContentJson?: TiptapDocumentJson;
   model: string;
   providerKey: string;
   responseMetadata: Record<string, unknown>;
@@ -1757,6 +1774,47 @@ function buildRewritePrompt({
   ].join("\n");
 }
 
+function getFinalSurfaceGuidance() {
+  return [
+    "- Remova metalinguagem sobre contexto, pipeline, classificacao, inferencia, confianca ou dados nao encontrados.",
+    "- Troque cautela verbalizada por placeholder, omissao natural ou frase institucional curta.",
+    "- Reduza repeticao semantica, simetria artificial e encerramentos excessivamente completos.",
+    "- Varie a densidade das secoes: topicos simples podem ser secos; topicos materiais podem permanecer robustos.",
+    "- Preserve seguranca juridica, placeholders, valor zerado como ausencia de estimativa/preco valido e clausulas FIXED da Minuta.",
+    "- Nao acrescente fornecedor, valor, data, local, dotacao, prazo, legal path, pesquisa realizada ou detalhe operacional ausente.",
+    "- Nao converta DFD em ETP, ETP em TR, TR em Minuta ou Minuta em estudo tecnico.",
+  ];
+}
+
+function buildCombinedFinalWriterPrompt({
+  documentType,
+  skillContract,
+  writerPrompt,
+  writerStyle,
+}: {
+  documentType: GeneratedDocumentType;
+  skillContract: SdDocumentIntelligenceContract;
+  writerPrompt: string;
+  writerStyle: WriterStyle;
+}) {
+  return [
+    writerPrompt,
+    "",
+    "## Modo de escrita final combinado",
+    "Voce e o Final Writer do pipeline documental.",
+    "Produza um documento final, natural e institucional, pronto para a revisao local automatizada.",
+    "Este e o unico passe de escrita antes da revisao; nao entregue rascunho intermediario nem texto aguardando humanizacao posterior.",
+    "Retorne somente o Markdown final.",
+    "",
+    `Tipo documental: ${documentType.toUpperCase()}`,
+    `Estilo de redacao: ${writerStyle}`,
+    `Contrato sd-document-intelligence: ${skillContract.metadata.version} (${skillContract.metadata.contractDigest})`,
+    "",
+    "## Acabamento textual obrigatorio",
+    ...getFinalSurfaceGuidance(),
+  ].join("\n");
+}
+
 function buildHumanizationPrompt({
   context,
   documentType,
@@ -1797,13 +1855,7 @@ function buildHumanizationPrompt({
     "```",
     "",
     "## Ajustes de superficie",
-    "- Remova metalinguagem sobre contexto, pipeline, classificacao, inferencia, confianca ou dados nao encontrados.",
-    "- Troque cautela verbalizada por placeholder, omissao natural ou frase institucional curta.",
-    "- Reduza repeticao semantica, simetria artificial e encerramentos excessivamente completos.",
-    "- Varie a densidade das secoes: topicos simples podem ser secos; topicos materiais podem permanecer robustos.",
-    "- Preserve seguranca juridica, placeholders, valor zerado como ausencia de estimativa/preco valido e clausulas FIXED da Minuta.",
-    "- Nao acrescente fornecedor, valor, data, local, dotacao, prazo, legal path, pesquisa realizada ou detalhe operacional ausente.",
-    "- Nao converta DFD em ETP, ETP em TR, TR em Minuta ou Minuta em estudo tecnico.",
+    ...getFinalSurfaceGuidance(),
   ].join("\n");
 }
 
@@ -1823,19 +1875,173 @@ function createSubject({
   };
 }
 
+function shouldRequestDirectTiptapJsonOutput({
+  structuredOutputEnabled,
+  textGeneration,
+}: {
+  structuredOutputEnabled: boolean;
+  textGeneration: TextGenerationProvider;
+}) {
+  return structuredOutputEnabled && textGeneration.supportsTiptapJsonOutput === true;
+}
+
+function assertDirectTiptapJsonCapability({
+  documentType,
+  structuredOutputEnabled,
+  textGeneration,
+}: {
+  documentType: GeneratedDocumentType;
+  structuredOutputEnabled: boolean;
+  textGeneration: TextGenerationProvider;
+}) {
+  if (!structuredOutputEnabled || textGeneration.supportsTiptapJsonOutput === true) {
+    return;
+  }
+
+  throw new TextGenerationError({
+    code: "invalid_request",
+    details: {
+      documentType,
+      outputFormat: "tiptap_json",
+      reason: "provider_does_not_support_tiptap_json_output",
+    },
+    message: "The selected generation provider does not support direct Tiptap JSON output.",
+    model: textGeneration.model,
+    providerKey: textGeneration.providerKey,
+  });
+}
+
+function createGeneratedTiptapJsonOutputRequest(documentType: GeneratedDocumentType) {
+  return {
+    instructions: buildGeneratedTiptapJsonOutputInstructions(documentType),
+    name: "licitadoc_tiptap_document",
+    outputFormat: "tiptap_json" as const,
+    schema: createGeneratedTiptapJsonOutputJsonSchema(),
+    strict: false,
+  };
+}
+
+function createGeneratedTiptapJsonOutputFailure({
+  documentType,
+  error,
+  result,
+  textGeneration,
+}: {
+  documentType: GeneratedDocumentType;
+  error: GeneratedTiptapJsonOutputValidationError;
+  result: TextGenerationResult | null;
+  textGeneration: TextGenerationProvider;
+}) {
+  return new TextGenerationError({
+    code: "invalid_request",
+    details: {
+      documentType,
+      issues: error.issues,
+      outputFormat: "tiptap_json",
+      responsePreview: result?.text.slice(0, 1_000) ?? null,
+      validationStatus: "failed",
+    },
+    message: "Provider returned invalid generated Tiptap JSON output.",
+    model: result?.model ?? textGeneration.model,
+    providerKey: result?.providerKey ?? textGeneration.providerKey,
+  });
+}
+
+async function generateValidatedTiptapJsonOutput({
+  documentType,
+  initialPrompt,
+  pipelineCalls,
+  subject,
+  textGeneration,
+}: {
+  documentType: GeneratedDocumentType;
+  initialPrompt: string;
+  pipelineCalls?: DocumentGenerationPipelineCallMetadata[];
+  subject: TextGenerationInput["subject"];
+  textGeneration: TextGenerationProvider;
+}) {
+  let lastValidationError: GeneratedTiptapJsonOutputValidationError | null = null;
+  let lastResult: TextGenerationResult | null = null;
+
+  for (let attempt = 0; attempt <= MAX_STRUCTURED_OUTPUT_REPAIR_ATTEMPTS; attempt += 1) {
+    const result = await textGeneration.generateText({
+      documentType,
+      prompt:
+        attempt === 0
+          ? initialPrompt
+          : buildGeneratedTiptapJsonOutputPrompt({
+              documentType,
+              sourcePrompt: initialPrompt,
+              validationError: lastValidationError ?? undefined,
+            }),
+      structuredOutput: createGeneratedTiptapJsonOutputRequest(documentType),
+      subject,
+    });
+
+    lastResult = result;
+    pipelineCalls?.push(createPipelineCallMetadata({ result, stage: "tiptap_json" }));
+
+    try {
+      const draftContentJson = parseGeneratedTiptapJsonOutputText(result.text, {
+        expectedDocumentType: documentType,
+      });
+
+      return {
+        draftContentJson,
+        result,
+        text: sanitizeGeneratedDocumentDraft({
+          documentType,
+          text: tiptapJsonToDocumentText(draftContentJson),
+        }),
+        validationAttempts: attempt + 1,
+      };
+    } catch (error) {
+      if (!(error instanceof GeneratedTiptapJsonOutputValidationError)) {
+        throw error;
+      }
+
+      lastValidationError = error;
+    }
+  }
+
+  throw createGeneratedTiptapJsonOutputFailure({
+    documentType,
+    error:
+      lastValidationError ??
+      new GeneratedTiptapJsonOutputValidationError([
+        {
+          code: "unknown",
+          message: "Generated Tiptap JSON output validation failed.",
+          path: "$",
+        },
+      ]),
+    result: lastResult,
+    textGeneration,
+  });
+}
+
 function createPipelineResponseMetadata({
   calls,
   debug,
   debugRequested,
   providerMetadata,
+  structuredOutputMetadata,
 }: {
   calls?: DocumentGenerationPipelineCallMetadata[];
   debug: DocumentGenerationPipelineDebug | null;
   debugRequested: boolean;
   providerMetadata: Record<string, unknown>;
+  structuredOutputMetadata?: Record<string, unknown> | null;
 }) {
+  const baseMetadata = structuredOutputMetadata
+    ? {
+        ...providerMetadata,
+        structuredOutput: structuredOutputMetadata,
+      }
+    : providerMetadata;
+
   if (!debug) {
-    return providerMetadata;
+    return baseMetadata;
   }
 
   const lastReview = debug.reviewResults.at(-1) ?? null;
@@ -1851,7 +2057,7 @@ function createPipelineResponseMetadata({
   };
 
   return {
-    ...providerMetadata,
+    ...baseMetadata,
     pipeline: debugRequested ? { ...summary, debug } : summary,
   };
 }
@@ -1956,6 +2162,7 @@ export function getStoredPipelineFromMetadata(metadata: Record<string, unknown>)
 }
 
 export async function executeDocumentGenerationPipeline({
+  combineWriterHumanizationEnabled = false,
   documentId,
   documentType,
   onChunk,
@@ -1965,9 +2172,19 @@ export async function executeDocumentGenerationPipeline({
   pipelineRequired = false,
   processId,
   prompt,
+  structuredOutputEnabled = false,
   textGeneration,
 }: ExecutePipelineInput): Promise<ExecutedDocumentGenerationPipeline> {
   const subject = createSubject({ documentId, organizationId, processId });
+  assertDirectTiptapJsonCapability({
+    documentType,
+    structuredOutputEnabled,
+    textGeneration,
+  });
+  const directTiptapJsonRequested = shouldRequestDirectTiptapJsonOutput({
+    structuredOutputEnabled,
+    textGeneration,
+  });
 
   if (!pipeline) {
     if (pipelineRequired) {
@@ -1982,6 +2199,36 @@ export async function executeDocumentGenerationPipeline({
         model: textGeneration.model,
         providerKey: textGeneration.providerKey,
       });
+    }
+
+    if (directTiptapJsonRequested) {
+      const tiptapJsonResult = await generateValidatedTiptapJsonOutput({
+        documentType,
+        initialPrompt: buildGeneratedTiptapJsonOutputPrompt({
+          documentType,
+          sourcePrompt: prompt,
+        }),
+        subject,
+        textGeneration,
+      });
+
+      return {
+        ...tiptapJsonResult.result,
+        draftContentJson: tiptapJsonResult.draftContentJson,
+        responseMetadata: createPipelineResponseMetadata({
+          debug: null,
+          debugRequested: false,
+          providerMetadata: tiptapJsonResult.result.responseMetadata,
+          structuredOutputMetadata: {
+            enabled: true,
+            outputFormat: "tiptap_json",
+            projectionStatus: "completed",
+            validationAttempts: tiptapJsonResult.validationAttempts,
+            validationStatus: "passed",
+          },
+        }),
+        text: tiptapJsonResult.text,
+      };
     }
 
     const result = await textGeneration.generateText({
@@ -2021,70 +2268,154 @@ export async function executeDocumentGenerationPipeline({
     });
   }
 
-  const writerResult = await textGeneration.generateText({
-    documentType,
-    onChunk,
-    onPlanningChunk,
-    prompt: pipeline.prompt,
-    subject,
-  });
-  const pipelineCalls: DocumentGenerationPipelineCallMetadata[] = [
-    createPipelineCallMetadata({ result: writerResult, stage: "writer" }),
-  ];
-  let finalResult: TextGenerationResult = writerResult;
-  const firstDraft = sanitizeGeneratedDocumentDraft({
-    documentType,
-    text: writerResult.text,
-  });
-  let currentDraft = firstDraft;
-  let humanization: DocumentHumanizationResult = {
-    draft: null,
-    reason: null,
-    status: "skipped",
-  };
+  const pipelineCalls: DocumentGenerationPipelineCallMetadata[] = [];
+  let finalResult: TextGenerationResult;
+  let firstDraft: string;
+  let currentDraft: string;
+  let humanization: DocumentHumanizationResult;
 
-  try {
-    const humanizationResult = await textGeneration.generateText({
+  if (directTiptapJsonRequested) {
+    const tiptapJsonResult = await generateValidatedTiptapJsonOutput({
       documentType,
-      prompt: buildHumanizationPrompt({
-        context: pipeline.enrichedContext,
+      initialPrompt: buildGeneratedTiptapJsonOutputPrompt({
         documentType,
-        draft: currentDraft,
-        plan: pipeline.documentPlan,
+        sourcePrompt: pipeline.prompt,
+      }),
+      pipelineCalls,
+      subject,
+      textGeneration,
+    });
+    const debug = documentGenerationPipelineDebugSchema.parse({
+      documentPlan: pipeline.documentPlan,
+      enrichedContext: pipeline.enrichedContext,
+      extractedFacts: pipeline.extractedFacts,
+      finalDraft: tiptapJsonResult.text,
+      firstDraft: tiptapJsonResult.text,
+      humanization: {
+        draft: null,
+        reason: "Direct Tiptap JSON generation path enabled.",
+        status: "skipped",
+      },
+      reviewResults: [],
+      rewriteAttempts: [],
+      skillContract: pipeline.skillContract,
+      status: "completed",
+      writerStyle: pipeline.writerStyle,
+    });
+
+    return {
+      model: tiptapJsonResult.result.model,
+      providerKey: tiptapJsonResult.result.providerKey,
+      responseMetadata: createPipelineResponseMetadata({
+        calls: pipelineCalls,
+        debug,
+        debugRequested: pipeline.debugRequested,
+        providerMetadata: tiptapJsonResult.result.responseMetadata,
+        structuredOutputMetadata: {
+          enabled: true,
+          outputFormat: "tiptap_json",
+          projectionStatus: "completed",
+          requested: true,
+          validationAttempts: tiptapJsonResult.validationAttempts,
+          validationStatus: "passed",
+        },
+      }),
+      draftContentJson: tiptapJsonResult.draftContentJson,
+      text: tiptapJsonResult.text,
+    };
+  }
+
+  if (combineWriterHumanizationEnabled) {
+    const finalWriterResult = await textGeneration.generateText({
+      documentType,
+      onChunk,
+      onPlanningChunk,
+      prompt: buildCombinedFinalWriterPrompt({
+        documentType,
         skillContract: runtimeSkillContract,
+        writerPrompt: pipeline.prompt,
         writerStyle: pipeline.writerStyle,
       }),
       subject,
     });
     pipelineCalls.push(
-      createPipelineCallMetadata({ result: humanizationResult, stage: "humanization" }),
+      createPipelineCallMetadata({ result: finalWriterResult, stage: "final_writer" }),
     );
-    const humanizedDraft = sanitizeGeneratedDocumentDraft({
+    finalResult = finalWriterResult;
+    firstDraft = sanitizeGeneratedDocumentDraft({
       documentType,
-      text: humanizationResult.text,
+      text: finalWriterResult.text,
     });
-
-    if (humanizedDraft.length > 0) {
-      currentDraft = humanizedDraft;
-      finalResult = humanizationResult;
-      humanization = {
-        draft: currentDraft,
-        reason: null,
-        status: "applied",
-      };
-    } else {
-      humanization = {
-        draft: null,
-        reason: "Humanization Pass returned an empty draft.",
-        status: "skipped",
-      };
-    }
-  } catch (error) {
+    currentDraft = firstDraft;
     humanization = {
       draft: null,
-      reason: error instanceof Error ? error.message : "Humanization Pass failed.",
-      status: "failed",
+      reason: "Combined final-writer path enabled.",
+      status: "skipped",
     };
+  } else {
+    const writerResult = await textGeneration.generateText({
+      documentType,
+      onChunk,
+      onPlanningChunk,
+      prompt: pipeline.prompt,
+      subject,
+    });
+    pipelineCalls.push(createPipelineCallMetadata({ result: writerResult, stage: "writer" }));
+    finalResult = writerResult;
+    firstDraft = sanitizeGeneratedDocumentDraft({
+      documentType,
+      text: writerResult.text,
+    });
+    currentDraft = firstDraft;
+    humanization = {
+      draft: null,
+      reason: null,
+      status: "skipped",
+    };
+
+    try {
+      const humanizationResult = await textGeneration.generateText({
+        documentType,
+        prompt: buildHumanizationPrompt({
+          context: pipeline.enrichedContext,
+          documentType,
+          draft: currentDraft,
+          plan: pipeline.documentPlan,
+          skillContract: runtimeSkillContract,
+          writerStyle: pipeline.writerStyle,
+        }),
+        subject,
+      });
+      pipelineCalls.push(
+        createPipelineCallMetadata({ result: humanizationResult, stage: "humanization" }),
+      );
+      const humanizedDraft = sanitizeGeneratedDocumentDraft({
+        documentType,
+        text: humanizationResult.text,
+      });
+
+      if (humanizedDraft.length > 0) {
+        currentDraft = humanizedDraft;
+        finalResult = humanizationResult;
+        humanization = {
+          draft: currentDraft,
+          reason: null,
+          status: "applied",
+        };
+      } else {
+        humanization = {
+          draft: null,
+          reason: "Humanization Pass returned an empty draft.",
+          status: "skipped",
+        };
+      }
+    } catch (error) {
+      humanization = {
+        draft: null,
+        reason: error instanceof Error ? error.message : "Humanization Pass failed.",
+        status: "failed",
+      };
+    }
   }
 
   const reviewResults: DocumentReviewResult[] = [];

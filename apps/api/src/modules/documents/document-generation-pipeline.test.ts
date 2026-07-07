@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { departments, organizations, processes } from "../../db";
+import { validGeneratedTiptapDfdFixture } from "../../shared/generated-tiptap-json-output.fixtures";
 import type {
   TextGenerationInput,
   TextGenerationProvider,
@@ -118,6 +119,7 @@ function buildPipeline({
 
 function createProvider(
   generateText: (input: TextGenerationInput, callIndex: number) => Promise<TextGenerationResult>,
+  options: { supportsStructuredOutput?: boolean; supportsTiptapJsonOutput?: boolean } = {},
 ): TextGenerationProvider & { calls: TextGenerationInput[] } {
   const calls: TextGenerationInput[] = [];
 
@@ -125,6 +127,8 @@ function createProvider(
     calls,
     model: "stub-model",
     providerKey: "stub",
+    supportsStructuredOutput: options.supportsStructuredOutput,
+    supportsTiptapJsonOutput: options.supportsTiptapJsonOutput,
     async generateText(input) {
       calls.push(input);
 
@@ -596,6 +600,349 @@ test("executeDocumentGenerationPipeline fails closed when strict pipeline contra
       error instanceof TextGenerationError &&
       error.code === "invalid_request" &&
       /sd-document-intelligence/.test(error.message),
+  );
+  assert.equal(provider.calls.length, 0);
+});
+
+test("executeDocumentGenerationPipeline derives final projections from direct Tiptap JSON when enabled", async () => {
+  const { pipeline } = buildPipeline({
+    documentType: "dfd",
+    process: createProcessRow({
+      object: "Contratacao de servicos continuados",
+      sourceMetadata: {
+        extractedFields: {
+          requestNumber: "6",
+        },
+      },
+    }),
+  });
+  const provider = createProvider(
+    async (input, callIndex) => ({
+      model: "stub-model",
+      providerKey: "stub",
+      responseMetadata: {
+        costUsd: callIndex / 100,
+        finishReason: "stop",
+        callIndex,
+        usage: {
+          input_tokens: callIndex * 100,
+          output_tokens: callIndex * 10,
+          total_tokens: callIndex * 110,
+        },
+      },
+      text:
+        input.structuredOutput?.outputFormat === "tiptap_json"
+          ? JSON.stringify(validGeneratedTiptapDfdFixture)
+          : [
+              "# DOCUMENTO DE FORMALIZACAO DE DEMANDA",
+              "",
+              "A demanda trata da contratacao de servicos continuados.",
+            ].join("\n"),
+    }),
+    { supportsStructuredOutput: true, supportsTiptapJsonOutput: true },
+  );
+
+  const result = await executeDocumentGenerationPipeline({
+    documentId: DOCUMENT_ID,
+    documentType: "dfd",
+    organizationId: ORGANIZATION_ID,
+    pipeline,
+    processId: PROCESS_ID,
+    prompt: pipeline.prompt,
+    structuredOutputEnabled: true,
+    textGeneration: provider,
+  });
+  const pipelineMetadata = result.responseMetadata.pipeline as {
+    calls: Array<{ stage: string }>;
+    totalCostUsd: number | null;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+  };
+
+  assert.ok(
+    provider.calls.some((call) => call.structuredOutput?.name === "licitadoc_tiptap_document"),
+  );
+  assert.equal(result.draftContentJson?.type, "doc");
+  assert.match(result.text, /DOCUMENTO DE FORMALIZACAO DE DEMANDA/);
+  assert.equal(
+    (result.responseMetadata.structuredOutput as { validationStatus?: string }).validationStatus,
+    "passed",
+  );
+  assert.ok(pipelineMetadata.calls.some((call) => call.stage === "tiptap_json"));
+  assert.ok(pipelineMetadata.totalInputTokens > 0);
+  assert.ok(pipelineMetadata.totalOutputTokens > 0);
+  assert.ok((pipelineMetadata.totalCostUsd ?? 0) > 0);
+});
+
+test("executeDocumentGenerationPipeline keeps split writer and humanization when combined path is disabled", async () => {
+  const { pipeline } = buildPipeline({
+    documentType: "dfd",
+    process: createProcessRow({
+      object: "Contratacao de servicos de limpeza predial",
+    }),
+  });
+  const provider = createProvider(async (_input, callIndex) => ({
+    model: "stub-model",
+    providerKey: "stub",
+    responseMetadata: { finishReason: "stop", callIndex },
+    text: [
+      "# DOCUMENTO DE FORMALIZACAO DE DEMANDA",
+      "",
+      "A demanda trata da contratacao de servicos de limpeza predial.",
+      "",
+      "A estimativa sera apurada em etapa propria.",
+    ].join("\n"),
+  }));
+
+  const result = await executeDocumentGenerationPipeline({
+    combineWriterHumanizationEnabled: false,
+    documentId: DOCUMENT_ID,
+    documentType: "dfd",
+    organizationId: ORGANIZATION_ID,
+    pipeline,
+    processId: PROCESS_ID,
+    prompt: pipeline.prompt,
+    textGeneration: provider,
+  });
+  const pipelineMetadata = result.responseMetadata.pipeline as {
+    calls: Array<{ stage: string }>;
+    finalReviewStatus: string;
+    revisionCount: number;
+  };
+
+  assert.equal(provider.calls.length, 2);
+  assert.match(provider.calls[0]?.prompt ?? "", /Pacote de contexto enriquecido canonico/);
+  assert.match(provider.calls[1]?.prompt ?? "", /Humanization Pass/);
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.stage),
+    ["writer", "humanization"],
+  );
+  assert.equal(pipelineMetadata.finalReviewStatus, "approved");
+  assert.equal(pipelineMetadata.revisionCount, 0);
+});
+
+test("executeDocumentGenerationPipeline uses direct Tiptap JSON path without writer review stages", async () => {
+  const { pipeline } = buildPipeline({
+    documentType: "dfd",
+    process: createProcessRow({
+      object: "Contratacao de servicos continuados",
+      sourceMetadata: {
+        extractedFields: {
+          requestNumber: "6",
+        },
+      },
+    }),
+  });
+  const textChunks: string[] = [];
+  const planningChunks: string[] = [];
+  const provider = createProvider(
+    async (input, callIndex) => {
+      return {
+        model: "stub-model",
+        providerKey: "stub",
+        responseMetadata: {
+          costUsd: callIndex / 100,
+          finishReason: "stop",
+          responseId: `response_${callIndex}`,
+          usage: {
+            input_tokens: callIndex * 100,
+            input_tokens_details: {
+              cached_tokens: callIndex,
+            },
+            output_tokens: callIndex * 10,
+            total_tokens: callIndex * 110,
+          },
+        },
+        text:
+          input.structuredOutput?.outputFormat === "tiptap_json"
+            ? JSON.stringify(validGeneratedTiptapDfdFixture)
+            : [
+                "# DOCUMENTO DE FORMALIZACAO DE DEMANDA",
+                "",
+                "A demanda trata da contratacao de servicos continuados.",
+                "",
+                "A estimativa sera apurada em etapa propria.",
+              ].join("\n"),
+      };
+    },
+    { supportsStructuredOutput: true, supportsTiptapJsonOutput: true },
+  );
+
+  const result = await executeDocumentGenerationPipeline({
+    combineWriterHumanizationEnabled: true,
+    documentId: DOCUMENT_ID,
+    documentType: "dfd",
+    onChunk: (chunk) => {
+      textChunks.push(chunk.textDelta);
+    },
+    onPlanningChunk: (chunk) => {
+      planningChunks.push(chunk.planningDelta);
+    },
+    organizationId: ORGANIZATION_ID,
+    pipeline,
+    processId: PROCESS_ID,
+    prompt: pipeline.prompt,
+    structuredOutputEnabled: true,
+    textGeneration: provider,
+  });
+  const pipelineMetadata = result.responseMetadata.pipeline as {
+    callCount: number;
+    calls: Array<{ costUsd: number | null; responseId: string | null; stage: string }>;
+    debug: { humanization: { reason: string | null; status: string } };
+    finalReviewStatus: string;
+    revisionCount: number;
+    totalCachedInputTokens: number;
+    totalCostUsd: number | null;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTokens: number;
+  };
+
+  assert.equal(provider.calls.length, 1);
+  assert.match(provider.calls[0]?.prompt ?? "", /gerador direto de JSON Tiptap/i);
+  assert.equal(provider.calls[0]?.structuredOutput?.name, "licitadoc_tiptap_document");
+  assert.equal(provider.calls[0]?.structuredOutput?.outputFormat, "tiptap_json");
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.stage),
+    ["tiptap_json"],
+  );
+  assert.equal(pipelineMetadata.callCount, 1);
+  assert.equal(pipelineMetadata.totalInputTokens, 100);
+  assert.equal(pipelineMetadata.totalCachedInputTokens, 1);
+  assert.equal(pipelineMetadata.totalOutputTokens, 10);
+  assert.equal(pipelineMetadata.totalTokens, 110);
+  assert.equal(pipelineMetadata.totalCostUsd, 0.01);
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.responseId),
+    ["response_1"],
+  );
+  assert.deepEqual(
+    pipelineMetadata.calls.map((call) => call.costUsd),
+    [0.01],
+  );
+  assert.equal(pipelineMetadata.finalReviewStatus, null);
+  assert.equal(pipelineMetadata.revisionCount, 0);
+  assert.equal(pipelineMetadata.debug.humanization.status, "skipped");
+  assert.match(pipelineMetadata.debug.humanization.reason ?? "", /Direct Tiptap JSON/);
+  assert.deepEqual(textChunks, []);
+  assert.deepEqual(planningChunks, []);
+  assert.equal(result.draftContentJson?.type, "doc");
+});
+
+test("executeDocumentGenerationPipeline retries malformed direct Tiptap JSON before completion", async () => {
+  const provider = createProvider(
+    async (_input, callIndex) => ({
+      model: "stub-model",
+      providerKey: "stub",
+      responseMetadata: { finishReason: "stop", callIndex },
+      text:
+        callIndex === 1
+          ? '```json\n{"type":"doc"}\n```'
+          : JSON.stringify(validGeneratedTiptapDfdFixture),
+    }),
+    { supportsStructuredOutput: true, supportsTiptapJsonOutput: true },
+  );
+
+  const result = await executeDocumentGenerationPipeline({
+    documentId: DOCUMENT_ID,
+    documentType: "dfd",
+    organizationId: ORGANIZATION_ID,
+    pipeline: null,
+    processId: PROCESS_ID,
+    prompt: "Gere um DFD estruturado.",
+    structuredOutputEnabled: true,
+    textGeneration: provider,
+  });
+
+  assert.equal(provider.calls.length, 2);
+  assert.match(provider.calls[1]?.prompt ?? "", /tentativa anterior falhou/i);
+  assert.equal(
+    (result.responseMetadata.structuredOutput as { validationAttempts?: number })
+      .validationAttempts,
+    2,
+  );
+  assert.equal(result.draftContentJson?.type, "doc");
+});
+
+test("executeDocumentGenerationPipeline fails safely after invalid direct Tiptap JSON retry", async () => {
+  const provider = createProvider(
+    async (_input, callIndex) => ({
+      model: "stub-model",
+      providerKey: "stub",
+      responseMetadata: { finishReason: "stop", callIndex },
+      text: '```json\n{"type":"doc"}\n```',
+    }),
+    { supportsStructuredOutput: true, supportsTiptapJsonOutput: true },
+  );
+
+  await assert.rejects(
+    () =>
+      executeDocumentGenerationPipeline({
+        documentId: DOCUMENT_ID,
+        documentType: "dfd",
+        organizationId: ORGANIZATION_ID,
+        pipeline: null,
+        processId: PROCESS_ID,
+        prompt: "Gere um DFD estruturado.",
+        structuredOutputEnabled: true,
+        textGeneration: provider,
+      }),
+    (error: unknown) =>
+      error instanceof TextGenerationError &&
+      error.code === "invalid_request" &&
+      /invalid generated Tiptap JSON output/i.test(error.message),
+  );
+  assert.equal(provider.calls.length, 2);
+});
+
+test("executeDocumentGenerationPipeline keeps Markdown fallback when structured output is disabled", async () => {
+  const provider = createProvider(async () => ({
+    model: "stub-model",
+    providerKey: "stub",
+    responseMetadata: { finishReason: "stop" },
+    text: "# DOCUMENTO FINAL\n\nConteudo em Markdown.",
+  }));
+
+  const result = await executeDocumentGenerationPipeline({
+    documentId: DOCUMENT_ID,
+    documentType: "dfd",
+    organizationId: ORGANIZATION_ID,
+    pipeline: null,
+    processId: PROCESS_ID,
+    prompt: "Gere um DFD.",
+    structuredOutputEnabled: false,
+    textGeneration: provider,
+  });
+
+  assert.equal(provider.calls.length, 1);
+  assert.equal(provider.calls[0]?.structuredOutput, undefined);
+  assert.match(result.text, /Conteudo em Markdown/);
+});
+
+test("executeDocumentGenerationPipeline fails when direct Tiptap JSON is enabled for unsupported provider", async () => {
+  const provider = createProvider(async () => ({
+    model: "stub-model",
+    providerKey: "stub",
+    responseMetadata: { finishReason: "stop" },
+    text: "# DOCUMENTO FINAL\n\nConteudo em Markdown.",
+  }));
+
+  await assert.rejects(
+    () =>
+      executeDocumentGenerationPipeline({
+        documentId: DOCUMENT_ID,
+        documentType: "dfd",
+        organizationId: ORGANIZATION_ID,
+        pipeline: null,
+        processId: PROCESS_ID,
+        prompt: "Gere um DFD.",
+        structuredOutputEnabled: true,
+        textGeneration: provider,
+      }),
+    (error: unknown) =>
+      error instanceof TextGenerationError &&
+      error.code === "invalid_request" &&
+      /does not support direct Tiptap JSON/i.test(error.message),
   );
   assert.equal(provider.calls.length, 0);
 });

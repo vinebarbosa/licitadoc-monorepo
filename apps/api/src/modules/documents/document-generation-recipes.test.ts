@@ -9,6 +9,7 @@ import {
   buildEtpGenerationContext,
   buildMinutaGenerationContext,
   buildTrGenerationContext,
+  formatDocumentProcessType,
   normalizeEtpEstimate,
   normalizeMinutaPrice,
   sanitizeGeneratedDocumentDraft,
@@ -191,9 +192,9 @@ function assertUntitledSignatureClosingBlock(template: string) {
   );
 }
 
-function assertPlainMarkdownSignatureClosingGuidance(instructions: string) {
+function assertTiptapSignatureClosingGuidance(instructions: string) {
   assert.match(instructions, /bloco final de local\/data e assinatura não deve ter título/i);
-  assert.match(instructions, /Gere assinatura em linhas Markdown simples/i);
+  assert.match(instructions, /Gere assinatura como parágrafos Tiptap simples/i);
   assert.match(instructions, /sem linha de assinatura, sublinhado, tracejado, HTML/i);
   assert.doesNotMatch(instructions, /local\/data alinhável à direita/i);
   assert.doesNotMatch(instructions, /cargo centralizados/i);
@@ -211,7 +212,8 @@ test("resolveDocumentGenerationRecipe returns the repository-managed DFD assets"
     recipe.documentInstructions,
     /anti-alucinação|valor zerado|pacote de contexto/i,
   );
-  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
+  assert.match(recipe.instructions, /documento final no contrato JSON Tiptap restrito/i);
+  assert.match(recipe.instructions, /JSON Tiptap é a fonte da verdade/i);
   assert.match(recipe.instructions, /registro inicial da demanda/i);
   assert.match(recipe.instructions, /DFD não é ETP, TR, minuta contratual/i);
   assert.match(recipe.instructions, /3 a 6 bullets/i);
@@ -221,7 +223,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed DFD assets"
   assert.doesNotMatch(recipe.instructions, /serviços técnicos ou administrativos/i);
   assert.doesNotMatch(recipe.instructions, /obras ou engenharia/i);
   assert.match(recipe.instructions, /Não use valor zero como preço/i);
-  assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
+  assertTiptapSignatureClosingGuidance(recipe.instructions);
   assert.match(recipe.instructions, /lista funcionar melhor como conjunto/i);
   assert.match(recipe.instructions, /conjunto da demanda/i);
   assert.match(recipe.instructions, /Enumeração exaustiva item a item/i);
@@ -253,7 +255,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed ETP assets"
     recipe.documentInstructions,
     /anti-alucinação|valor zerado|pacote de contexto/i,
   );
-  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
+  assert.match(recipe.instructions, /documento final no contrato JSON Tiptap restrito/i);
   assert.match(recipe.instructions, /R\$ 0,00.*ausência de estimativa/i);
   assert.match(recipe.instructions, /Profundidade proporcional ao plano documental/i);
   assert.match(recipe.instructions, /As seções não precisam ter o mesmo tamanho/i);
@@ -263,7 +265,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed ETP assets"
   assert.doesNotMatch(recipe.instructions, /kits prontos versus montagem interna/i);
   assert.match(recipe.instructions, /gestão\/fiscalização/i);
   assert.match(recipe.instructions, /riscos/i);
-  assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
+  assertTiptapSignatureClosingGuidance(recipe.instructions);
   assert.match(recipe.template, /# ESTUDO TÉCNICO PRELIMINAR \(ETP\)/);
   assert.match(recipe.template, /## 5\. ESTIMATIVA DO VALOR DA CONTRATAÇÃO/);
   assert.match(recipe.template, /## 9\. RISCOS DA CONTRATAÇÃO E MEDIDAS MITIGATÓRIAS/);
@@ -287,7 +289,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed TR assets",
     recipe.documentInstructions,
     /anti-alucinação|valor zerado|pacote de contexto/i,
   );
-  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
+  assert.match(recipe.instructions, /documento final no contrato JSON Tiptap restrito/i);
   assert.match(recipe.instructions, /documento técnico-operacional da contratação/i);
   assert.match(recipe.instructions, /especificações, execução, recebimento/i);
   assert.match(recipe.instructions, /linguagem formal, objetiva, operacional e fiscalizável/i);
@@ -297,7 +299,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed TR assets",
   assert.match(recipe.instructions, /lista de itens/i);
   assert.match(recipe.instructions, /especificações, execução, recebimento/i);
   assert.match(recipe.instructions, /sem reduzir o conjunto ao primeiro item/i);
-  assertPlainMarkdownSignatureClosingGuidance(recipe.instructions);
+  assertTiptapSignatureClosingGuidance(recipe.instructions);
   assert.match(recipe.instructions, /responsabilidades práticas da contratada e da contratante/i);
   assert.match(recipe.template, /# TERMO DE REFERÊNCIA/);
   assert.match(recipe.template, /{{tr\.technical_specifications}}/);
@@ -324,7 +326,7 @@ test("resolveDocumentGenerationRecipe returns the repository-managed Minuta asse
     recipe.documentInstructions,
     /anti-alucinação|valor zerado|pacote de contexto/i,
   );
-  assert.match(recipe.instructions, /retorne somente o documento final em markdown/i);
+  assert.match(recipe.instructions, /documento final no contrato JSON Tiptap restrito/i);
   assert.match(recipe.instructions, /R\$ 0,00.*preço válido/i);
   assert.match(recipe.instructions, /A Minuta formaliza contratualmente a operação/i);
   assert.match(recipe.instructions, /Preservação das cláusulas fixas/i);
@@ -453,6 +455,8 @@ test("repository-managed recipes preserve required structural slots", () => {
 
   assert.match(dfd.template, /{{dfd\.context_and_need}}/);
   assert.match(dfd.template, /{{dfd\.essential_requirement_3}}/);
+  assert.match(dfd.template, /{{process\.typeLabel}}/);
+  assert.doesNotMatch(dfd.template, /{{process\.type}}/);
 
   assert.match(etp.template, /{{etp\.estimated_value}}/);
   assert.match(etp.template, /{{etp\.conclusion_and_recommendation}}/);
@@ -517,7 +521,7 @@ test("buildDfdGenerationContext prefers canonical labels and preserves source me
   );
   assert.equal(contextFromSourceMetadata.organizationName, "Municipio de Pureza/RN");
   assert.equal(contextFromSourceMetadata.sourceOrganizationName, "MUNICIPIO DE PUREZA");
-  assert.equal(contextFromSourceMetadata.processType, "inexigibilidade");
+  assert.equal(contextFromSourceMetadata.processType, "Inexigibilidade");
   assert.equal(contextFromSourceMetadata.requestNumber, "6");
   assert.equal(contextFromSourceMetadata.itemDescription, "Apresentacao artistica musical");
   assert.equal(contextFromSourceMetadata.itemQuantity, "1");
@@ -556,6 +560,15 @@ test("buildDfdGenerationContext prefers canonical labels and preserves source me
   assert.equal(fallbackContext.requester, "Secretaria Municipal de Saude");
   assert.equal(fallbackContext.responsibleRole, "Secretaria Municipal de Saude");
   assert.equal(fallbackContext.organizationName, "Municipio de Exemplo/CE");
+});
+
+test("formatDocumentProcessType maps stored slugs and humanizes unknown values", () => {
+  assert.equal(formatDocumentProcessType("licitacao"), "Licitação");
+  assert.equal(formatDocumentProcessType("Servico"), "Serviço");
+  assert.equal(formatDocumentProcessType("dispensa_eletronica"), "Dispensa Eletrônica");
+  assert.equal(formatDocumentProcessType("regime_especial"), "Regime Especial");
+  assert.equal(formatDocumentProcessType("Tomada de preços"), "Tomada de Preços");
+  assert.equal(formatDocumentProcessType(null), null);
 });
 
 test("buildDfdGenerationContext normalizes reviewed SD items for prompt context", () => {
@@ -985,9 +998,10 @@ test("buildDocumentGenerationPrompt uses the canonical DFD recipe and process co
     }),
   });
 
-  assert.match(prompt, /## Modelo Markdown canônico/);
+  assert.match(prompt, /## Modelo estrutural canônico/);
   assert.match(prompt, /# DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA \(DFD\)/);
   assert.match(prompt, /- Tipo de documento: DFD/);
+  assert.match(prompt, /- Tipo do processo administrativo: Inexigibilidade/);
   assert.match(prompt, /- Número da solicitação: 6/);
   assert.match(prompt, /Secretaria Municipal de Cultura/);
   assert.match(prompt, /Priorizar linguagem objetiva e sem juridiquese excessivo\./);
@@ -995,6 +1009,25 @@ test("buildDocumentGenerationPrompt uses the canonical DFD recipe and process co
   assert.match(prompt, /Não use crases ou código inline para valores dos campos do DFD/);
   assert.match(prompt, /Mantenha a inteligência administrativa invisível/i);
   assertDfdRoleGuidance(prompt);
+});
+
+test("buildDocumentGenerationPrompt does not expose raw process type slugs", () => {
+  const prompt = buildDocumentGenerationPrompt({
+    departments: [createDepartmentRow()],
+    documentType: "dfd",
+    instructions: null,
+    organization: createOrganizationRow(),
+    process: createProcessRow({
+      biddingModality: null,
+      procurementMethod: null,
+      type: "licitacao",
+    }),
+  });
+
+  assert.match(prompt, /- Tipo do processo administrativo: Licitação/);
+  assert.doesNotMatch(prompt, /- Tipo do processo administrativo: licitacao/);
+  assert.doesNotMatch(prompt, /Processo: {{process\.type}}/);
+  assert.doesNotMatch(prompt, /Processo:\s*licitacao/);
 });
 
 test("buildDocumentGenerationPrompt includes reviewed SD item lists for every recipe", () => {
@@ -1376,7 +1409,7 @@ test("buildDocumentGenerationPrompt uses the canonical ETP recipe and safe estim
     }),
   });
 
-  assert.match(prompt, /## Modelo Markdown canônico/);
+  assert.match(prompt, /## Modelo estrutural canônico/);
   assert.match(prompt, /# ESTUDO TÉCNICO PRELIMINAR \(ETP\)/);
   assert.match(prompt, /- Tipo de documento: ETP/);
   assert.doesNotMatch(prompt, /Perfil de análise inferido para o ETP/);
@@ -1418,7 +1451,7 @@ test("buildDocumentGenerationPrompt uses accented document-facing labels while p
     }),
   });
 
-  assert.match(prompt, /## Modelo Markdown canônico/);
+  assert.match(prompt, /## Modelo estrutural canônico/);
   assert.match(prompt, /## Instruções adicionais do operador/);
   assert.match(prompt, /## Regras finais obrigatórias/);
   assert.match(prompt, /- Número da solicitação: 6/);
@@ -1427,7 +1460,7 @@ test("buildDocumentGenerationPrompt uses accented document-facing labels while p
   assert.match(prompt, /- Descrição do item da origem: apresentacao artistica musical/);
   assert.doesNotMatch(
     prompt,
-    /Modelo Markdown canonico|Numero da solicitacao|Data de emissao|Organizacao|Descricao do item/,
+    /Modelo estrutural canonico|Numero da solicitacao|Data de emissao|Organizacao|Descricao do item/,
   );
 });
 
@@ -1454,7 +1487,7 @@ test("buildDocumentGenerationPrompt uses the canonical TR recipe and pipeline co
     }),
   });
 
-  assert.match(prompt, /## Modelo Markdown canônico/);
+  assert.match(prompt, /## Modelo estrutural canônico/);
   assert.match(prompt, /# TERMO DE REFERÊNCIA/);
   assert.match(prompt, /- Tipo de documento: TR/);
   assert.doesNotMatch(prompt, /Tipo de contratação inferido para obrigações/);
@@ -1574,7 +1607,7 @@ test("buildDocumentGenerationPrompt uses the canonical Minuta recipe, placeholde
     }),
   });
 
-  assert.match(prompt, /## Modelo Markdown canônico/);
+  assert.match(prompt, /## Modelo estrutural canônico/);
   assert.match(prompt, /# MINUTA DO CONTRATO/);
   assert.match(prompt, /- Tipo de documento: MINUTA/);
   assert.doesNotMatch(prompt, /Tipo de contratação inferido para obrigações/);

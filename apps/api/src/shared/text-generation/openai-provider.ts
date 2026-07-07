@@ -77,6 +77,8 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
   readonly apiKey: string | null;
   readonly model: string;
   readonly providerKey = "openai";
+  readonly supportsStructuredOutput = true;
+  readonly supportsTiptapJsonOutput = true;
   readonly timeoutMs: number;
 
   constructor({
@@ -101,6 +103,9 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const prompt = input.structuredOutput?.instructions
+      ? `${input.prompt}\n\n${input.structuredOutput.instructions}`
+      : input.prompt;
 
     try {
       const fetchResponse = fetch as OpenAiFetch;
@@ -112,7 +117,19 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
         },
         body: JSON.stringify({
           model: this.model,
-          input: input.prompt,
+          input: prompt,
+          ...(input.structuredOutput
+            ? {
+                text: {
+                  format: {
+                    type: "json_schema",
+                    name: input.structuredOutput.name,
+                    schema: input.structuredOutput.schema,
+                    strict: input.structuredOutput.strict ?? true,
+                  },
+                },
+              }
+            : {}),
         }),
         signal: controller.signal,
       });
@@ -198,7 +215,11 @@ export class OpenAiTextGenerationProvider implements TextGenerationProvider {
             model: this.model,
             usage,
           }),
+          outputFormat: input.structuredOutput
+            ? (input.structuredOutput.outputFormat ?? "json_schema")
+            : "text",
           responseId: body.id ?? null,
+          structuredOutputRequested: Boolean(input.structuredOutput),
           status: body.status ?? null,
           usage,
         },

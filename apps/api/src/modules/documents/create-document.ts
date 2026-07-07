@@ -16,6 +16,8 @@ type Input = {
   document: CreateDocumentInput;
   scheduleGeneration?: (generationRunId: string) => void;
   textGeneration?: TextGenerationProvider;
+  combineWriterHumanizationEnabled?: boolean;
+  structuredOutputEnabled?: boolean;
 };
 
 async function loadProcessDepartments({
@@ -59,7 +61,14 @@ async function loadResponsibleUserName({
   return user?.name ?? null;
 }
 
-export async function createDocument({ actor, db, document, scheduleGeneration }: Input) {
+export async function createDocument({
+  actor,
+  db,
+  document,
+  scheduleGeneration,
+  combineWriterHumanizationEnabled = false,
+  structuredOutputEnabled = false,
+}: Input) {
   const process = await db.query.processes.findFirst({
     where: eq(processes.id, document.processId),
   });
@@ -138,6 +147,8 @@ export async function createDocument({ actor, db, document, scheduleGeneration }
           organizationId: process.organizationId,
           instructions: document.instructions,
           debugRequested: document.debug,
+          combineWriterHumanizationEnabled,
+          structuredOutputEnabled,
         },
         responseMetadata: null,
         errorCode: null,
