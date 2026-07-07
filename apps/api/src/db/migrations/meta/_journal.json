@@ -127,6 +127,13 @@
       "when": 1779428400000,
       "tag": "0017_organization_workspace_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783459908506,
+      "tag": "0018_free_pride",
+      "breakpoints": true
     }
   ]
 }
